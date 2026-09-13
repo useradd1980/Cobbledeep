@@ -42,6 +42,16 @@ public class CharacterCreationScreen extends Screen
     private DivineSpell focusedDivineSpell;
     private PlayerSkinWidget appearanceSkinWidget;
 
+    private record AppearanceColumns(
+            int labelX,
+            int previousX,
+            int valueCenterX,
+            int nextX,
+            int swatchX,
+            int buttonWidth)
+    {
+    }
+
     public CharacterCreationScreen()
     {
         super(Component.literal("Character Generation"));
@@ -584,7 +594,7 @@ public class CharacterCreationScreen extends Screen
                 focusedDivineSpell = spell;
                 spells.increaseDivineSpell(characterClass, finalWisdom, spell);
                 buildCurrentPage();
-            }).bounds(controlsX + 64, y, 22, buttonHeight).build();
+            }).bounds(controlsX + 64, y, 22, buttonHeight).build());
             plusButton.active = spells.canMemorizeAnotherDivineSpell(characterClass, finalWisdom);
             this.addRenderableWidget(plusButton);
         }
@@ -595,12 +605,6 @@ public class CharacterCreationScreen extends Screen
         return this.width < 360;
     }
 
-    private int getAppearanceControlCenterX()
-    {
-        if (useStackedAppearanceLayout()) return this.width / 2;
-        return Math.min(230, Math.max(100, this.width / 4));
-    }
-
     private int getAppearanceRowHeight()
     {
         if (!isCompactLayout()) return 28;
@@ -608,11 +612,40 @@ public class CharacterCreationScreen extends Screen
         return Math.max(19, Math.min(23, availableHeight / 6));
     }
 
+    private AppearanceColumns getAppearanceColumns()
+    {
+        boolean stacked = useStackedAppearanceLayout();
+        int regionWidth = stacked
+                ? Math.max(250, this.width - 20)
+                : Math.min(390, Math.max(280, this.width / 2 - 24));
+        regionWidth = Math.min(regionWidth, this.width - 16);
+
+        int regionLeft = stacked
+                ? (this.width - regionWidth) / 2
+                : Math.max(8, (this.width / 2 - regionWidth) / 2);
+
+        int buttonWidth = isCompactLayout() ? 22 : 28;
+        int gap = isCompactLayout() ? 5 : 7;
+        int labelWidth = Math.max(74, Math.min(96, regionWidth / 4));
+        int swatchWidth = 22;
+        int remaining = regionWidth - labelWidth - buttonWidth * 2 - swatchWidth - gap * 4;
+        int valueWidth = Math.max(82, remaining);
+
+        int labelX = regionLeft;
+        int previousX = labelX + labelWidth + gap;
+        int valueLeft = previousX + buttonWidth + gap;
+        int valueCenterX = valueLeft + valueWidth / 2;
+        int nextX = valueLeft + valueWidth + gap;
+        int swatchX = nextX + buttonWidth + gap;
+
+        return new AppearanceColumns(labelX, previousX, valueCenterX, nextX, swatchX, buttonWidth);
+    }
+
     private void buildAppearancePage()
     {
         CharacterAppearance appearance = pendingCharacter.getAppearance();
         boolean stacked = useStackedAppearanceLayout();
-        int controlCenterX = getAppearanceControlCenterX();
+        AppearanceColumns columns = getAppearanceColumns();
         int rowHeight = getAppearanceRowHeight();
         int contentTop = getContentTop();
         int availableHeight = Math.max(80, getNavigationY() - contentTop);
@@ -639,11 +672,11 @@ public class CharacterCreationScreen extends Screen
             startY = contentTop + (isCompactLayout() ? 7 : 22);
         }
 
-        addAppearanceButtons(controlCenterX, startY, appearance::previousSkinTone, appearance::nextSkinTone);
-        addAppearanceButtons(controlCenterX, startY + rowHeight, appearance::previousHairStyle, appearance::nextHairStyle);
-        addAppearanceButtons(controlCenterX, startY + rowHeight * 2, appearance::previousHairColor, appearance::nextHairColor);
-        addAppearanceButtons(controlCenterX, startY + rowHeight * 3, appearance::previousEyeColor, appearance::nextEyeColor);
-        addAppearanceButtons(controlCenterX, startY + rowHeight * 4, appearance::previousFacialHair, appearance::nextFacialHair);
+        addAppearanceButtons(columns, startY, appearance::previousSkinTone, appearance::nextSkinTone);
+        addAppearanceButtons(columns, startY + rowHeight, appearance::previousHairStyle, appearance::nextHairStyle);
+        addAppearanceButtons(columns, startY + rowHeight * 2, appearance::previousHairColor, appearance::nextHairColor);
+        addAppearanceButtons(columns, startY + rowHeight * 3, appearance::previousEyeColor, appearance::nextEyeColor);
+        addAppearanceButtons(columns, startY + rowHeight * 4, appearance::previousFacialHair, appearance::nextFacialHair);
 
         appearanceSkinWidget = new PlayerSkinWidget(
                 previewWidth,
@@ -654,17 +687,15 @@ public class CharacterCreationScreen extends Screen
         this.addRenderableWidget(appearanceSkinWidget);
     }
 
-    private void addAppearanceButtons(int centerX, int y, Runnable previous, Runnable next)
+    private void addAppearanceButtons(AppearanceColumns columns, int y, Runnable previous, Runnable next)
     {
         int buttonHeight = getButtonHeight();
-        int buttonWidth = isCompactLayout() ? 22 : 28;
-        int valueHalfWidth = isCompactLayout() ? 50 : 68;
 
         this.addRenderableWidget(Button.builder(Component.literal("<"), button -> previous.run())
-                .bounds(centerX - valueHalfWidth - buttonWidth - 5, y, buttonWidth, buttonHeight).build());
+                .bounds(columns.previousX(), y, columns.buttonWidth(), buttonHeight).build());
 
         this.addRenderableWidget(Button.builder(Component.literal(">"), button -> next.run())
-                .bounds(centerX + valueHalfWidth + 5, y, buttonWidth, buttonHeight).build());
+                .bounds(columns.nextX(), y, columns.buttonWidth(), buttonHeight).build());
     }
 
     @Override
@@ -1212,23 +1243,21 @@ public class CharacterCreationScreen extends Screen
     {
         CharacterAppearance appearance = pendingCharacter.getAppearance();
         boolean stacked = useStackedAppearanceLayout();
-        int controlCenterX = getAppearanceControlCenterX();
+        AppearanceColumns columns = getAppearanceColumns();
         int rowHeight = getAppearanceRowHeight();
         int startY = stacked && appearanceSkinWidget != null
                 ? appearanceSkinWidget.getBottom() + 15
                 : getContentTop() + (isCompactLayout() ? 7 : 22);
-        int labelX = Math.max(8, controlCenterX - (isCompactLayout() ? 92 : 122));
 
-        drawAppearanceRow(graphics, "Skin Tone", appearance.getSkinTone().getDisplayName(), labelX, controlCenterX, startY);
-        drawAppearanceRow(graphics, "Hair Style", appearance.getHairStyle().getDisplayName(), labelX, controlCenterX, startY + rowHeight);
-        drawAppearanceRow(graphics, "Hair Color", appearance.getHairColor().getDisplayName(), labelX, controlCenterX, startY + rowHeight * 2);
-        drawAppearanceRow(graphics, "Eye Color", appearance.getEyeColor().getDisplayName(), labelX, controlCenterX, startY + rowHeight * 3);
-        drawAppearanceRow(graphics, "Facial Hair", appearance.getFacialHair().getDisplayName(), labelX, controlCenterX, startY + rowHeight * 4);
+        drawAppearanceRow(graphics, "Skin Tone", appearance.getSkinTone().getDisplayName(), columns, startY);
+        drawAppearanceRow(graphics, "Hair Style", appearance.getHairStyle().getDisplayName(), columns, startY + rowHeight);
+        drawAppearanceRow(graphics, "Hair Color", appearance.getHairColor().getDisplayName(), columns, startY + rowHeight * 2);
+        drawAppearanceRow(graphics, "Eye Color", appearance.getEyeColor().getDisplayName(), columns, startY + rowHeight * 3);
+        drawAppearanceRow(graphics, "Facial Hair", appearance.getFacialHair().getDisplayName(), columns, startY + rowHeight * 4);
 
-        int swatchX = Math.min(this.width - 22, controlCenterX + (isCompactLayout() ? 76 : 101));
-        drawColorSwatch(graphics, swatchX, startY + 3, appearance.getSkinTone().getRgb());
-        drawColorSwatch(graphics, swatchX, startY + rowHeight * 2 + 3, appearance.getHairColor().getRgb());
-        drawColorSwatch(graphics, swatchX, startY + rowHeight * 3 + 3, appearance.getEyeColor().getRgb());
+        drawColorSwatch(graphics, columns.swatchX(), startY + 3, appearance.getSkinTone().getRgb());
+        drawColorSwatch(graphics, columns.swatchX(), startY + rowHeight * 2 + 3, appearance.getHairColor().getRgb());
+        drawColorSwatch(graphics, columns.swatchX(), startY + rowHeight * 3 + 3, appearance.getEyeColor().getRgb());
 
         if (appearanceSkinWidget != null)
         {
@@ -1238,10 +1267,10 @@ public class CharacterCreationScreen extends Screen
         }
     }
 
-    private void drawAppearanceRow(GuiGraphics graphics, String label, String value, int labelX, int centerX, int y)
+    private void drawAppearanceRow(GuiGraphics graphics, String label, String value, AppearanceColumns columns, int y)
     {
-        graphics.drawString(this.font, label, labelX, y + 5, 0xAAAAAA);
-        graphics.drawCenteredString(this.font, value, centerX, y + 5, 0xFFFFFF);
+        graphics.drawString(this.font, label, columns.labelX(), y + 5, 0xAAAAAA);
+        graphics.drawCenteredString(this.font, value, columns.valueCenterX(), y + 5, 0xFFFFFF);
     }
 
     private void drawColorSwatch(GuiGraphics graphics, int x, int y, int rgb)
