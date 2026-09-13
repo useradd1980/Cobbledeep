@@ -22,6 +22,9 @@ public class PendingCharacter
     private final CharacterProficiencies proficiencies =
             new CharacterProficiencies();
 
+    private final CharacterSpells spells =
+            new CharacterSpells();
+
     public Gender getGender()
     {
         return gender;
@@ -79,6 +82,11 @@ public class PendingCharacter
         return proficiencies;
     }
 
+    public CharacterSpells getSpells()
+    {
+        return spells;
+    }
+
     public void resetAfterClassChange()
     {
         alignment = null;
@@ -86,6 +94,7 @@ public class PendingCharacter
         abilityScores.reset();
         skills.reset();
         proficiencies.reset();
+        spells.reset();
     }
 
     public void resetAfterAlignmentChange()
@@ -93,11 +102,13 @@ public class PendingCharacter
         abilityScores.reset();
         skills.reset();
         proficiencies.reset();
+        spells.reset();
     }
 
     public void resetAfterAbilitiesChange()
     {
         skills.reset();
         proficiencies.reset();
+        spells.reset();
     }
 }
