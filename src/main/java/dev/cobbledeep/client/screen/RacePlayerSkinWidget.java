@@ -33,8 +33,8 @@ import net.minecraft.util.Mth;
  * Race scaling is anchored at the character's feet so shorter races remain
  * planted at the same baseline instead of shrinking toward the widget centre.
  * Elf and Half-Elf ears are rendered in the same model coordinate system as
- * the vanilla player. Dwarves receive stout torso, arm and jaw geometry, while
- * male Dwarves also receive a prominent beard.
+ * the vanilla player. Dwarves receive stout torso and arm geometry, while male
+ * Dwarves also receive a prominent beard.
  */
 public class RacePlayerSkinWidget extends PlayerSkinWidget
 {
@@ -68,7 +68,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private final ModelPart dwarfMaleBuild;
     private final ModelPart dwarfFemaleBuild;
     private final ModelPart dwarfArms;
-    private final ModelPart dwarfJaw;
     private final ModelPart dwarfBeard;
     private final ModelPart dwarfBeardHighlights;
     private final ModelPart dwarfBeardShadows;
@@ -76,33 +75,21 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private float previewRotationX = DEFAULT_ROTATION_X;
     private float previewRotationY = DEFAULT_ROTATION_Y;
 
-    public RacePlayerSkinWidget(
-            int width,
-            int height,
-            EntityModelSet modelSet,
-            Supplier<PlayerSkin> skinSupplier,
-            Supplier<CharacterRace> raceSupplier)
+    public RacePlayerSkinWidget(int width, int height, EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier, Supplier<CharacterRace> raceSupplier)
     {
         this(width, height, modelSet, skinSupplier, raceSupplier, () -> null, () -> PendingCharacter.Gender.MALE);
     }
 
-    public RacePlayerSkinWidget(
-            int width,
-            int height,
-            EntityModelSet modelSet,
-            Supplier<PlayerSkin> skinSupplier,
-            Supplier<CharacterRace> raceSupplier,
+    public RacePlayerSkinWidget(int width, int height, EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier, Supplier<CharacterRace> raceSupplier,
             Supplier<CharacterAppearance> appearanceSupplier)
     {
         this(width, height, modelSet, skinSupplier, raceSupplier, appearanceSupplier, () -> PendingCharacter.Gender.MALE);
     }
 
-    public RacePlayerSkinWidget(
-            int width,
-            int height,
-            EntityModelSet modelSet,
-            Supplier<PlayerSkin> skinSupplier,
-            Supplier<CharacterRace> raceSupplier,
+    public RacePlayerSkinWidget(int width, int height, EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier, Supplier<CharacterRace> raceSupplier,
             Supplier<CharacterAppearance> appearanceSupplier,
             Supplier<PendingCharacter.Gender> genderSupplier)
     {
@@ -115,7 +102,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         this.dwarfMaleBuild = createDwarfMaleBuild();
         this.dwarfFemaleBuild = createDwarfFemaleBuild();
         this.dwarfArms = createDwarfArms();
-        this.dwarfJaw = createDwarfJaw();
         this.dwarfBeard = createDwarfBeard();
         this.dwarfBeardHighlights = createDwarfBeardHighlights();
         this.dwarfBeardShadows = createDwarfBeardShadows();
@@ -144,46 +130,32 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     protected void onDrag(double mouseX, double mouseY, double dragX, double dragY)
     {
         super.onDrag(mouseX, mouseY, dragX, dragY);
-
-        previewRotationX = Mth.clamp(
-                previewRotationX - (float) dragY * ROTATION_SENSITIVITY,
-                -ROTATION_X_LIMIT,
-                ROTATION_X_LIMIT);
+        previewRotationX = Mth.clamp(previewRotationX - (float) dragY * ROTATION_SENSITIVITY,
+                -ROTATION_X_LIMIT, ROTATION_X_LIMIT);
         previewRotationY += (float) dragX * ROTATION_SENSITIVITY;
     }
 
     private void renderRaceGeometry(GuiGraphics graphics, CharacterRace race)
     {
-        if (race != CharacterRace.ELF && race != CharacterRace.HALF_ELF && race != CharacterRace.DWARF)
-        {
-            return;
-        }
+        if (race != CharacterRace.ELF && race != CharacterRace.HALF_ELF && race != CharacterRace.DWARF) return;
 
         PoseStack pose = graphics.pose();
         pose.pushPose();
-
         pose.translate(getX() + getWidth() / 2.0F, getY() + getHeight(), Z_OFFSET);
-
         float modelScale = getHeight() / MODEL_HEIGHT;
         pose.scale(modelScale, modelScale, modelScale);
         pose.translate(0.0F, -MODEL_OFFSET, 0.0F);
-
         pose.translate(0.0F, ROTATION_PIVOT_Y, 0.0F);
         pose.mulPose(Axis.XP.rotationDegrees(previewRotationX));
         pose.translate(0.0F, -ROTATION_PIVOT_Y, 0.0F);
         pose.mulPose(Axis.YP.rotationDegrees(previewRotationY));
-
         pose.scale(1.0F, 1.0F, -1.0F);
         pose.translate(0.0F, MODEL_TRANSLATE_Y, 0.0F);
 
         if (race == CharacterRace.DWARF)
         {
             renderDwarfBuild(graphics, pose);
-            renderDwarfJaw(graphics, pose);
-            if (genderSupplier.get() != PendingCharacter.Gender.FEMALE)
-            {
-                renderDwarfBeard(graphics, pose);
-            }
+            if (genderSupplier.get() != PendingCharacter.Gender.FEMALE) renderDwarfBeard(graphics, pose);
         }
         else
         {
@@ -200,10 +172,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         CharacterAppearance appearance = appearanceSupplier.get();
         int earColor = DEFAULT_PREVIEW_SKIN_COLOR;
         if (appearance != null && appearance.getSkinTone() != null)
-        {
             earColor = 0xFF000000 | appearance.getSkinTone().getRgb();
-        }
-
         ears.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
                 LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, earColor);
     }
@@ -213,31 +182,13 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         CharacterAppearance appearance = appearanceSupplier.get();
         int tunicColor = DWARF_TUNIC_COLOR;
         if (appearance != null && appearance.getShirtColor() != null)
-        {
             tunicColor = 0xFF000000 | appearance.getShirtColor().getRgb();
-        }
 
-        ModelPart torso = genderSupplier.get() == PendingCharacter.Gender.FEMALE
-                ? dwarfFemaleBuild
-                : dwarfMaleBuild;
-
+        ModelPart torso = genderSupplier.get() == PendingCharacter.Gender.FEMALE ? dwarfFemaleBuild : dwarfMaleBuild;
         torso.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
                 LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, tunicColor);
         dwarfArms.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
                 LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, tunicColor);
-    }
-
-    private void renderDwarfJaw(GuiGraphics graphics, PoseStack pose)
-    {
-        CharacterAppearance appearance = appearanceSupplier.get();
-        int skinColor = DEFAULT_PREVIEW_SKIN_COLOR;
-        if (appearance != null && appearance.getSkinTone() != null)
-        {
-            skinColor = 0xFF000000 | appearance.getSkinTone().getRgb();
-        }
-
-        dwarfJaw.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
-                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, skinColor);
     }
 
     private void renderDwarfBeard(GuiGraphics graphics, PoseStack pose)
@@ -245,13 +196,10 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         CharacterAppearance appearance = appearanceSupplier.get();
         int beardColor = DEFAULT_DWARF_BEARD_COLOR;
         if (appearance != null && appearance.getHairColor() != null)
-        {
             beardColor = 0xFF000000 | appearance.getHairColor().getRgb();
-        }
 
         int shadowColor = scaleRgb(beardColor, 0.58F);
         int highlightColor = scaleRgb(beardColor, 1.35F);
-
         dwarfBeardShadows.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
                 LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, shadowColor);
         dwarfBeard.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
@@ -298,9 +246,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createDwarfFemaleBuild()
     {
         MeshDefinition mesh = new MeshDefinition();
-
-        // Still distinctly stout, but with slightly less shoulder/chest width
-        // than the male shell so the female model does not read as identical.
         CubeListBuilder torso = CubeListBuilder.create()
                 .texOffs(0, 0).addBox(-4.50F, 0.35F, -2.25F, 9.00F, 4.00F, 4.50F)
                 .texOffs(0, 0).addBox(-4.25F, 4.35F, -2.18F, 8.50F, 4.10F, 4.36F)
@@ -312,26 +257,10 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createDwarfArms()
     {
         MeshDefinition mesh = new MeshDefinition();
-
-        // Static preview shoulder/upper-arm shells. These make both sexes read
-        // as compact and powerful without changing the successful whole-body scale.
         CubeListBuilder arms = CubeListBuilder.create()
                 .texOffs(0, 0).addBox(-7.10F, 1.10F, -2.15F, 2.45F, 5.35F, 4.30F)
                 .texOffs(0, 0).addBox(4.65F, 1.10F, -2.15F, 2.45F, 5.35F, 4.30F);
         mesh.getRoot().addOrReplaceChild("dwarf_upper_arms", arms, PartPose.ZERO);
-        return LayerDefinition.create(mesh, 16, 16).bakeRoot();
-    }
-
-    private static ModelPart createDwarfJaw()
-    {
-        MeshDefinition mesh = new MeshDefinition();
-
-        // Side-only lower-jaw blocks widen the face without covering the
-        // vanilla eyes, nose or mouth on the front of the skin.
-        CubeListBuilder jaw = CubeListBuilder.create()
-                .texOffs(0, 0).addBox(-4.30F, -3.00F, -3.35F, 0.45F, 2.95F, 6.15F)
-                .texOffs(0, 0).addBox(3.85F, -3.00F, -3.35F, 0.45F, 2.95F, 6.15F);
-        mesh.getRoot().addOrReplaceChild("dwarf_jaw", jaw, PartPose.ZERO);
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
 
