@@ -25,6 +25,9 @@ public class PendingCharacter
     private final CharacterSpells spells =
             new CharacterSpells();
 
+    private final CharacterAppearance appearance =
+            new CharacterAppearance();
+
     public Gender getGender()
     {
         return gender;
@@ -85,6 +88,11 @@ public class PendingCharacter
     public CharacterSpells getSpells()
     {
         return spells;
+    }
+
+    public CharacterAppearance getAppearance()
+    {
+        return appearance;
     }
 
     public void resetAfterClassChange()
