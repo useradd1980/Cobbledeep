@@ -30,9 +30,8 @@ import net.minecraft.util.Mth;
  * the vanilla skin widget's click-and-drag rotation behaviour.
  *
  * Elf and Half-Elf ears are rendered in the same model coordinate system as
- * the vanilla player. Each ear is attached to the side of the head and given
- * its own slight upward angle so it reads as part of the head instead of a
- * horizontal bar.
+ * the vanilla player. Each ear is attached slightly behind the side-centre of
+ * the head and given an upward angle.
  */
 public class RacePlayerSkinWidget extends PlayerSkinWidget
 {
@@ -47,12 +46,17 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static final float ROTATION_PIVOT_Y = -1.0625F;
     private static final float MODEL_TRANSLATE_Y = -1.5F;
 
-    private static final float ELF_EAR_ANGLE = 12.0F;
-    private static final float HALF_ELF_EAR_ANGLE = 8.0F;
+    // A stronger rise than the first pass, while keeping Half-Elf ears subtler.
+    private static final float ELF_EAR_ANGLE = 24.0F;
+    private static final float HALF_ELF_EAR_ANGLE = 16.0F;
+
+    // Vanilla head spans z=-4..4. Positive Z is toward the rear of the head in
+    // model space, so move the ear roots back from the side-centre.
+    private static final float ELF_EAR_BACK_OFFSET = 1.65F;
+    private static final float HALF_ELF_EAR_BACK_OFFSET = 1.35F;
 
     // Approximate exposed-skin colour used by the current vanilla preview skin.
-    // Once the whole preview skin is generated from CharacterAppearance, the
-    // six-argument constructor below will supply the selected tone instead.
+    // When CharacterAppearance is supplied, the selected tone overrides this.
     private static final int DEFAULT_PREVIEW_SKIN_COLOR = 0xFFB47A60;
 
     private static ResourceLocation earWhiteTexture;
@@ -188,6 +192,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     {
         MeshDefinition mesh = new MeshDefinition();
         float angle = (float) Math.toRadians(halfElf ? HALF_ELF_EAR_ANGLE : ELF_EAR_ANGLE);
+        float backOffset = halfElf ? HALF_ELF_EAR_BACK_OFFSET : ELF_EAR_BACK_OFFSET;
 
         CubeListBuilder left = CubeListBuilder.create();
         CubeListBuilder right = CubeListBuilder.create();
@@ -217,14 +222,16 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
                     .texOffs(0, 0).addBox(3.45F, -0.20F, -0.20F, 0.40F, 0.40F, 0.40F);
         }
 
+        // Head bounds are x=-4..4, y=-8..0, z=-4..4. Attach at ear height,
+        // but offset toward the rear (+Z) rather than the geometric side-centre.
         mesh.getRoot().addOrReplaceChild(
                 "left_ear",
                 left,
-                PartPose.offsetAndRotation(-4.0F, -4.0F, 0.0F, 0.0F, 0.0F, angle));
+                PartPose.offsetAndRotation(-4.0F, -4.0F, backOffset, 0.0F, 0.0F, angle));
         mesh.getRoot().addOrReplaceChild(
                 "right_ear",
                 right,
-                PartPose.offsetAndRotation(4.0F, -4.0F, 0.0F, 0.0F, 0.0F, -angle));
+                PartPose.offsetAndRotation(4.0F, -4.0F, backOffset, 0.0F, 0.0F, -angle));
 
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
