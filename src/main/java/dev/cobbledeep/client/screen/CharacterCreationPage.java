@@ -11,6 +11,5 @@ public enum CharacterCreationPage
     PROFICIENCIES,
     SPELLS,
     APPEARANCE,
-    NAME,
-    REVIEW
+    NAME
 }
