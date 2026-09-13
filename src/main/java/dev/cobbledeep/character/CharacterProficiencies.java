@@ -142,39 +142,36 @@ public class CharacterProficiencies
             return false;
         }
 
+        /*
+         * Restrictions are based on the original Baldur's Gate
+         * broad proficiency groups rather than the later
+         * single-weapon proficiency list.
+         */
         return switch (characterClass)
         {
-            case FIGHTER -> true;
-
-            case RANGER, PALADIN ->
-                    proficiency != WeaponProficiency.MISSILE_WEAPONS;
+            case FIGHTER, RANGER, PALADIN, BARD -> true;
 
             case CLERIC ->
                     proficiency == WeaponProficiency.BLUNT_WEAPONS
-                    || proficiency == WeaponProficiency.SPIKED_WEAPONS;
+                    || proficiency == WeaponProficiency.SPIKED_WEAPONS
+                    || proficiency == WeaponProficiency.MISSILE_WEAPONS;
 
             case DRUID ->
-                    proficiency == WeaponProficiency.SMALL_SWORD
+                    proficiency == WeaponProficiency.LARGE_SWORD
+                    || proficiency == WeaponProficiency.SMALL_SWORD
                     || proficiency == WeaponProficiency.SPEAR
                     || proficiency == WeaponProficiency.BLUNT_WEAPONS
                     || proficiency == WeaponProficiency.MISSILE_WEAPONS;
 
             case MAGE ->
                     proficiency == WeaponProficiency.SMALL_SWORD
-                    || proficiency == WeaponProficiency.MISSILE_WEAPONS;
-
-            case THIEF ->
-                    proficiency == WeaponProficiency.SMALL_SWORD
-                    || proficiency == WeaponProficiency.BOW
                     || proficiency == WeaponProficiency.BLUNT_WEAPONS
                     || proficiency == WeaponProficiency.MISSILE_WEAPONS;
 
-            case BARD ->
+            case THIEF ->
                     proficiency == WeaponProficiency.LARGE_SWORD
                     || proficiency == WeaponProficiency.SMALL_SWORD
                     || proficiency == WeaponProficiency.BOW
-                    || proficiency == WeaponProficiency.SPEAR
-                    || proficiency == WeaponProficiency.AXE
                     || proficiency == WeaponProficiency.BLUNT_WEAPONS
                     || proficiency == WeaponProficiency.MISSILE_WEAPONS;
         };
