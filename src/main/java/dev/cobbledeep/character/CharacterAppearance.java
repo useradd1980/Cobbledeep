@@ -113,11 +113,44 @@ public class CharacterAppearance
         public String getDisplayName() { return displayName; }
     }
 
+    public enum ClothingColor
+    {
+        BLACK("Black", 0x242424),
+        CHARCOAL("Charcoal", 0x444444),
+        BROWN("Brown", 0x70482F),
+        TAN("Tan", 0xB58A5A),
+        RED("Red", 0x9E3434),
+        BURGUNDY("Burgundy", 0x6E2637),
+        ORANGE("Orange", 0xB8642D),
+        YELLOW("Yellow", 0xC7A83A),
+        GREEN("Green", 0x4F753D),
+        TEAL("Teal", 0x34766F),
+        BLUE("Blue", 0x365F9A),
+        NAVY("Navy", 0x2D3E67),
+        PURPLE("Purple", 0x694D82),
+        GREY("Grey", 0x777777),
+        WHITE("White", 0xD8D8D2);
+
+        private final String displayName;
+        private final int rgb;
+
+        ClothingColor(String displayName, int rgb)
+        {
+            this.displayName = displayName;
+            this.rgb = rgb;
+        }
+
+        public String getDisplayName() { return displayName; }
+        public int getRgb() { return rgb; }
+    }
+
     private SkinTone skinTone;
     private HairStyle hairStyle;
     private HairColor hairColor;
     private EyeColor eyeColor;
     private FacialHair facialHair;
+    private ClothingColor shirtColor;
+    private ClothingColor trouserColor;
 
     public CharacterAppearance()
     {
@@ -131,6 +164,8 @@ public class CharacterAppearance
         hairColor = HairColor.DARK_BROWN;
         eyeColor = EyeColor.BROWN;
         facialHair = FacialHair.NONE;
+        shirtColor = ClothingColor.TEAL;
+        trouserColor = ClothingColor.NAVY;
     }
 
     public SkinTone getSkinTone() { return skinTone; }
@@ -157,6 +192,16 @@ public class CharacterAppearance
     public void setFacialHair(FacialHair facialHair) { this.facialHair = facialHair; }
     public void previousFacialHair() { facialHair = previous(FacialHair.values(), facialHair); }
     public void nextFacialHair() { facialHair = next(FacialHair.values(), facialHair); }
+
+    public ClothingColor getShirtColor() { return shirtColor; }
+    public void setShirtColor(ClothingColor shirtColor) { this.shirtColor = shirtColor; }
+    public void previousShirtColor() { shirtColor = previous(ClothingColor.values(), shirtColor); }
+    public void nextShirtColor() { shirtColor = next(ClothingColor.values(), shirtColor); }
+
+    public ClothingColor getTrouserColor() { return trouserColor; }
+    public void setTrouserColor(ClothingColor trouserColor) { this.trouserColor = trouserColor; }
+    public void previousTrouserColor() { trouserColor = previous(ClothingColor.values(), trouserColor); }
+    public void nextTrouserColor() { trouserColor = next(ClothingColor.values(), trouserColor); }
 
     private static <T> T previous(T[] values, T current)
     {
