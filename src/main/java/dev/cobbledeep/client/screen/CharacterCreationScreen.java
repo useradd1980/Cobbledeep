@@ -26,11 +26,13 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.network.chat.Component;
 
 public class CharacterCreationScreen extends Screen
 {
     private static final UUID APPEARANCE_PREVIEW_UUID = UUID.fromString("8f8d3f34-1486-4f24-8f8e-fb98f18d759f");
+    private static final int APPEARANCE_SETTING_COUNT = 7;
 
     private final PendingCharacter pendingCharacter;
 
@@ -38,6 +40,7 @@ public class CharacterCreationScreen extends Screen
     private Button nextButton;
     private int proficiencyScrollOffset;
     private int spellScrollOffset;
+    private int appearanceScrollOffset;
     private MageSpell focusedMageSpell;
     private DivineSpell focusedDivineSpell;
     private PlayerSkinWidget appearanceSkinWidget;
@@ -48,7 +51,8 @@ public class CharacterCreationScreen extends Screen
             int valueCenterX,
             int nextX,
             int swatchX,
-            int buttonWidth)
+            int buttonWidth,
+            int scrollBarX)
     {
     }
 
@@ -59,6 +63,7 @@ public class CharacterCreationScreen extends Screen
         this.currentPage = CharacterCreationPage.GENDER;
         this.proficiencyScrollOffset = 0;
         this.spellScrollOffset = 0;
+        this.appearanceScrollOffset = 0;
         this.focusedMageSpell = MageSpell.ARMOR;
         this.focusedDivineSpell = DivineSpell.ARMOR_OF_FAITH;
     }
@@ -170,6 +175,7 @@ public class CharacterCreationScreen extends Screen
                     pendingCharacter.getAppearance().reset();
                     proficiencyScrollOffset = 0;
                     spellScrollOffset = 0;
+                    appearanceScrollOffset = 0;
                 }
                 updateNextButton();
             }).bounds(x, y, buttonWidth, buttonHeight).build());
@@ -607,29 +613,50 @@ public class CharacterCreationScreen extends Screen
 
     private int getAppearanceRowHeight()
     {
-        if (!isCompactLayout()) return 28;
-        int availableHeight = getNavigationY() - getContentTop() - 18;
-        return Math.max(19, Math.min(23, availableHeight / 6));
+        return isCompactLayout() ? 19 : 22;
+    }
+
+    private int getAppearanceButtonHeight()
+    {
+        return isCompactLayout() ? 16 : 18;
+    }
+
+    private int getAppearanceVisibleRows()
+    {
+        if (useStackedAppearanceLayout()) return 4;
+        int availableHeight = getNavigationY() - getContentTop() - 24;
+        return Math.max(4, Math.min(6, availableHeight / getAppearanceRowHeight()));
+    }
+
+    private int getMaxAppearanceScroll()
+    {
+        return Math.max(0, APPEARANCE_SETTING_COUNT - getAppearanceVisibleRows());
+    }
+
+    private void clampAppearanceScroll()
+    {
+        appearanceScrollOffset = Math.max(0, Math.min(appearanceScrollOffset, getMaxAppearanceScroll()));
     }
 
     private AppearanceColumns getAppearanceColumns()
     {
         boolean stacked = useStackedAppearanceLayout();
         int regionWidth = stacked
-                ? Math.max(250, this.width - 20)
-                : Math.min(390, Math.max(280, this.width / 2 - 24));
-        regionWidth = Math.min(regionWidth, this.width - 16);
+                ? Math.max(235, this.width - 24)
+                : Math.min(330, Math.max(250, this.width / 2 - 42));
+        regionWidth = Math.min(regionWidth, this.width - 20);
 
         int regionLeft = stacked
                 ? (this.width - regionWidth) / 2
-                : Math.max(8, (this.width / 2 - regionWidth) / 2);
+                : Math.max(12, (this.width / 2 - regionWidth) / 2);
 
-        int buttonWidth = isCompactLayout() ? 22 : 28;
-        int gap = isCompactLayout() ? 5 : 7;
-        int labelWidth = Math.max(74, Math.min(96, regionWidth / 4));
-        int swatchWidth = 22;
-        int remaining = regionWidth - labelWidth - buttonWidth * 2 - swatchWidth - gap * 4;
-        int valueWidth = Math.max(82, remaining);
+        int buttonWidth = isCompactLayout() ? 16 : 18;
+        int gap = isCompactLayout() ? 4 : 5;
+        int labelWidth = Math.max(70, Math.min(88, regionWidth / 4));
+        int swatchWidth = 18;
+        int scrollWidth = 6;
+        int remaining = regionWidth - labelWidth - buttonWidth * 2 - swatchWidth - scrollWidth - gap * 5;
+        int valueWidth = Math.max(72, remaining);
 
         int labelX = regionLeft;
         int previousX = labelX + labelWidth + gap;
@@ -637,8 +664,9 @@ public class CharacterCreationScreen extends Screen
         int valueCenterX = valueLeft + valueWidth / 2;
         int nextX = valueLeft + valueWidth + gap;
         int swatchX = nextX + buttonWidth + gap;
+        int scrollBarX = swatchX + swatchWidth + gap;
 
-        return new AppearanceColumns(labelX, previousX, valueCenterX, nextX, swatchX, buttonWidth);
+        return new AppearanceColumns(labelX, previousX, valueCenterX, nextX, swatchX, buttonWidth, scrollBarX);
     }
 
     private void buildAppearancePage()
@@ -658,10 +686,10 @@ public class CharacterCreationScreen extends Screen
 
         if (stacked)
         {
-            previewWidth = Math.max(90, Math.min(140, this.width - 40));
-            previewHeight = Math.max(70, Math.min(105, availableHeight / 2 - 8));
+            previewWidth = Math.max(90, Math.min(135, this.width - 40));
+            previewHeight = Math.max(68, Math.min(100, availableHeight / 2 - 8));
             previewX = this.width / 2 - previewWidth / 2;
-            startY = previewY + previewHeight + 15;
+            startY = previewY + previewHeight + 10;
         }
         else
         {
@@ -669,33 +697,72 @@ public class CharacterCreationScreen extends Screen
             previewHeight = Math.max(85, Math.min(isCompactLayout() ? 150 : 235, availableHeight - 28));
             int previewCenterX = Math.min(this.width - previewWidth / 2 - 10, this.width * 3 / 4);
             previewX = previewCenterX - previewWidth / 2;
-            startY = contentTop + (isCompactLayout() ? 7 : 22);
+            startY = contentTop + (isCompactLayout() ? 6 : 18);
         }
 
-        addAppearanceButtons(columns, startY, appearance::previousSkinTone, appearance::nextSkinTone);
-        addAppearanceButtons(columns, startY + rowHeight, appearance::previousHairStyle, appearance::nextHairStyle);
-        addAppearanceButtons(columns, startY + rowHeight * 2, appearance::previousHairColor, appearance::nextHairColor);
-        addAppearanceButtons(columns, startY + rowHeight * 3, appearance::previousEyeColor, appearance::nextEyeColor);
-        addAppearanceButtons(columns, startY + rowHeight * 4, appearance::previousFacialHair, appearance::nextFacialHair);
+        clampAppearanceScroll();
+        int firstRow = appearanceScrollOffset;
+        int lastRow = firstRow + getAppearanceVisibleRows() - 1;
+        for (int row = firstRow; row <= lastRow && row < APPEARANCE_SETTING_COUNT; row++)
+        {
+            int y = startY + (row - firstRow) * rowHeight;
+            addAppearanceButtonsForRow(appearance, columns, row, y);
+        }
 
         appearanceSkinWidget = new PlayerSkinWidget(
                 previewWidth,
                 previewHeight,
                 Minecraft.getInstance().getEntityModels(),
-                () -> DefaultPlayerSkin.get(APPEARANCE_PREVIEW_UUID));
+                this::getAppearancePreviewSkin);
         appearanceSkinWidget.setPosition(previewX, previewY);
         this.addRenderableWidget(appearanceSkinWidget);
     }
 
+    private PlayerSkin getAppearancePreviewSkin()
+    {
+        PlayerSkin baseSkin = DefaultPlayerSkin.get(APPEARANCE_PREVIEW_UUID);
+        PlayerSkin.Model model = pendingCharacter.getGender() == PendingCharacter.Gender.FEMALE
+                ? PlayerSkin.Model.SLIM
+                : PlayerSkin.Model.WIDE;
+        return new PlayerSkin(
+                baseSkin.texture(),
+                baseSkin.textureUrl(),
+                baseSkin.capeTexture(),
+                baseSkin.elytraTexture(),
+                model,
+                baseSkin.secure());
+    }
+
+    private void addAppearanceButtonsForRow(CharacterAppearance appearance, AppearanceColumns columns, int row, int y)
+    {
+        switch (row)
+        {
+            case 0 -> addAppearanceButtons(columns, y, appearance::previousSkinTone, appearance::nextSkinTone);
+            case 1 -> addAppearanceButtons(columns, y, appearance::previousHairStyle, appearance::nextHairStyle);
+            case 2 -> addAppearanceButtons(columns, y, appearance::previousHairColor, appearance::nextHairColor);
+            case 3 -> addAppearanceButtons(columns, y, appearance::previousEyeColor, appearance::nextEyeColor);
+            case 4 -> addAppearanceButtons(columns, y, appearance::previousFacialHair, appearance::nextFacialHair);
+            case 5 -> addAppearanceButtons(columns, y, appearance::previousShirtColor, appearance::nextShirtColor);
+            case 6 -> addAppearanceButtons(columns, y, appearance::previousTrouserColor, appearance::nextTrouserColor);
+            default -> { }
+        }
+    }
+
     private void addAppearanceButtons(AppearanceColumns columns, int y, Runnable previous, Runnable next)
     {
-        int buttonHeight = getButtonHeight();
+        int buttonHeight = getAppearanceButtonHeight();
 
-        this.addRenderableWidget(Button.builder(Component.literal("<"), button -> previous.run())
-                .bounds(columns.previousX(), y, columns.buttonWidth(), buttonHeight).build());
+        this.addRenderableWidget(Button.builder(Component.literal("<"), button ->
+        {
+            previous.run();
+            buildCurrentPage();
+        }).bounds(columns.previousX(), y, columns.buttonWidth(), buttonHeight).build());
 
-        this.addRenderableWidget(Button.builder(Component.literal(">"), button -> next.run())
-                .bounds(columns.nextX(), y, columns.buttonWidth(), buttonHeight).build());
+        this.addRenderableWidget(Button.builder(Component.literal(">"), button ->
+        {
+            next.run();
+            buildCurrentPage();
+        }).bounds(columns.nextX(), y, columns.buttonWidth(), buttonHeight).build());
     }
 
     @Override
@@ -718,6 +785,16 @@ public class CharacterCreationScreen extends Screen
             spellScrollOffset += scrollY > 0.0 ? -1 : 1;
             clampSpellScroll();
             if (spellScrollOffset != oldOffset) buildCurrentPage();
+            return true;
+        }
+
+        if (currentPage == CharacterCreationPage.APPEARANCE
+                && (useStackedAppearanceLayout() || mouseX < this.width / 2.0))
+        {
+            int oldOffset = appearanceScrollOffset;
+            appearanceScrollOffset += scrollY > 0.0 ? -1 : 1;
+            clampAppearanceScroll();
+            if (appearanceScrollOffset != oldOffset) buildCurrentPage();
             return true;
         }
 
@@ -814,6 +891,7 @@ public class CharacterCreationScreen extends Screen
                 focusedMageSpell = MageSpell.ARMOR;
                 focusedDivineSpell = DivineSpell.ARMOR_OF_FAITH;
             }
+            if (candidate == CharacterCreationPage.APPEARANCE) appearanceScrollOffset = 0;
             currentPage = candidate;
             buildCurrentPage();
             return;
@@ -837,6 +915,7 @@ public class CharacterCreationScreen extends Screen
             if (candidate == CharacterCreationPage.SPELLS && !usesSpellsPage()) { previousIndex--; continue; }
             if (candidate == CharacterCreationPage.PROFICIENCIES) proficiencyScrollOffset = 0;
             if (candidate == CharacterCreationPage.SPELLS) spellScrollOffset = 0;
+            if (candidate == CharacterCreationPage.APPEARANCE) appearanceScrollOffset = 0;
             currentPage = candidate;
             buildCurrentPage();
             return;
@@ -1246,18 +1325,19 @@ public class CharacterCreationScreen extends Screen
         AppearanceColumns columns = getAppearanceColumns();
         int rowHeight = getAppearanceRowHeight();
         int startY = stacked && appearanceSkinWidget != null
-                ? appearanceSkinWidget.getBottom() + 15
-                : getContentTop() + (isCompactLayout() ? 7 : 22);
+                ? appearanceSkinWidget.getBottom() + 10
+                : getContentTop() + (isCompactLayout() ? 6 : 18);
 
-        drawAppearanceRow(graphics, "Skin Tone", appearance.getSkinTone().getDisplayName(), columns, startY);
-        drawAppearanceRow(graphics, "Hair Style", appearance.getHairStyle().getDisplayName(), columns, startY + rowHeight);
-        drawAppearanceRow(graphics, "Hair Color", appearance.getHairColor().getDisplayName(), columns, startY + rowHeight * 2);
-        drawAppearanceRow(graphics, "Eye Color", appearance.getEyeColor().getDisplayName(), columns, startY + rowHeight * 3);
-        drawAppearanceRow(graphics, "Facial Hair", appearance.getFacialHair().getDisplayName(), columns, startY + rowHeight * 4);
+        clampAppearanceScroll();
+        int firstRow = appearanceScrollOffset;
+        int lastRow = firstRow + getAppearanceVisibleRows() - 1;
+        for (int row = firstRow; row <= lastRow && row < APPEARANCE_SETTING_COUNT; row++)
+        {
+            int y = startY + (row - firstRow) * rowHeight;
+            renderAppearanceRow(graphics, appearance, columns, row, y);
+        }
 
-        drawColorSwatch(graphics, columns.swatchX(), startY + 3, appearance.getSkinTone().getRgb());
-        drawColorSwatch(graphics, columns.swatchX(), startY + rowHeight * 2 + 3, appearance.getHairColor().getRgb());
-        drawColorSwatch(graphics, columns.swatchX(), startY + rowHeight * 3 + 3, appearance.getEyeColor().getRgb());
+        renderAppearanceScrollbar(graphics, columns, startY);
 
         if (appearanceSkinWidget != null)
         {
@@ -1267,17 +1347,53 @@ public class CharacterCreationScreen extends Screen
         }
     }
 
-    private void drawAppearanceRow(GuiGraphics graphics, String label, String value, AppearanceColumns columns, int y)
+    private void renderAppearanceRow(GuiGraphics graphics, CharacterAppearance appearance, AppearanceColumns columns, int row, int y)
     {
-        graphics.drawString(this.font, label, columns.labelX(), y + 5, 0xAAAAAA);
-        graphics.drawCenteredString(this.font, value, columns.valueCenterX(), y + 5, 0xFFFFFF);
+        switch (row)
+        {
+            case 0 -> drawAppearanceRow(graphics, "Skin Tone", appearance.getSkinTone().getDisplayName(), appearance.getSkinTone().getRgb(), columns, y);
+            case 1 -> drawAppearanceRow(graphics, "Hair Style", appearance.getHairStyle().getDisplayName(), -1, columns, y);
+            case 2 -> drawAppearanceRow(graphics, "Hair Color", appearance.getHairColor().getDisplayName(), appearance.getHairColor().getRgb(), columns, y);
+            case 3 -> drawAppearanceRow(graphics, "Eye Color", appearance.getEyeColor().getDisplayName(), appearance.getEyeColor().getRgb(), columns, y);
+            case 4 -> drawAppearanceRow(graphics, "Facial Hair", appearance.getFacialHair().getDisplayName(), -1, columns, y);
+            case 5 -> drawAppearanceRow(graphics, "Shirt Color", appearance.getShirtColor().getDisplayName(), appearance.getShirtColor().getRgb(), columns, y);
+            case 6 -> drawAppearanceRow(graphics, "Trouser Color", appearance.getTrouserColor().getDisplayName(), appearance.getTrouserColor().getRgb(), columns, y);
+            default -> { }
+        }
+    }
+
+    private void drawAppearanceRow(GuiGraphics graphics, String label, String value, int rgb, AppearanceColumns columns, int y)
+    {
+        graphics.drawString(this.font, label, columns.labelX(), y + 4, 0xAAAAAA);
+        graphics.drawCenteredString(this.font, value, columns.valueCenterX(), y + 4, 0xFFFFFF);
+        if (rgb >= 0)
+        {
+            drawColorSwatch(graphics, columns.swatchX(), y + 3, rgb);
+        }
+    }
+
+    private void renderAppearanceScrollbar(GuiGraphics graphics, AppearanceColumns columns, int startY)
+    {
+        int visibleRows = getAppearanceVisibleRows();
+        if (APPEARANCE_SETTING_COUNT <= visibleRows) return;
+
+        int trackHeight = visibleRows * getAppearanceRowHeight() - 3;
+        int trackX = columns.scrollBarX();
+        graphics.fill(trackX, startY, trackX + 3, startY + trackHeight, 0xFF333333);
+
+        int thumbHeight = Math.max(14, trackHeight * visibleRows / APPEARANCE_SETTING_COUNT);
+        int movable = trackHeight - thumbHeight;
+        int thumbTop = startY;
+        int maxScroll = getMaxAppearanceScroll();
+        if (maxScroll > 0) thumbTop += movable * appearanceScrollOffset / maxScroll;
+        graphics.fill(trackX, thumbTop, trackX + 3, thumbTop + thumbHeight, 0xFFAAAAAA);
     }
 
     private void drawColorSwatch(GuiGraphics graphics, int x, int y, int rgb)
     {
         int argb = 0xFF000000 | rgb;
-        graphics.fill(x, y, x + 18, y + 12, 0xFF222222);
-        graphics.fill(x + 2, y + 2, x + 16, y + 10, argb);
+        graphics.fill(x, y, x + 15, y + 11, 0xFF222222);
+        graphics.fill(x + 2, y + 2, x + 13, y + 9, argb);
     }
 
     private String formatProficiencyRank(int rank) { return rank <= 0 ? "-" : "*".repeat(rank); }
