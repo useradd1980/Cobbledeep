@@ -126,7 +126,7 @@ public class SubmitCharacterPacket
         appearance.setShirtColor(shirtColor);
         appearance.setTrouserColor(trouserColor);
 
-        sender.getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresentOrElse(data ->
+        sender.getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresent(data ->
         {
             data.setIdentity(name, gender, race, characterClass, alignment, appearance);
             Cobbledeep.LOGGER.info(
@@ -136,6 +136,6 @@ public class SubmitCharacterPacket
                     data.getRace(),
                     data.getCharacterClass());
             RPGNetwork.sendCharacterData(sender, data);
-        }, () -> Cobbledeep.LOGGER.error("Player is missing Cobbledeep character capability"));
+        });
     }
 }
