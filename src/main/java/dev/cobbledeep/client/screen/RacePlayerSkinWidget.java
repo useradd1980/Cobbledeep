@@ -25,8 +25,8 @@ import net.minecraft.util.Mth;
  * the vanilla skin widget's click-and-drag rotation behaviour.
  *
  * Elf and Half-Elf previews also render simple three-dimensional pointed-ear
- * geometry. The extra geometry is deliberately kept separate from character
- * data so later hair, beard, and other model parts can use the same approach.
+ * geometry. The ears use the same preview rotation direction as the vanilla
+ * player and are positioned relative to the sides of the head.
  */
 public class RacePlayerSkinWidget extends PlayerSkinWidget
 {
@@ -36,6 +36,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private final Supplier<CharacterRace> raceSupplier;
     private final Supplier<PlayerSkin> skinSupplier;
     private final ModelPart elfEars;
+    private final ModelPart halfElfEars;
     private float previewYaw = 30.0F;
     private float previewPitch = -5.0F;
 
@@ -49,7 +50,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         super(width, height, modelSet, skinSupplier);
         this.skinSupplier = skinSupplier;
         this.raceSupplier = raceSupplier;
-        this.elfEars = createElfEars();
+        this.elfEars = createEars(false);
+        this.halfElfEars = createEars(true);
     }
 
     @Override
@@ -75,7 +77,11 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     protected void onDrag(double mouseX, double mouseY, double dragX, double dragY)
     {
         super.onDrag(mouseX, mouseY, dragX, dragY);
-        previewYaw += (float) dragX * EAR_ROTATION_SENSITIVITY;
+
+        // PlayerSkinWidget turns the model opposite the horizontal mouse drag.
+        // Mirror that sign here so attached geometry follows the player instead
+        // of orbiting in the opposite direction.
+        previewYaw -= (float) dragX * EAR_ROTATION_SENSITIVITY;
         previewPitch = Mth.clamp(
                 previewPitch + (float) dragY * EAR_ROTATION_SENSITIVITY,
                 -EAR_PITCH_LIMIT,
@@ -89,20 +95,23 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             return;
         }
 
-        float earScale = race == CharacterRace.ELF ? 1.0F : 0.68F;
-        float modelScale = Math.max(18.0F, getHeight() / 5.5F);
+        // PlayerSkinWidget's preview fills roughly 4.5 model units vertically.
+        // Keep the ear model at the same apparent scale and anchor it around the
+        // player's head rather than scaling the ears inward toward the centre.
+        float modelScale = Math.max(20.0F, getHeight() / 4.75F);
         float headCenterX = getX() + getWidth() / 2.0F;
-        float headCenterY = getY() + getHeight() * 0.205F;
+        float headCenterY = getY() + getHeight() * 0.19F;
 
         PoseStack pose = graphics.pose();
         pose.pushPose();
         pose.translate(headCenterX, headCenterY, 180.0F);
-        pose.scale(modelScale * earScale, modelScale, modelScale);
+        pose.scale(modelScale, modelScale, modelScale);
         pose.mulPose(Axis.XP.rotationDegrees(previewPitch));
         pose.mulPose(Axis.YP.rotationDegrees(previewYaw));
 
         PlayerSkin skin = skinSupplier.get();
-        elfEars.render(
+        ModelPart ears = race == CharacterRace.ELF ? elfEars : halfElfEars;
+        ears.render(
                 pose,
                 graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(skin.texture())),
                 LightTexture.FULL_BRIGHT,
@@ -112,22 +121,36 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         pose.popPose();
     }
 
-    private static ModelPart createElfEars()
+    private static ModelPart createEars(boolean halfElf)
     {
         MeshDefinition mesh = new MeshDefinition();
-        mesh.getRoot().addOrReplaceChild(
-                "ears",
-                CubeListBuilder.create()
-                        // Left ear: three stepped cuboids taper to a blocky point.
-                        .texOffs(0, 0).addBox(-7.0F, -1.75F, -1.0F, 3.0F, 3.5F, 2.0F)
-                        .texOffs(0, 0).addBox(-9.0F, -1.25F, -0.75F, 2.0F, 2.5F, 1.5F)
-                        .texOffs(0, 0).addBox(-10.0F, -0.75F, -0.5F, 1.0F, 1.5F, 1.0F)
-                        // Right ear mirrors the same stepped profile.
-                        .texOffs(0, 0).addBox(4.0F, -1.75F, -1.0F, 3.0F, 3.5F, 2.0F)
-                        .texOffs(0, 0).addBox(7.0F, -1.25F, -0.75F, 2.0F, 2.5F, 1.5F)
-                        .texOffs(0, 0).addBox(9.0F, -0.75F, -0.5F, 1.0F, 1.5F, 1.0F),
-                PartPose.ZERO);
+        CubeListBuilder builder = CubeListBuilder.create();
 
+        if (halfElf)
+        {
+            // The vanilla head spans x=-4..4. Half-Elf ears begin just outside
+            // that boundary and extend two model units from each side.
+            builder
+                    .texOffs(0, 0).addBox(-5.25F, -0.85F, -0.75F, 1.25F, 2.25F, 1.5F)
+                    .texOffs(0, 0).addBox(-6.25F, -0.45F, -0.50F, 1.00F, 1.45F, 1.0F)
+                    .texOffs(0, 0).addBox(4.00F, -0.85F, -0.75F, 1.25F, 2.25F, 1.5F)
+                    .texOffs(0, 0).addBox(5.25F, -0.45F, -0.50F, 1.00F, 1.45F, 1.0F);
+        }
+        else
+        {
+            // Full Elf ears are deliberately prominent. Their inner section
+            // touches x=+/-4 so there is no gap, then the stepped profile
+            // extends outward to x=+/-8 to form a clear blocky point.
+            builder
+                    .texOffs(0, 0).addBox(-5.50F, -1.20F, -0.90F, 1.50F, 3.00F, 1.8F)
+                    .texOffs(0, 0).addBox(-7.00F, -0.85F, -0.70F, 1.50F, 2.30F, 1.4F)
+                    .texOffs(0, 0).addBox(-8.00F, -0.40F, -0.45F, 1.00F, 1.40F, 0.9F)
+                    .texOffs(0, 0).addBox(4.00F, -1.20F, -0.90F, 1.50F, 3.00F, 1.8F)
+                    .texOffs(0, 0).addBox(5.50F, -0.85F, -0.70F, 1.50F, 2.30F, 1.4F)
+                    .texOffs(0, 0).addBox(7.00F, -0.40F, -0.45F, 1.00F, 1.40F, 0.9F);
+        }
+
+        mesh.getRoot().addOrReplaceChild("ears", builder, PartPose.ZERO);
         return LayerDefinition.create(mesh, 16, 16).bakeRoot().getChild("ears");
     }
 
