@@ -2,10 +2,13 @@ package dev.cobbledeep.client.screen;
 
 import java.util.function.Supplier;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
+import dev.cobbledeep.character.CharacterAppearance;
 import dev.cobbledeep.character.CharacterRace;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerSkinWidget;
 import net.minecraft.client.model.geom.EntityModelSet;
@@ -16,8 +19,10 @@ import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
@@ -42,8 +47,10 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static final float ROTATION_PIVOT_Y = -1.0625F;
     private static final float MODEL_TRANSLATE_Y = -1.5F;
 
+    private static ResourceLocation earWhiteTexture;
+
     private final Supplier<CharacterRace> raceSupplier;
-    private final Supplier<PlayerSkin> skinSupplier;
+    private final Supplier<CharacterAppearance> appearanceSupplier;
     private final ModelPart elfEars;
     private final ModelPart halfElfEars;
 
@@ -55,11 +62,12 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             int height,
             EntityModelSet modelSet,
             Supplier<PlayerSkin> skinSupplier,
-            Supplier<CharacterRace> raceSupplier)
+            Supplier<CharacterRace> raceSupplier,
+            Supplier<CharacterAppearance> appearanceSupplier)
     {
         super(width, height, modelSet, skinSupplier);
-        this.skinSupplier = skinSupplier;
         this.raceSupplier = raceSupplier;
+        this.appearanceSupplier = appearanceSupplier;
         this.elfEars = createEars(false);
         this.halfElfEars = createEars(true);
     }
@@ -88,7 +96,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     {
         super.onDrag(mouseX, mouseY, dragX, dragY);
 
-        // Match PlayerSkinWidget exactly.
         previewRotationX = Mth.clamp(
                 previewRotationX - (float) dragY * ROTATION_SENSITIVITY,
                 -ROTATION_X_LIMIT,
@@ -106,12 +113,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         PoseStack pose = graphics.pose();
         pose.pushPose();
 
-        /*
-         * This reproduces the 1.21.1 PlayerSkinWidget render transform rather
-         * than guessing at a head position in screen coordinates.  The ears are
-         * therefore rendered in the same model coordinate system as the vanilla
-         * player head.
-         */
         pose.translate(
                 getX() + getWidth() / 2.0F,
                 getY() + getHeight(),
@@ -121,27 +122,54 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         pose.scale(modelScale, modelScale, modelScale);
         pose.translate(0.0F, -MODEL_OFFSET, 0.0F);
 
-        // Vanilla rotates X around this pivot, then applies Y rotation.
         pose.translate(0.0F, ROTATION_PIVOT_Y, 0.0F);
         pose.mulPose(Axis.XP.rotationDegrees(previewRotationX));
         pose.translate(0.0F, -ROTATION_PIVOT_Y, 0.0F);
         pose.mulPose(Axis.YP.rotationDegrees(previewRotationY));
 
-        // Match PlayerSkinWidget.Model.draw().
         pose.scale(1.0F, 1.0F, -1.0F);
         pose.translate(0.0F, MODEL_TRANSLATE_Y, 0.0F);
 
-        PlayerSkin skin = skinSupplier.get();
         ModelPart ears = race == CharacterRace.ELF ? elfEars : halfElfEars;
+        CharacterAppearance appearance = appearanceSupplier.get();
+        int earColor = 0xFFFFFFFF;
+        if (appearance != null && appearance.getSkinTone() != null)
+        {
+            earColor = 0xFF000000 | appearance.getSkinTone().getRgb();
+        }
+
         ears.render(
                 pose,
-                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(skin.texture())),
+                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getEarWhiteTexture())),
                 LightTexture.FULL_BRIGHT,
                 OverlayTexture.NO_OVERLAY,
-                0xFFFFFFFF);
+                earColor);
 
         graphics.flush();
         pose.popPose();
+    }
+
+    /**
+     * The ears use a one-pixel white dynamic texture and the ModelPart tint
+     * colour supplies the selected skin tone. This prevents the ear cuboids
+     * from sampling Steve/Alex head pixels while still allowing skin tone to
+     * update with the appearance selector.
+     */
+    private static ResourceLocation getEarWhiteTexture()
+    {
+        if (earWhiteTexture == null)
+        {
+            DynamicTexture texture = new DynamicTexture(1, 1, false);
+            NativeImage pixels = texture.getPixels();
+            if (pixels != null)
+            {
+                pixels.setPixelRGBA(0, 0, 0xFFFFFFFF);
+                texture.upload();
+            }
+            earWhiteTexture = Minecraft.getInstance().getTextureManager()
+                    .register("cobbledeep_ear_white", texture);
+        }
+        return earWhiteTexture;
     }
 
     private static ModelPart createEars(boolean halfElf)
@@ -151,11 +179,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
         if (halfElf)
         {
-            /*
-             * Vanilla head bounds are x=-4..4 and y=-8..0.  Keep every step's
-             * vertical centre at y=-4 so the ear extends straight outward
-             * instead of climbing diagonally across the head.
-             */
             builder
                     .texOffs(0, 0).addBox(-6.25F, -5.20F, -0.75F, 2.25F, 2.40F, 1.50F)
                     .texOffs(0, 0).addBox(-7.75F, -4.85F, -0.55F, 1.50F, 1.70F, 1.10F)
