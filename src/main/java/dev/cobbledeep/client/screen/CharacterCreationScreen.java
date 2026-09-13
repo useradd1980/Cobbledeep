@@ -204,41 +204,37 @@ public class CharacterCreationScreen extends Screen
         int buttonWidth = 120;
         int buttonHeight = 20;
         int horizontalSpacing = 10;
-        int verticalSpacing = 8;
-        int leftX = centerX - buttonWidth - horizontalSpacing / 2;
-        int rightX = centerX + horizontalSpacing / 2;
-        int startY = centerY - 70;
-        int visibleIndex = 0;
+        int verticalSpacing = 10;
+        int totalWidth = buttonWidth * 3 + horizontalSpacing * 2;
+        int startX = centerX - totalWidth / 2;
+        int startY = centerY - 60;
 
-        for (CharacterAlignment alignment : CharacterAlignment.values())
+        CharacterAlignment[] alignments = CharacterAlignment.values();
+
+        for (int i = 0; i < alignments.length; i++)
         {
-            if (!characterClass.canChooseAlignment(alignment))
-            {
-                continue;
-            }
-
-            int column = visibleIndex % 2;
-            int row = visibleIndex / 2;
-            int x = column == 0 ? leftX : rightX;
+            CharacterAlignment alignment = alignments[i];
+            int column = i % 3;
+            int row = i / 3;
+            int x = startX + column * (buttonWidth + horizontalSpacing);
             int y = startY + row * (buttonHeight + verticalSpacing);
 
-            this.addRenderableWidget(
-                    Button.builder(
-                            Component.literal(alignment.getDisplayName()),
-                            button ->
-                            {
-                                if (pendingCharacter.getAlignment() != alignment)
-                                {
-                                    pendingCharacter.setAlignment(alignment);
-                                    pendingCharacter.resetAfterAlignmentChange();
-                                }
-                                updateNextButton();
-                            })
+            Button alignmentButton = Button.builder(
+                    Component.literal(alignment.getDisplayName()),
+                    button ->
+                    {
+                        if (pendingCharacter.getAlignment() != alignment)
+                        {
+                            pendingCharacter.setAlignment(alignment);
+                            pendingCharacter.resetAfterAlignmentChange();
+                        }
+                        updateNextButton();
+                    })
                     .bounds(x, y, buttonWidth, buttonHeight)
-                    .build()
-            );
+                    .build();
 
-            visibleIndex++;
+            alignmentButton.active = characterClass.canChooseAlignment(alignment);
+            this.addRenderableWidget(alignmentButton);
         }
     }
 
@@ -849,7 +845,7 @@ public class CharacterCreationScreen extends Screen
         }
 
         int centerX = this.width / 2;
-        int descriptionY = this.height / 2 + 85;
+        int descriptionY = this.height / 2 + 55;
 
         graphics.drawCenteredString(this.font, alignment.getDisplayName(), centerX, descriptionY, 0xAAFFAA);
         graphics.drawWordWrap(
