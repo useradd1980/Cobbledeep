@@ -77,10 +77,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     protected void onDrag(double mouseX, double mouseY, double dragX, double dragY)
     {
         super.onDrag(mouseX, mouseY, dragX, dragY);
-
-        // PlayerSkinWidget turns the model opposite the horizontal mouse drag.
-        // Mirror that sign here so attached geometry follows the player instead
-        // of orbiting in the opposite direction.
         previewYaw -= (float) dragX * EAR_ROTATION_SENSITIVITY;
         previewPitch = Mth.clamp(
                 previewPitch + (float) dragY * EAR_ROTATION_SENSITIVITY,
@@ -95,12 +91,16 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             return;
         }
 
-        // PlayerSkinWidget's preview fills roughly 4.5 model units vertically.
-        // Keep the ear model at the same apparent scale and anchor it around the
-        // player's head rather than scaling the ears inward toward the centre.
-        float modelScale = Math.max(20.0F, getHeight() / 4.75F);
+        /*
+         * The vanilla preview's model origin is below the head.  The custom ear
+         * mesh is authored around the head centre, so place that origin at the
+         * visible head and then apply the same yaw/pitch as the player preview.
+         * Keeping X/Y/Z scale identical prevents the ears from becoming skewed
+         * diagonally as the model rotates.
+         */
+        float modelScale = Math.max(22.0F, getHeight() / 4.35F);
         float headCenterX = getX() + getWidth() / 2.0F;
-        float headCenterY = getY() + getHeight() * 0.19F;
+        float headCenterY = getY() + getHeight() * 0.185F;
 
         PoseStack pose = graphics.pose();
         pose.pushPose();
@@ -128,26 +128,37 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
         if (halfElf)
         {
-            // The vanilla head spans x=-4..4. Half-Elf ears begin just outside
-            // that boundary and extend two model units from each side.
+            /*
+             * Vanilla head width is eight model units (-4..4).  Start the ear
+             * roots slightly outside that boundary so the visible portions sit
+             * beside the head rather than over the face.  The stepped cuboids
+             * taper upward only mildly; most of the point travels horizontally.
+             */
             builder
-                    .texOffs(0, 0).addBox(-5.25F, -0.85F, -0.75F, 1.25F, 2.25F, 1.5F)
-                    .texOffs(0, 0).addBox(-6.25F, -0.45F, -0.50F, 1.00F, 1.45F, 1.0F)
-                    .texOffs(0, 0).addBox(4.00F, -0.85F, -0.75F, 1.25F, 2.25F, 1.5F)
-                    .texOffs(0, 0).addBox(5.25F, -0.45F, -0.50F, 1.00F, 1.45F, 1.0F);
+                    .texOffs(0, 0).addBox(-6.00F, -0.30F, -0.70F, 2.00F, 2.10F, 1.4F)
+                    .texOffs(0, 0).addBox(-7.35F, -0.05F, -0.50F, 1.35F, 1.55F, 1.0F)
+                    .texOffs(0, 0).addBox(-8.10F, 0.25F, -0.35F, 0.75F, 0.90F, 0.7F)
+                    .texOffs(0, 0).addBox(4.00F, -0.30F, -0.70F, 2.00F, 2.10F, 1.4F)
+                    .texOffs(0, 0).addBox(6.00F, -0.05F, -0.50F, 1.35F, 1.55F, 1.0F)
+                    .texOffs(0, 0).addBox(7.35F, 0.25F, -0.35F, 0.75F, 0.90F, 0.7F);
         }
         else
         {
-            // Full Elf ears are deliberately prominent. Their inner section
-            // touches x=+/-4 so there is no gap, then the stepped profile
-            // extends outward to x=+/-8 to form a clear blocky point.
+            /*
+             * Full Elf ears are intentionally prominent.  They begin flush at
+             * x=+/-4 and extend roughly five model units beyond the head.  The
+             * vertical offsets are small so the overall silhouette reads as a
+             * mostly horizontal pointed ear instead of a diagonal horn.
+             */
             builder
-                    .texOffs(0, 0).addBox(-5.50F, -1.20F, -0.90F, 1.50F, 3.00F, 1.8F)
-                    .texOffs(0, 0).addBox(-7.00F, -0.85F, -0.70F, 1.50F, 2.30F, 1.4F)
-                    .texOffs(0, 0).addBox(-8.00F, -0.40F, -0.45F, 1.00F, 1.40F, 0.9F)
-                    .texOffs(0, 0).addBox(4.00F, -1.20F, -0.90F, 1.50F, 3.00F, 1.8F)
-                    .texOffs(0, 0).addBox(5.50F, -0.85F, -0.70F, 1.50F, 2.30F, 1.4F)
-                    .texOffs(0, 0).addBox(7.00F, -0.40F, -0.45F, 1.00F, 1.40F, 0.9F);
+                    .texOffs(0, 0).addBox(-6.25F, -0.45F, -0.80F, 2.25F, 2.60F, 1.6F)
+                    .texOffs(0, 0).addBox(-8.25F, -0.15F, -0.60F, 2.00F, 2.00F, 1.2F)
+                    .texOffs(0, 0).addBox(-9.60F, 0.20F, -0.40F, 1.35F, 1.25F, 0.8F)
+                    .texOffs(0, 0).addBox(-10.25F, 0.45F, -0.25F, 0.65F, 0.70F, 0.5F)
+                    .texOffs(0, 0).addBox(4.00F, -0.45F, -0.80F, 2.25F, 2.60F, 1.6F)
+                    .texOffs(0, 0).addBox(6.25F, -0.15F, -0.60F, 2.00F, 2.00F, 1.2F)
+                    .texOffs(0, 0).addBox(8.25F, 0.20F, -0.40F, 1.35F, 1.25F, 0.8F)
+                    .texOffs(0, 0).addBox(9.60F, 0.45F, -0.25F, 0.65F, 0.70F, 0.5F);
         }
 
         mesh.getRoot().addOrReplaceChild("ears", builder, PartPose.ZERO);
