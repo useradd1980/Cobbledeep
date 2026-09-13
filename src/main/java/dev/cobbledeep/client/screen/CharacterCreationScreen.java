@@ -2,6 +2,7 @@ package dev.cobbledeep.client.screen;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import dev.cobbledeep.character.AbilityScores;
 import dev.cobbledeep.character.CharacterAbilityRules;
@@ -20,13 +21,17 @@ import dev.cobbledeep.character.WeaponProficiency;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.PlayerSkinWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
+import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.network.chat.Component;
 
 public class CharacterCreationScreen extends Screen
 {
+    private static final UUID APPEARANCE_PREVIEW_UUID = UUID.fromString("8f8d3f34-1486-4f24-8f8e-fb98f18d759f");
+
     private final PendingCharacter pendingCharacter;
 
     private CharacterCreationPage currentPage;
@@ -35,6 +40,7 @@ public class CharacterCreationScreen extends Screen
     private int spellScrollOffset;
     private MageSpell focusedMageSpell;
     private DivineSpell focusedDivineSpell;
+    private PlayerSkinWidget appearanceSkinWidget;
 
     public CharacterCreationScreen()
     {
@@ -79,6 +85,7 @@ public class CharacterCreationScreen extends Screen
     private void buildCurrentPage()
     {
         this.clearWidgets();
+        appearanceSkinWidget = null;
 
         switch (currentPage)
         {
@@ -583,37 +590,75 @@ public class CharacterCreationScreen extends Screen
         }
     }
 
+    private boolean useStackedAppearanceLayout()
+    {
+        return this.width < 480;
+    }
+
+    private int getAppearanceControlCenterX()
+    {
+        if (useStackedAppearanceLayout()) return this.width / 2;
+        return Math.max(115, this.width / 2 - (isCompactLayout() ? 120 : 155));
+    }
+
     private void buildAppearancePage()
     {
         CharacterAppearance appearance = pendingCharacter.getAppearance();
-        int centerX = this.width / 2;
-        int startY = getContentTop() + (isCompactLayout() ? 4 : 12);
+        boolean stacked = useStackedAppearanceLayout();
+        int controlCenterX = getAppearanceControlCenterX();
         int rowHeight = isCompactLayout() ? 24 : 28;
+        int startY = stacked
+                ? getContentTop() + (isCompactLayout() ? 116 : 150)
+                : getContentTop() + (isCompactLayout() ? 8 : 22);
 
-        addAppearanceButtons(centerX, startY, appearance::previousSkinTone, appearance::nextSkinTone);
-        addAppearanceButtons(centerX, startY + rowHeight, appearance::previousHairStyle, appearance::nextHairStyle);
-        addAppearanceButtons(centerX, startY + rowHeight * 2, appearance::previousHairColor, appearance::nextHairColor);
-        addAppearanceButtons(centerX, startY + rowHeight * 3, appearance::previousEyeColor, appearance::nextEyeColor);
-        addAppearanceButtons(centerX, startY + rowHeight * 4, appearance::previousFacialHair, appearance::nextFacialHair);
+        addAppearanceButtons(controlCenterX, startY, appearance::previousSkinTone, appearance::nextSkinTone);
+        addAppearanceButtons(controlCenterX, startY + rowHeight, appearance::previousHairStyle, appearance::nextHairStyle);
+        addAppearanceButtons(controlCenterX, startY + rowHeight * 2, appearance::previousHairColor, appearance::nextHairColor);
+        addAppearanceButtons(controlCenterX, startY + rowHeight * 3, appearance::previousEyeColor, appearance::nextEyeColor);
+        addAppearanceButtons(controlCenterX, startY + rowHeight * 4, appearance::previousFacialHair, appearance::nextFacialHair);
+
+        int previewWidth;
+        int previewHeight;
+        int previewX;
+        int previewY;
+
+        if (stacked)
+        {
+            previewWidth = Math.min(150, this.width - 40);
+            previewHeight = isCompactLayout() ? 100 : 130;
+            previewX = this.width / 2 - previewWidth / 2;
+            previewY = getContentTop();
+        }
+        else
+        {
+            previewWidth = isCompactLayout() ? 150 : 210;
+            previewHeight = Math.max(125, Math.min(isCompactLayout() ? 165 : 235, getNavigationY() - getContentTop() - 34));
+            int previewCenterX = Math.min(this.width - previewWidth / 2 - 12,
+                    this.width / 2 + (isCompactLayout() ? 115 : 145));
+            previewX = previewCenterX - previewWidth / 2;
+            previewY = getContentTop();
+        }
+
+        appearanceSkinWidget = new PlayerSkinWidget(
+                previewWidth,
+                previewHeight,
+                Minecraft.getInstance().getEntityModels(),
+                () -> DefaultPlayerSkin.get(APPEARANCE_PREVIEW_UUID));
+        appearanceSkinWidget.setPosition(previewX, previewY);
+        this.addRenderableWidget(appearanceSkinWidget);
     }
 
     private void addAppearanceButtons(int centerX, int y, Runnable previous, Runnable next)
     {
         int buttonHeight = getButtonHeight();
         int buttonWidth = isCompactLayout() ? 24 : 28;
-        int valueHalfWidth = isCompactLayout() ? 70 : 85;
+        int valueHalfWidth = isCompactLayout() ? 56 : 68;
 
-        this.addRenderableWidget(Button.builder(Component.literal("<"), button ->
-        {
-            previous.run();
-            buildCurrentPage();
-        }).bounds(centerX - valueHalfWidth - buttonWidth - 5, y, buttonWidth, buttonHeight).build());
+        this.addRenderableWidget(Button.builder(Component.literal("<"), button -> previous.run())
+                .bounds(centerX - valueHalfWidth - buttonWidth - 5, y, buttonWidth, buttonHeight).build());
 
-        this.addRenderableWidget(Button.builder(Component.literal(">"), button ->
-        {
-            next.run();
-            buildCurrentPage();
-        }).bounds(centerX + valueHalfWidth + 5, y, buttonWidth, buttonHeight).build());
+        this.addRenderableWidget(Button.builder(Component.literal(">"), button -> next.run())
+                .bounds(centerX + valueHalfWidth + 5, y, buttonWidth, buttonHeight).build());
     }
 
     @Override
@@ -1160,28 +1205,30 @@ public class CharacterCreationScreen extends Screen
     private void renderAppearance(GuiGraphics graphics)
     {
         CharacterAppearance appearance = pendingCharacter.getAppearance();
-        int centerX = this.width / 2;
-        int startY = getContentTop() + (isCompactLayout() ? 4 : 12);
+        boolean stacked = useStackedAppearanceLayout();
+        int controlCenterX = getAppearanceControlCenterX();
         int rowHeight = isCompactLayout() ? 24 : 28;
-        int labelX = Math.max(12, centerX - (isCompactLayout() ? 155 : 190));
+        int startY = stacked
+                ? getContentTop() + (isCompactLayout() ? 116 : 150)
+                : getContentTop() + (isCompactLayout() ? 8 : 22);
+        int labelX = Math.max(10, controlCenterX - (isCompactLayout() ? 102 : 122));
 
-        drawAppearanceRow(graphics, "Skin Tone", appearance.getSkinTone().getDisplayName(), labelX, centerX, startY);
-        drawAppearanceRow(graphics, "Hair Style", appearance.getHairStyle().getDisplayName(), labelX, centerX, startY + rowHeight);
-        drawAppearanceRow(graphics, "Hair Color", appearance.getHairColor().getDisplayName(), labelX, centerX, startY + rowHeight * 2);
-        drawAppearanceRow(graphics, "Eye Color", appearance.getEyeColor().getDisplayName(), labelX, centerX, startY + rowHeight * 3);
-        drawAppearanceRow(graphics, "Facial Hair", appearance.getFacialHair().getDisplayName(), labelX, centerX, startY + rowHeight * 4);
+        drawAppearanceRow(graphics, "Skin Tone", appearance.getSkinTone().getDisplayName(), labelX, controlCenterX, startY);
+        drawAppearanceRow(graphics, "Hair Style", appearance.getHairStyle().getDisplayName(), labelX, controlCenterX, startY + rowHeight);
+        drawAppearanceRow(graphics, "Hair Color", appearance.getHairColor().getDisplayName(), labelX, controlCenterX, startY + rowHeight * 2);
+        drawAppearanceRow(graphics, "Eye Color", appearance.getEyeColor().getDisplayName(), labelX, controlCenterX, startY + rowHeight * 3);
+        drawAppearanceRow(graphics, "Facial Hair", appearance.getFacialHair().getDisplayName(), labelX, controlCenterX, startY + rowHeight * 4);
 
-        int swatchX = centerX + (isCompactLayout() ? 118 : 150);
+        int swatchX = Math.min(this.width - 22, controlCenterX + (isCompactLayout() ? 84 : 101));
         drawColorSwatch(graphics, swatchX, startY + 3, appearance.getSkinTone().getRgb());
         drawColorSwatch(graphics, swatchX, startY + rowHeight * 2 + 3, appearance.getHairColor().getRgb());
         drawColorSwatch(graphics, swatchX, startY + rowHeight * 3 + 3, appearance.getEyeColor().getRgb());
 
-        if (!isCompactLayout())
+        if (appearanceSkinWidget != null)
         {
-            renderAppearancePreview(graphics, appearance, centerX, startY + rowHeight * 5 + 10);
-            graphics.drawCenteredString(this.font,
-                    "These choices are stored independently from your Minecraft account skin.",
-                    centerX, Math.min(getNavigationY() - 18, startY + rowHeight * 5 + 78), 0x888888);
+            int hintY = Math.min(getNavigationY() - 18, appearanceSkinWidget.getBottom() + 5);
+            graphics.drawCenteredString(this.font, "Click and drag the model to rotate", appearanceSkinWidget.getX() + appearanceSkinWidget.getWidth() / 2,
+                    hintY, 0x888888);
         }
     }
 
@@ -1196,43 +1243,6 @@ public class CharacterCreationScreen extends Screen
         int argb = 0xFF000000 | rgb;
         graphics.fill(x, y, x + 18, y + 12, 0xFF222222);
         graphics.fill(x + 2, y + 2, x + 16, y + 10, argb);
-    }
-
-    private void renderAppearancePreview(GuiGraphics graphics, CharacterAppearance appearance, int centerX, int y)
-    {
-        int faceLeft = centerX - 22;
-        int faceTop = y;
-        int skin = 0xFF000000 | appearance.getSkinTone().getRgb();
-        int hair = 0xFF000000 | appearance.getHairColor().getRgb();
-        int eyes = 0xFF000000 | appearance.getEyeColor().getRgb();
-
-        graphics.fill(faceLeft - 2, faceTop - 2, faceLeft + 46, faceTop + 54, 0xFF222222);
-        graphics.fill(faceLeft, faceTop, faceLeft + 44, faceTop + 52, skin);
-
-        if (appearance.getHairStyle() != CharacterAppearance.HairStyle.BALD)
-        {
-            int hairDepth = switch (appearance.getHairStyle())
-            {
-                case CROPPED -> 6;
-                case SHORT -> 9;
-                case SHOULDER_LENGTH -> 13;
-                case LONG -> 16;
-                case BRAIDED -> 12;
-                case BALD -> 0;
-            };
-            graphics.fill(faceLeft, faceTop, faceLeft + 44, faceTop + hairDepth, hair);
-        }
-
-        graphics.fill(faceLeft + 10, faceTop + 22, faceLeft + 15, faceTop + 25, 0xFFFFFFFF);
-        graphics.fill(faceLeft + 29, faceTop + 22, faceLeft + 34, faceTop + 25, 0xFFFFFFFF);
-        graphics.fill(faceLeft + 12, faceTop + 23, faceLeft + 14, faceTop + 25, eyes);
-        graphics.fill(faceLeft + 31, faceTop + 23, faceLeft + 33, faceTop + 25, eyes);
-
-        if (appearance.getFacialHair() != CharacterAppearance.FacialHair.NONE)
-        {
-            int beardTop = appearance.getFacialHair() == CharacterAppearance.FacialHair.STUBBLE ? faceTop + 39 : faceTop + 35;
-            graphics.fill(faceLeft + 8, beardTop, faceLeft + 36, faceTop + 49, hair);
-        }
     }
 
     private String formatProficiencyRank(int rank) { return rank <= 0 ? "-" : "*".repeat(rank); }
