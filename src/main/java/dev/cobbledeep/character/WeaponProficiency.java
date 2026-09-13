@@ -1,20 +1,31 @@
 package dev.cobbledeep.character;
 
 /**
- * Broad weapon proficiency groups used by the original Baldur's Gate
- * proficiency system. Fighting styles are represented separately by
- * {@link FightingStyle}.
+ * Weapon proficiency categories based on Baldur's Gate II.
+ * Fighting styles are represented separately by {@link FightingStyle}.
  */
 public enum WeaponProficiency
 {
-    LARGE_SWORD("Large Sword"),
-    SMALL_SWORD("Small Sword"),
-    BOW("Bow"),
-    SPEAR("Spear"),
+    BASTARD_SWORD("Bastard Sword"),
+    LONG_SWORD("Long Sword"),
+    SHORT_SWORD("Short Sword"),
     AXE("Axe"),
-    BLUNT_WEAPONS("Blunt Weapons"),
-    SPIKED_WEAPONS("Spiked Weapons"),
-    MISSILE_WEAPONS("Missile Weapons");
+    TWO_HANDED_SWORD("Two-Handed Sword"),
+    KATANA("Katana"),
+    SCIMITAR_WAKIZASHI_NINJATO("Scimitar / Wakizashi / Ninjato"),
+    DAGGER("Dagger"),
+    WAR_HAMMER("War Hammer"),
+    SPEAR("Spear"),
+    HALBERD("Halberd"),
+    FLAIL_MORNING_STAR("Flail / Morning Star"),
+    MACE("Mace"),
+    QUARTERSTAFF("Quarterstaff"),
+    CROSSBOW("Crossbow"),
+    LONGBOW("Longbow"),
+    SHORTBOW("Shortbow"),
+    DART("Dart"),
+    SLING("Sling"),
+    CLUB("Club");
 
     private final String displayName;
 
