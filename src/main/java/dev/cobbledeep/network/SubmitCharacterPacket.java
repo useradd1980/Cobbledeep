@@ -1,5 +1,6 @@
 package dev.cobbledeep.network;
 
+import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.character.CharacterAlignment;
 import dev.cobbledeep.character.CharacterAppearance;
 import dev.cobbledeep.character.CharacterCapabilities;
@@ -110,7 +111,11 @@ public class SubmitCharacterPacket
     public void handle(CustomPayloadEvent.Context context)
     {
         ServerPlayer sender = context.getSender();
-        if (sender == null) return;
+        if (sender == null)
+        {
+            Cobbledeep.LOGGER.warn("Received character submission without a server-side player");
+            return;
+        }
 
         CharacterAppearance appearance = new CharacterAppearance();
         appearance.setSkinTone(skinTone);
@@ -121,10 +126,16 @@ public class SubmitCharacterPacket
         appearance.setShirtColor(shirtColor);
         appearance.setTrouserColor(trouserColor);
 
-        sender.getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresent(data ->
+        sender.getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresentOrElse(data ->
         {
             data.setIdentity(name, gender, race, characterClass, alignment, appearance);
+            Cobbledeep.LOGGER.info(
+                    "Stored submitted Cobbledeep character: created={}, name={}, race={}, class={}",
+                    data.isCharacterCreated(),
+                    data.getName(),
+                    data.getRace(),
+                    data.getCharacterClass());
             RPGNetwork.sendCharacterData(sender, data);
-        });
+        }, () -> Cobbledeep.LOGGER.error("Player is missing Cobbledeep character capability"));
     }
 }
