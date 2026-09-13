@@ -50,6 +50,11 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static final float ELF_EAR_ANGLE = 12.0F;
     private static final float HALF_ELF_EAR_ANGLE = 8.0F;
 
+    // Approximate exposed-skin colour used by the current vanilla preview skin.
+    // Once the whole preview skin is generated from CharacterAppearance, the
+    // six-argument constructor below will supply the selected tone instead.
+    private static final int DEFAULT_PREVIEW_SKIN_COLOR = 0xFFB47A60;
+
     private static ResourceLocation earWhiteTexture;
 
     private final Supplier<CharacterRace> raceSupplier;
@@ -67,7 +72,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             Supplier<PlayerSkin> skinSupplier,
             Supplier<CharacterRace> raceSupplier)
     {
-        this(width, height, modelSet, skinSupplier, raceSupplier, CharacterAppearance::new);
+        this(width, height, modelSet, skinSupplier, raceSupplier, () -> null);
     }
 
     public RacePlayerSkinWidget(
@@ -145,7 +150,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
         ModelPart ears = race == CharacterRace.ELF ? elfEars : halfElfEars;
         CharacterAppearance appearance = appearanceSupplier.get();
-        int earColor = 0xFFFFFFFF;
+        int earColor = DEFAULT_PREVIEW_SKIN_COLOR;
         if (appearance != null && appearance.getSkinTone() != null)
         {
             earColor = 0xFF000000 | appearance.getSkinTone().getRgb();
@@ -189,7 +194,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
         if (halfElf)
         {
-            // Short, subtle ears. Local origin is the side-centre of the head.
             left
                     .texOffs(0, 0).addBox(-1.20F, -0.75F, -0.55F, 1.20F, 1.50F, 1.10F)
                     .texOffs(0, 0).addBox(-2.10F, -0.50F, -0.40F, 0.90F, 1.00F, 0.80F)
@@ -201,8 +205,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         }
         else
         {
-            // Full Elf ears are longer, but still much smaller than the earlier
-            // prototype. They taper over about 3.5 model units from the head.
             left
                     .texOffs(0, 0).addBox(-1.45F, -0.90F, -0.65F, 1.45F, 1.80F, 1.30F)
                     .texOffs(0, 0).addBox(-2.65F, -0.65F, -0.50F, 1.20F, 1.30F, 1.00F)
@@ -215,7 +217,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
                     .texOffs(0, 0).addBox(3.45F, -0.20F, -0.20F, 0.40F, 0.40F, 0.40F);
         }
 
-        // Head bounds are x=-4..4, y=-8..0. Attach both ears at y=-4.
         mesh.getRoot().addOrReplaceChild(
                 "left_ear",
                 left,
