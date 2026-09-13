@@ -6,6 +6,7 @@ import java.util.List;
 import dev.cobbledeep.character.AbilityScores;
 import dev.cobbledeep.character.CharacterAbilityRules;
 import dev.cobbledeep.character.CharacterAlignment;
+import dev.cobbledeep.character.CharacterAppearance;
 import dev.cobbledeep.character.CharacterClass;
 import dev.cobbledeep.character.CharacterProficiencies;
 import dev.cobbledeep.character.CharacterRace;
@@ -89,7 +90,8 @@ public class CharacterCreationScreen extends Screen
             case SKILLS -> buildSkillsPage();
             case PROFICIENCIES -> buildProficienciesPage();
             case SPELLS -> buildSpellsPage();
-            case APPEARANCE, NAME, REVIEW -> buildPlaceholderPage();
+            case APPEARANCE -> buildAppearancePage();
+            case NAME, REVIEW -> buildPlaceholderPage();
         }
 
         buildNavigationButtons();
@@ -148,6 +150,7 @@ public class CharacterCreationScreen extends Screen
                     pendingCharacter.getSkills().reset();
                     pendingCharacter.getProficiencies().reset();
                     pendingCharacter.getSpells().reset();
+                    pendingCharacter.getAppearance().reset();
                     proficiencyScrollOffset = 0;
                     spellScrollOffset = 0;
                 }
@@ -580,6 +583,39 @@ public class CharacterCreationScreen extends Screen
         }
     }
 
+    private void buildAppearancePage()
+    {
+        CharacterAppearance appearance = pendingCharacter.getAppearance();
+        int centerX = this.width / 2;
+        int startY = getContentTop() + (isCompactLayout() ? 4 : 12);
+        int rowHeight = isCompactLayout() ? 24 : 28;
+
+        addAppearanceButtons(centerX, startY, appearance::previousSkinTone, appearance::nextSkinTone);
+        addAppearanceButtons(centerX, startY + rowHeight, appearance::previousHairStyle, appearance::nextHairStyle);
+        addAppearanceButtons(centerX, startY + rowHeight * 2, appearance::previousHairColor, appearance::nextHairColor);
+        addAppearanceButtons(centerX, startY + rowHeight * 3, appearance::previousEyeColor, appearance::nextEyeColor);
+        addAppearanceButtons(centerX, startY + rowHeight * 4, appearance::previousFacialHair, appearance::nextFacialHair);
+    }
+
+    private void addAppearanceButtons(int centerX, int y, Runnable previous, Runnable next)
+    {
+        int buttonHeight = getButtonHeight();
+        int buttonWidth = isCompactLayout() ? 24 : 28;
+        int valueHalfWidth = isCompactLayout() ? 70 : 85;
+
+        this.addRenderableWidget(Button.builder(Component.literal("<"), button ->
+        {
+            previous.run();
+            buildCurrentPage();
+        }).bounds(centerX - valueHalfWidth - buttonWidth - 5, y, buttonWidth, buttonHeight).build());
+
+        this.addRenderableWidget(Button.builder(Component.literal(">"), button ->
+        {
+            next.run();
+            buildCurrentPage();
+        }).bounds(centerX + valueHalfWidth + 5, y, buttonWidth, buttonHeight).build());
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY)
     {
@@ -744,6 +780,7 @@ public class CharacterCreationScreen extends Screen
             case SKILLS -> renderSkills(graphics);
             case PROFICIENCIES -> renderProficiencies(graphics);
             case SPELLS -> renderSpells(graphics);
+            case APPEARANCE -> renderAppearance(graphics);
             default -> { }
         }
     }
@@ -1118,6 +1155,84 @@ public class CharacterCreationScreen extends Screen
         int maxScroll = getMaxSpellScroll();
         if (maxScroll > 0) thumbTop += movable * spellScrollOffset / maxScroll;
         graphics.fill(trackX, thumbTop, trackX + 4, thumbTop + thumbHeight, 0xFFAAAAAA);
+    }
+
+    private void renderAppearance(GuiGraphics graphics)
+    {
+        CharacterAppearance appearance = pendingCharacter.getAppearance();
+        int centerX = this.width / 2;
+        int startY = getContentTop() + (isCompactLayout() ? 4 : 12);
+        int rowHeight = isCompactLayout() ? 24 : 28;
+        int labelX = Math.max(12, centerX - (isCompactLayout() ? 155 : 190));
+
+        drawAppearanceRow(graphics, "Skin Tone", appearance.getSkinTone().getDisplayName(), labelX, centerX, startY);
+        drawAppearanceRow(graphics, "Hair Style", appearance.getHairStyle().getDisplayName(), labelX, centerX, startY + rowHeight);
+        drawAppearanceRow(graphics, "Hair Color", appearance.getHairColor().getDisplayName(), labelX, centerX, startY + rowHeight * 2);
+        drawAppearanceRow(graphics, "Eye Color", appearance.getEyeColor().getDisplayName(), labelX, centerX, startY + rowHeight * 3);
+        drawAppearanceRow(graphics, "Facial Hair", appearance.getFacialHair().getDisplayName(), labelX, centerX, startY + rowHeight * 4);
+
+        int swatchX = centerX + (isCompactLayout() ? 118 : 150);
+        drawColorSwatch(graphics, swatchX, startY + 3, appearance.getSkinTone().getRgb());
+        drawColorSwatch(graphics, swatchX, startY + rowHeight * 2 + 3, appearance.getHairColor().getRgb());
+        drawColorSwatch(graphics, swatchX, startY + rowHeight * 3 + 3, appearance.getEyeColor().getRgb());
+
+        if (!isCompactLayout())
+        {
+            renderAppearancePreview(graphics, appearance, centerX, startY + rowHeight * 5 + 10);
+            graphics.drawCenteredString(this.font,
+                    "These choices are stored independently from your Minecraft account skin.",
+                    centerX, Math.min(getNavigationY() - 18, startY + rowHeight * 5 + 78), 0x888888);
+        }
+    }
+
+    private void drawAppearanceRow(GuiGraphics graphics, String label, String value, int labelX, int centerX, int y)
+    {
+        graphics.drawString(this.font, label, labelX, y + 5, 0xAAAAAA);
+        graphics.drawCenteredString(this.font, value, centerX, y + 5, 0xFFFFFF);
+    }
+
+    private void drawColorSwatch(GuiGraphics graphics, int x, int y, int rgb)
+    {
+        int argb = 0xFF000000 | rgb;
+        graphics.fill(x, y, x + 18, y + 12, 0xFF222222);
+        graphics.fill(x + 2, y + 2, x + 16, y + 10, argb);
+    }
+
+    private void renderAppearancePreview(GuiGraphics graphics, CharacterAppearance appearance, int centerX, int y)
+    {
+        int faceLeft = centerX - 22;
+        int faceTop = y;
+        int skin = 0xFF000000 | appearance.getSkinTone().getRgb();
+        int hair = 0xFF000000 | appearance.getHairColor().getRgb();
+        int eyes = 0xFF000000 | appearance.getEyeColor().getRgb();
+
+        graphics.fill(faceLeft - 2, faceTop - 2, faceLeft + 46, faceTop + 54, 0xFF222222);
+        graphics.fill(faceLeft, faceTop, faceLeft + 44, faceTop + 52, skin);
+
+        if (appearance.getHairStyle() != CharacterAppearance.HairStyle.BALD)
+        {
+            int hairDepth = switch (appearance.getHairStyle())
+            {
+                case CROPPED -> 6;
+                case SHORT -> 9;
+                case SHOULDER_LENGTH -> 13;
+                case LONG -> 16;
+                case BRAIDED -> 12;
+                case BALD -> 0;
+            };
+            graphics.fill(faceLeft, faceTop, faceLeft + 44, faceTop + hairDepth, hair);
+        }
+
+        graphics.fill(faceLeft + 10, faceTop + 22, faceLeft + 15, faceTop + 25, 0xFFFFFFFF);
+        graphics.fill(faceLeft + 29, faceTop + 22, faceLeft + 34, faceTop + 25, 0xFFFFFFFF);
+        graphics.fill(faceLeft + 12, faceTop + 23, faceLeft + 14, faceTop + 25, eyes);
+        graphics.fill(faceLeft + 31, faceTop + 23, faceLeft + 33, faceTop + 25, eyes);
+
+        if (appearance.getFacialHair() != CharacterAppearance.FacialHair.NONE)
+        {
+            int beardTop = appearance.getFacialHair() == CharacterAppearance.FacialHair.STUBBLE ? faceTop + 39 : faceTop + 35;
+            graphics.fill(faceLeft + 8, beardTop, faceLeft + 36, faceTop + 49, hair);
+        }
     }
 
     private String formatProficiencyRank(int rank) { return rank <= 0 ? "-" : "*".repeat(rank); }
