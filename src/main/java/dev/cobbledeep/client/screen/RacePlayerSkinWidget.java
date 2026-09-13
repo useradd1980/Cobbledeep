@@ -73,6 +73,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private final ModelPart dwarfBeard;
     private final ModelPart dwarfBeardHighlights;
     private final ModelPart dwarfBeardShadows;
+    private final ModelPart longHairBridge;
+    private final ModelPart braidedHairBridge;
 
     private float previewRotationX = savedRotationX;
     private float previewRotationY = savedRotationY;
@@ -120,10 +122,9 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         this.dwarfBeard = createDwarfBeard();
         this.dwarfBeardHighlights = createDwarfBeardHighlights();
         this.dwarfBeardShadows = createDwarfBeardShadows();
+        this.longHairBridge = createHairBridge(false);
+        this.braidedHairBridge = createHairBridge(true);
 
-        // Appearance controls rebuild the page and therefore create a fresh
-        // widget. Reapply the previous drag rotation to both the vanilla model
-        // and Cobbledeep's overlay geometry so the preview does not snap home.
         float dragX = (savedRotationY - DEFAULT_ROTATION_Y) / ROTATION_SENSITIVITY;
         float dragY = (DEFAULT_ROTATION_X - savedRotationX) / ROTATION_SENSITIVITY;
         if (dragX != 0.0F || dragY != 0.0F)
@@ -194,7 +195,13 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
     private void renderRaceGeometry(GuiGraphics graphics, CharacterRace race)
     {
-        if (race != CharacterRace.ELF && race != CharacterRace.HALF_ELF && race != CharacterRace.DWARF)
+        CharacterAppearance appearance = appearanceSupplier.get();
+        boolean hasLongHair = hasLongHair(appearance);
+        boolean hasRaceGeometry = race == CharacterRace.ELF
+                || race == CharacterRace.HALF_ELF
+                || race == CharacterRace.DWARF;
+
+        if (!hasRaceGeometry && !hasLongHair)
         {
             return;
         }
@@ -224,13 +231,43 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
                 renderDwarfBeard(graphics, pose);
             }
         }
-        else
+        else if (race == CharacterRace.ELF || race == CharacterRace.HALF_ELF)
         {
             renderElvenEars(graphics, pose, race);
         }
 
+        if (hasLongHair)
+        {
+            renderHairBridge(graphics, pose, appearance);
+        }
+
         graphics.flush();
         pose.popPose();
+    }
+
+    private static boolean hasLongHair(CharacterAppearance appearance)
+    {
+        if (appearance == null || appearance.getHairStyle() == null) return false;
+        return appearance.getHairStyle() == CharacterAppearance.HairStyle.SHOULDER_LENGTH
+                || appearance.getHairStyle() == CharacterAppearance.HairStyle.LONG
+                || appearance.getHairStyle() == CharacterAppearance.HairStyle.BRAIDED;
+    }
+
+    private void renderHairBridge(GuiGraphics graphics, PoseStack pose, CharacterAppearance appearance)
+    {
+        int hairColor = 0xFF3B261B;
+        if (appearance != null && appearance.getHairColor() != null)
+        {
+            hairColor = 0xFF000000 | appearance.getHairColor().getRgb();
+        }
+
+        ModelPart bridge = appearance != null
+                && appearance.getHairStyle() == CharacterAppearance.HairStyle.BRAIDED
+                        ? braidedHairBridge
+                        : longHairBridge;
+
+        bridge.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, hairColor);
     }
 
     private void renderElvenEars(GuiGraphics graphics, PoseStack pose, CharacterRace race)
@@ -308,6 +345,19 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             whiteTexture = Minecraft.getInstance().getTextureManager().register("cobbledeep_preview_white", texture);
         }
         return whiteTexture;
+    }
+
+    private static ModelPart createHairBridge(boolean braided)
+    {
+        MeshDefinition mesh = new MeshDefinition();
+        float width = braided ? 2.75F : 6.25F;
+        float x = -width / 2.0F;
+
+        CubeListBuilder bridge = CubeListBuilder.create()
+                .texOffs(0, 0).addBox(x, -0.60F, 1.90F, width, 1.95F, 2.25F);
+        mesh.getRoot().addOrReplaceChild(braided ? "braided_hair_bridge" : "long_hair_bridge",
+                bridge, PartPose.ZERO);
+        return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
 
     private static ModelPart createDwarfMaleBuild()
