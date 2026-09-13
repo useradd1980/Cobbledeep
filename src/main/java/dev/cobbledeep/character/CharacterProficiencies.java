@@ -5,11 +5,13 @@ import java.util.Map;
 
 public class CharacterProficiencies
 {
-    private final Map<WeaponProficiency, Integer> ranks =
+    private final Map<WeaponProficiency, Integer> weaponRanks =
             new EnumMap<>(WeaponProficiency.class);
 
+    private final Map<FightingStyle, Integer> styleRanks =
+            new EnumMap<>(FightingStyle.class);
+
     private int availablePoints;
-    private int maximumRank;
     private boolean initialized;
 
     public CharacterProficiencies()
@@ -26,28 +28,46 @@ public class CharacterProficiencies
             return;
         }
 
+        /*
+         * BG2-era character-creation budgets.
+         * Warriors begin with 6 assignable points,
+         * priests/rogues with 3, and mages with 2.
+         */
         availablePoints = switch (characterClass)
         {
-            case FIGHTER -> 4;
-            case RANGER, PALADIN, CLERIC, DRUID, THIEF, BARD -> 2;
-            case MAGE -> 1;
+            case FIGHTER, RANGER, PALADIN -> 6;
+            case CLERIC, DRUID, THIEF, BARD -> 3;
+            case MAGE -> 2;
         };
 
-        maximumRank = characterClass == CharacterClass.FIGHTER ? 2 : 1;
+        /*
+         * Rangers begin specialized in Two-Weapon Style
+         * without spending from their normal allocation.
+         */
+        if (characterClass == CharacterClass.RANGER)
+        {
+            styleRanks.put(FightingStyle.TWO_WEAPON, 2);
+        }
+
         initialized = true;
     }
 
     public void reset()
     {
-        ranks.clear();
+        weaponRanks.clear();
+        styleRanks.clear();
 
         for (WeaponProficiency proficiency : WeaponProficiency.values())
         {
-            ranks.put(proficiency, 0);
+            weaponRanks.put(proficiency, 0);
+        }
+
+        for (FightingStyle style : FightingStyle.values())
+        {
+            styleRanks.put(style, 0);
         }
 
         availablePoints = 0;
-        maximumRank = 0;
         initialized = false;
     }
 
@@ -61,17 +81,59 @@ public class CharacterProficiencies
         return availablePoints;
     }
 
-    public int getRank(WeaponProficiency proficiency)
+    public int getWeaponRank(WeaponProficiency proficiency)
     {
-        return ranks.getOrDefault(proficiency, 0);
+        return weaponRanks.getOrDefault(proficiency, 0);
     }
 
-    public int getMaximumRank()
+    public int getStyleRank(FightingStyle style)
     {
-        return maximumRank;
+        return styleRanks.getOrDefault(style, 0);
     }
 
-    public boolean canUse(
+    public int getMaximumWeaponRank(CharacterClass characterClass)
+    {
+        if (characterClass == null)
+        {
+            return 0;
+        }
+
+        return switch (characterClass)
+        {
+            case FIGHTER -> 4;
+            case RANGER, PALADIN -> 2;
+            case CLERIC, DRUID, MAGE, THIEF, BARD -> 1;
+        };
+    }
+
+    public int getMaximumStyleRank(
+            CharacterClass characterClass,
+            FightingStyle style)
+    {
+        if (characterClass == null
+                || style == null
+                || !canUseStyle(characterClass, style))
+        {
+            return 0;
+        }
+
+        if (style == FightingStyle.TWO_WEAPON
+                && (characterClass == CharacterClass.FIGHTER
+                    || characterClass == CharacterClass.RANGER
+                    || characterClass == CharacterClass.PALADIN))
+        {
+            return 3;
+        }
+
+        return switch (characterClass)
+        {
+            case FIGHTER, RANGER, PALADIN -> 2;
+            case CLERIC, DRUID, THIEF, BARD -> 1;
+            case MAGE -> 0;
+        };
+    }
+
+    public boolean canUseWeapon(
             CharacterClass characterClass,
             WeaponProficiency proficiency)
     {
@@ -118,37 +180,97 @@ public class CharacterProficiencies
         };
     }
 
-    public void increase(
+    public boolean canUseStyle(
+            CharacterClass characterClass,
+            FightingStyle style)
+    {
+        if (characterClass == null || style == null)
+        {
+            return false;
+        }
+
+        return characterClass != CharacterClass.MAGE;
+    }
+
+    public void increaseWeapon(
             CharacterClass characterClass,
             WeaponProficiency proficiency)
     {
         if (availablePoints <= 0
-                || !canUse(characterClass, proficiency))
+                || !canUseWeapon(characterClass, proficiency))
         {
             return;
         }
 
-        int currentRank = getRank(proficiency);
+        int currentRank = getWeaponRank(proficiency);
+        int maximumRank = getMaximumWeaponRank(characterClass);
 
         if (currentRank >= maximumRank)
         {
             return;
         }
 
-        ranks.put(proficiency, currentRank + 1);
+        weaponRanks.put(proficiency, currentRank + 1);
         availablePoints--;
     }
 
-    public void decrease(WeaponProficiency proficiency)
+    public void decreaseWeapon(WeaponProficiency proficiency)
     {
-        int currentRank = getRank(proficiency);
+        int currentRank = getWeaponRank(proficiency);
 
         if (currentRank <= 0)
         {
             return;
         }
 
-        ranks.put(proficiency, currentRank - 1);
+        weaponRanks.put(proficiency, currentRank - 1);
+        availablePoints++;
+    }
+
+    public void increaseStyle(
+            CharacterClass characterClass,
+            FightingStyle style)
+    {
+        if (availablePoints <= 0
+                || !canUseStyle(characterClass, style))
+        {
+            return;
+        }
+
+        int currentRank = getStyleRank(style);
+        int maximumRank = getMaximumStyleRank(characterClass, style);
+
+        if (currentRank >= maximumRank)
+        {
+            return;
+        }
+
+        styleRanks.put(style, currentRank + 1);
+        availablePoints--;
+    }
+
+    public void decreaseStyle(
+            CharacterClass characterClass,
+            FightingStyle style)
+    {
+        int currentRank = getStyleRank(style);
+
+        /*
+         * The ranger's two free Two-Weapon ranks are innate
+         * and cannot be reclaimed into the normal point pool.
+         */
+        int minimumRank =
+                characterClass == CharacterClass.RANGER
+                && style == FightingStyle.TWO_WEAPON
+                        ? 2
+                        : 0;
+
+        if (currentRank <= minimumRank)
+        {
+            return;
+        }
+
+        styleRanks.put(style, currentRank - 1);
         availablePoints++;
     }
 }
