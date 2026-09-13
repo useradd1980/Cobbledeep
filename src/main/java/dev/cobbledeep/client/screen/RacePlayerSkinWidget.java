@@ -59,6 +59,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static final int DWARF_TUNIC_COLOR = 0xFF3E6F6A;
 
     private static ResourceLocation whiteTexture;
+    private static float savedRotationX = DEFAULT_ROTATION_X;
+    private static float savedRotationY = DEFAULT_ROTATION_Y;
 
     private final Supplier<CharacterRace> raceSupplier;
     private final Supplier<CharacterAppearance> appearanceSupplier;
@@ -72,8 +74,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private final ModelPart dwarfBeardHighlights;
     private final ModelPart dwarfBeardShadows;
 
-    private float previewRotationX = DEFAULT_ROTATION_X;
-    private float previewRotationY = DEFAULT_ROTATION_Y;
+    private float previewRotationX = savedRotationX;
+    private float previewRotationY = savedRotationY;
 
     public RacePlayerSkinWidget(
             int width,
@@ -118,6 +120,18 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         this.dwarfBeard = createDwarfBeard();
         this.dwarfBeardHighlights = createDwarfBeardHighlights();
         this.dwarfBeardShadows = createDwarfBeardShadows();
+
+        // Appearance controls rebuild the page and therefore create a fresh
+        // widget. Reapply the previous drag rotation to both the vanilla model
+        // and Cobbledeep's overlay geometry so the preview does not snap home.
+        float dragX = (savedRotationY - DEFAULT_ROTATION_Y) / ROTATION_SENSITIVITY;
+        float dragY = (DEFAULT_ROTATION_X - savedRotationX) / ROTATION_SENSITIVITY;
+        if (dragX != 0.0F || dragY != 0.0F)
+        {
+            super.onDrag(0.0, 0.0, dragX, dragY);
+        }
+        previewRotationX = savedRotationX;
+        previewRotationY = savedRotationY;
     }
 
     private static PlayerSkin buildAppearanceSkin(
@@ -174,6 +188,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
                 -ROTATION_X_LIMIT,
                 ROTATION_X_LIMIT);
         previewRotationY += (float) dragX * ROTATION_SENSITIVITY;
+        savedRotationX = previewRotationX;
+        savedRotationY = previewRotationY;
     }
 
     private void renderRaceGeometry(GuiGraphics graphics, CharacterRace race)
