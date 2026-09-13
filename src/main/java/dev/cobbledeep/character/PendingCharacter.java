@@ -12,6 +12,7 @@ public class PendingCharacter
     private CharacterRace race;
     private CharacterClass characterClass;
     private CharacterAlignment alignment;
+    private String name = "";
 
     private final AbilityScores abilityScores =
             new AbilityScores();
@@ -68,6 +69,21 @@ public class PendingCharacter
             CharacterAlignment alignment)
     {
         this.alignment = alignment;
+    }
+
+    public String getName()
+    {
+        return name;
+    }
+
+    public void setName(String name)
+    {
+        this.name = name == null ? "" : name;
+    }
+
+    public boolean hasValidName()
+    {
+        return !name.trim().isEmpty();
     }
 
     public AbilityScores getAbilityScores()
