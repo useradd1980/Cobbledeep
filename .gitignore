@@ -1,0 +1,22 @@
+# Gradle
+.gradle/
+build/
+
+# Minecraft / Forge runtime
+run/
+run-data/
+logs/
+
+# Eclipse
+.metadata/
+bin/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.tmp
+
+# Forge-generated Eclipse launch configurations
+run*.launch
