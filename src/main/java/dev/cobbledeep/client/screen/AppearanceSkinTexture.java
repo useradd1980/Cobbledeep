@@ -72,7 +72,6 @@ public final class AppearanceSkinTexture
         paintLeftLeg(pixels, trousers);
         paintFace(pixels, skin, hair, eyes, appearance.getHairStyle());
         paintHair(pixels, hair, appearance.getHairStyle());
-        paintMaterialDetails(pixels, skin, shirt, trousers);
 
         texture.upload();
     }
@@ -119,11 +118,12 @@ public final class AppearanceSkinTexture
                 44, 20, 4, 12,
                 48, 20, 4, 12,
                 52, 20, 4, 12);
-        paintRect(image, 40, 20, 4, 4, shade(shirt, 0.90F));
-        paintRect(image, 44, 20, 4, 4, shirt);
-        paintRect(image, 48, 20, 4, 4, shade(shirt, 0.82F));
-        paintRect(image, 52, 20, 4, 4, shade(shirt, 0.76F));
-        paintRect(image, 44, 16, 4, 4, shade(shirt, 1.08F));
+
+        paintBlotchyRect(image, 40, 20, 4, 4, shirt, 0.92F, 31);
+        paintBlotchyRect(image, 44, 20, 4, 4, shirt, 1.00F, 37);
+        paintBlotchyRect(image, 48, 20, 4, 4, shirt, 0.86F, 41);
+        paintBlotchyRect(image, 52, 20, 4, 4, shirt, 0.82F, 43);
+        paintBlotchyRect(image, 44, 16, 4, 4, shirt, 1.05F, 47);
     }
 
     private static void paintLeftArm(NativeImage image, int skin, int shirt)
@@ -135,11 +135,12 @@ public final class AppearanceSkinTexture
                 36, 52, 4, 12,
                 40, 52, 4, 12,
                 44, 52, 4, 12);
-        paintRect(image, 32, 52, 4, 4, shade(shirt, 0.90F));
-        paintRect(image, 36, 52, 4, 4, shirt);
-        paintRect(image, 40, 52, 4, 4, shade(shirt, 0.82F));
-        paintRect(image, 44, 52, 4, 4, shade(shirt, 0.76F));
-        paintRect(image, 36, 48, 4, 4, shade(shirt, 1.08F));
+
+        paintBlotchyRect(image, 32, 52, 4, 4, shirt, 0.92F, 53);
+        paintBlotchyRect(image, 36, 52, 4, 4, shirt, 1.00F, 59);
+        paintBlotchyRect(image, 40, 52, 4, 4, shirt, 0.86F, 61);
+        paintBlotchyRect(image, 44, 52, 4, 4, shirt, 0.82F, 67);
+        paintBlotchyRect(image, 36, 48, 4, 4, shirt, 1.05F, 71);
     }
 
     private static void paintRightLeg(NativeImage image, int rgb)
@@ -185,12 +186,11 @@ public final class AppearanceSkinTexture
         if (hairStyle != CharacterAppearance.HairStyle.BALD)
         {
             int fringeHeight = hairStyle == CharacterAppearance.HairStyle.CROPPED ? 2 : 3;
-            paintRect(image, 8, 8, 8, fringeHeight, hair);
-            paintRect(image, 8, 8, 8, 1, shade(hair, 1.18F));
+            paintBlotchyRect(image, 8, 8, 8, fringeHeight, hair, 1.00F, 79);
             if (hairStyle != CharacterAppearance.HairStyle.CROPPED)
             {
-                paintRect(image, 8, 10, 1, 3, shade(hair, 0.78F));
-                paintRect(image, 15, 10, 1, 3, shade(hair, 0.86F));
+                paintBlotchyRect(image, 8, 10, 1, 3, hair, 0.82F, 83);
+                paintBlotchyRect(image, 15, 10, 1, 3, hair, 0.88F, 89);
             }
         }
     }
@@ -199,17 +199,13 @@ public final class AppearanceSkinTexture
     {
         if (style == CharacterAppearance.HairStyle.BALD) return;
 
-        paintRect(image, 8, 0, 8, 8, shade(hair, 1.04F));
-        paintRect(image, 9, 0, 2, 8, shade(hair, 1.18F));
-        paintRect(image, 14, 0, 1, 8, shade(hair, 0.72F));
+        paintBlotchyRect(image, 8, 0, 8, 8, hair, 1.00F, 97);
 
         int sideDepth = style == CharacterAppearance.HairStyle.CROPPED ? 2
                 : style == CharacterAppearance.HairStyle.SHORT ? 4 : 7;
-        paintRect(image, 0, 8, 8, sideDepth, shade(hair, 0.78F));
-        paintRect(image, 16, 8, 8, sideDepth, shade(hair, 0.88F));
-        paintRect(image, 24, 8, 8, Math.max(4, sideDepth), shade(hair, 0.70F));
-        paintRect(image, 26, 8, 2, Math.max(4, sideDepth), shade(hair, 0.84F));
-        paintRect(image, 30, 8, 1, Math.max(4, sideDepth), shade(hair, 0.58F));
+        paintBlotchyRect(image, 0, 8, 8, sideDepth, hair, 0.86F, 101);
+        paintBlotchyRect(image, 16, 8, 8, sideDepth, hair, 0.92F, 103);
+        paintBlotchyRect(image, 24, 8, 8, Math.max(4, sideDepth), hair, 0.78F, 107);
 
         if (style == CharacterAppearance.HairStyle.SHOULDER_LENGTH
                 || style == CharacterAppearance.HairStyle.LONG
@@ -217,55 +213,21 @@ public final class AppearanceSkinTexture
         {
             int length = style == CharacterAppearance.HairStyle.SHOULDER_LENGTH ? 4 : 7;
 
-            // Bridge the head and torso across the body's top face. This removes
-            // the visible bare-neck break when long hair continues onto the back.
-            paintRect(image, 22, 18, 4, 2, shade(hair, 0.74F));
-
-            paintRect(image, 33, 20, 6, length, shade(hair, 0.68F));
-            paintRect(image, 34, 20, 2, length, shade(hair, 0.84F));
-            paintRect(image, 38, 20, 1, length, shade(hair, 0.54F));
+            // Texture the upper back from its very first row. A separate small
+            // model-space bridge in RacePlayerSkinWidget closes the physical
+            // head/body gap that the skin atlas alone cannot cover.
+            paintBlotchyRect(image, 33, 20, 6, length, hair, 0.78F, 109);
 
             if (style == CharacterAppearance.HairStyle.BRAIDED)
             {
-                paintRect(image, 35, 20, 2, 10, shade(hair, 0.62F));
+                paintBlotchyRect(image, 35, 20, 2, 10, hair, 0.72F, 113);
                 for (int y = 21; y < 30; y += 2)
                 {
-                    paintPixel(image, 35, y, shade(hair, 0.88F));
-                    paintPixel(image, 36, y + 1, shade(hair, 0.48F));
+                    paintPixel(image, 35, y, shade(hair, 0.92F));
+                    paintPixel(image, 36, y + 1, shade(hair, 0.58F));
                 }
             }
         }
-    }
-
-    private static void paintMaterialDetails(NativeImage image, int skin, int shirt, int trousers)
-    {
-        // Torso front/back: soft vertical shading and a lower seam keep large
-        // areas from reading as a single flat colour.
-        paintRect(image, 20, 20, 1, 12, shade(shirt, 0.76F));
-        paintRect(image, 21, 20, 1, 12, shade(shirt, 0.90F));
-        paintRect(image, 26, 20, 1, 12, shade(shirt, 1.10F));
-        paintRect(image, 27, 20, 1, 12, shade(shirt, 0.82F));
-        paintRect(image, 20, 30, 8, 2, shade(shirt, 0.72F));
-
-        paintRect(image, 32, 20, 1, 12, shade(shirt, 0.68F));
-        paintRect(image, 33, 20, 1, 12, shade(shirt, 0.84F));
-        paintRect(image, 38, 20, 1, 12, shade(shirt, 0.92F));
-        paintRect(image, 39, 20, 1, 12, shade(shirt, 0.62F));
-
-        // Legs: darker outer seams and subtle highlights down the front.
-        paintRect(image, 4, 20, 1, 12, shade(trousers, 0.72F));
-        paintRect(image, 5, 20, 1, 12, shade(trousers, 0.90F));
-        paintRect(image, 7, 20, 1, 12, shade(trousers, 1.08F));
-        paintRect(image, 20, 52, 1, 12, shade(trousers, 0.72F));
-        paintRect(image, 21, 52, 1, 12, shade(trousers, 0.90F));
-        paintRect(image, 23, 52, 1, 12, shade(trousers, 1.08F));
-
-        // Exposed forearms get a small side shadow/highlight so skin is not
-        // visually flatter than the clothing around it.
-        paintRect(image, 44, 24, 1, 8, shade(skin, 0.82F));
-        paintRect(image, 47, 24, 1, 8, shade(skin, 1.06F));
-        paintRect(image, 36, 56, 1, 8, shade(skin, 0.82F));
-        paintRect(image, 39, 56, 1, 8, shade(skin, 1.06F));
     }
 
     private static void paintBoxFaces(
@@ -278,22 +240,42 @@ public final class AppearanceSkinTexture
             int leftX, int leftY, int leftW, int leftH,
             int backX, int backY, int backW, int backH)
     {
-        paintRect(image, topX, topY, topW, topH, shade(rgb, 1.08F));
-        paintRect(image, bottomX, bottomY, bottomW, bottomH, shade(rgb, 0.72F));
-        paintRect(image, rightX, rightY, rightW, rightH, shade(rgb, 0.90F));
-        paintRect(image, frontX, frontY, frontW, frontH, rgb);
-        paintRect(image, leftX, leftY, leftW, leftH, shade(rgb, 0.82F));
-        paintRect(image, backX, backY, backW, backH, shade(rgb, 0.76F));
+        paintBlotchyRect(image, topX, topY, topW, topH, rgb, 1.05F, topX * 3 + topY);
+        paintBlotchyRect(image, bottomX, bottomY, bottomW, bottomH, rgb, 0.78F, bottomX * 3 + bottomY);
+        paintBlotchyRect(image, rightX, rightY, rightW, rightH, rgb, 0.94F, rightX * 3 + rightY);
+        paintBlotchyRect(image, frontX, frontY, frontW, frontH, rgb, 1.00F, frontX * 3 + frontY);
+        paintBlotchyRect(image, leftX, leftY, leftW, leftH, rgb, 0.88F, leftX * 3 + leftY);
+        paintBlotchyRect(image, backX, backY, backW, backH, rgb, 0.84F, backX * 3 + backY);
     }
 
-    private static void paintRect(NativeImage image, int x, int y, int width, int height, int rgb)
+    private static void paintBlotchyRect(
+            NativeImage image,
+            int x,
+            int y,
+            int width,
+            int height,
+            int rgb,
+            float baseFactor,
+            int seed)
     {
-        int abgr = toAbgr(rgb);
         for (int py = y; py < y + height; py++)
         {
             for (int px = x; px < x + width; px++)
             {
-                image.setPixelRGBA(px, py, abgr);
+                int hash = px * 73428767 ^ py * 912931 ^ seed * 19349663;
+                hash ^= hash >>> 13;
+                int bucket = Math.floorMod(hash, 11);
+
+                float variation = switch (bucket)
+                {
+                    case 0 -> -0.13F;
+                    case 1, 2 -> -0.07F;
+                    case 8, 9 -> 0.06F;
+                    case 10 -> 0.11F;
+                    default -> 0.0F;
+                };
+
+                paintPixel(image, px, py, shade(rgb, baseFactor + variation));
             }
         }
     }
@@ -305,9 +287,9 @@ public final class AppearanceSkinTexture
 
     private static int shade(int rgb, float factor)
     {
-        int r = Math.min(255, Math.round(((rgb >> 16) & 0xFF) * factor));
-        int g = Math.min(255, Math.round(((rgb >> 8) & 0xFF) * factor));
-        int b = Math.min(255, Math.round((rgb & 0xFF) * factor));
+        int r = Math.min(255, Math.max(0, Math.round(((rgb >> 16) & 0xFF) * factor)));
+        int g = Math.min(255, Math.max(0, Math.round(((rgb >> 8) & 0xFF) * factor)));
+        int b = Math.min(255, Math.max(0, Math.round((rgb & 0xFF) * factor)));
         return (r << 16) | (g << 8) | b;
     }
 
