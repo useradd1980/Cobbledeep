@@ -714,7 +714,9 @@ public class CharacterCreationScreen extends Screen
                 previewHeight,
                 Minecraft.getInstance().getEntityModels(),
                 this::getAppearancePreviewSkin,
-                pendingCharacter::getRace);
+                pendingCharacter::getRace,
+                pendingCharacter::getAppearance,
+                pendingCharacter::getGender);
         appearanceSkinWidget.setPosition(previewX, previewY);
         this.addRenderableWidget(appearanceSkinWidget);
     }
