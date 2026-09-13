@@ -21,6 +21,7 @@ import dev.cobbledeep.character.WeaponProficiency;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.PlayerSkinWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -33,11 +34,13 @@ public class CharacterCreationScreen extends Screen
 {
     private static final UUID APPEARANCE_PREVIEW_UUID = UUID.fromString("8f8d3f34-1486-4f24-8f8e-fb98f18d759f");
     private static final int APPEARANCE_SETTING_COUNT = 7;
+    private static final int MAX_CHARACTER_NAME_LENGTH = 32;
 
     private final PendingCharacter pendingCharacter;
 
     private CharacterCreationPage currentPage;
     private Button nextButton;
+    private EditBox nameField;
     private int proficiencyScrollOffset;
     private int spellScrollOffset;
     private int appearanceScrollOffset;
@@ -101,6 +104,7 @@ public class CharacterCreationScreen extends Screen
     {
         this.clearWidgets();
         appearanceSkinWidget = null;
+        nameField = null;
 
         switch (currentPage)
         {
@@ -113,10 +117,15 @@ public class CharacterCreationScreen extends Screen
             case PROFICIENCIES -> buildProficienciesPage();
             case SPELLS -> buildSpellsPage();
             case APPEARANCE -> buildAppearancePage();
-            case NAME, REVIEW -> buildPlaceholderPage();
+            case NAME -> buildNamePage();
         }
 
         buildNavigationButtons();
+
+        if (currentPage == CharacterCreationPage.NAME && nameField != null)
+        {
+            this.setInitialFocus(nameField);
+        }
     }
 
     private void buildGenderPage()
@@ -768,6 +777,30 @@ public class CharacterCreationScreen extends Screen
         }).bounds(columns.nextX(), y, columns.buttonWidth(), buttonHeight).build());
     }
 
+    private void buildNamePage()
+    {
+        int fieldWidth = Math.min(240, Math.max(140, this.width - 50));
+        int fieldHeight = Math.max(18, getButtonHeight());
+        int fieldX = this.width / 2 - fieldWidth / 2;
+        int fieldY = Math.max(getContentTop() + 34, this.height / 2 - 12);
+
+        nameField = new EditBox(
+                this.font,
+                fieldX,
+                fieldY,
+                fieldWidth,
+                fieldHeight,
+                Component.literal("Character Name"));
+        nameField.setMaxLength(MAX_CHARACTER_NAME_LENGTH);
+        nameField.setValue(pendingCharacter.getName());
+        nameField.setResponder(value ->
+        {
+            pendingCharacter.setName(value);
+            updateNextButton();
+        });
+        this.addRenderableWidget(nameField);
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY)
     {
@@ -804,8 +837,6 @@ public class CharacterCreationScreen extends Screen
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
-    private void buildPlaceholderPage() { }
-
     private void buildNavigationButtons()
     {
         int centerX = this.width / 2;
@@ -820,7 +851,7 @@ public class CharacterCreationScreen extends Screen
                 .bounds(centerX - gap / 2 - buttonWidth, bottomY, buttonWidth, buttonHeight).build());
 
         nextButton = Button.builder(
-                Component.literal(currentPage == CharacterCreationPage.REVIEW ? "Finish" : "Next"),
+                Component.literal(currentPage == CharacterCreationPage.NAME ? "Finish" : "Next"),
                 button -> nextPage())
                 .bounds(centerX + gap / 2, bottomY, buttonWidth, buttonHeight).build();
 
@@ -851,6 +882,7 @@ public class CharacterCreationScreen extends Screen
                 nextButton.active = proficiencies.isInitialized() && proficiencies.getAvailablePoints() == 0;
             }
             case SPELLS -> nextButton.active = isSpellSelectionComplete();
+            case NAME -> nextButton.active = pendingCharacter.hasValidName();
             default -> nextButton.active = true;
         }
     }
@@ -874,8 +906,10 @@ public class CharacterCreationScreen extends Screen
 
     private void nextPage()
     {
-        if (currentPage == CharacterCreationPage.REVIEW)
+        if (currentPage == CharacterCreationPage.NAME)
         {
+            if (!pendingCharacter.hasValidName()) return;
+            pendingCharacter.setName(pendingCharacter.getName().trim());
             continueToWorldCreation();
             return;
         }
@@ -945,7 +979,7 @@ public class CharacterCreationScreen extends Screen
             case PROFICIENCIES -> renderProficiencies(graphics);
             case SPELLS -> renderSpells(graphics);
             case APPEARANCE -> renderAppearance(graphics);
-            default -> { }
+            case NAME -> renderName(graphics);
         }
     }
 
@@ -1264,7 +1298,8 @@ public class CharacterCreationScreen extends Screen
         renderSpellScrollbar(graphics);
 
         DivineSpell focused = focusedDivineSpell;
-        if (focused == null || !focused.isAvailableTo(characterClass))
+        if (focused == null || !focused.isAvailableTo(characterClass)
+                && !divineSpells.isEmpty())
         {
             focused = divineSpells.isEmpty() ? DivineSpell.ARMOR_OF_FAITH : divineSpells.get(0);
         }
@@ -1399,6 +1434,34 @@ public class CharacterCreationScreen extends Screen
         graphics.fill(x + 2, y + 2, x + 13, y + 9, argb);
     }
 
+    private void renderName(GuiGraphics graphics)
+    {
+        int centerX = this.width / 2;
+        int instructionY = getContentTop() + (isCompactLayout() ? 5 : 12);
+        graphics.drawCenteredString(this.font, "Give your character a name.", centerX, instructionY, 0xCCCCCC);
+
+        CharacterRace race = pendingCharacter.getRace();
+        CharacterClass characterClass = pendingCharacter.getCharacterClass();
+        CharacterAlignment alignment = pendingCharacter.getAlignment();
+        if (!isCompactLayout() && race != null && characterClass != null && alignment != null)
+        {
+            String summary = race.getDisplayName() + " - " + characterClass.getDisplayName()
+                    + " - " + alignment.getDisplayName();
+            graphics.drawCenteredString(this.font, summary, centerX, instructionY + 18, 0x888888);
+        }
+
+        if (nameField != null)
+        {
+            graphics.drawCenteredString(this.font,
+                    pendingCharacter.hasValidName()
+                            ? "Finish will continue to world creation."
+                            : "A name is required to finish character generation.",
+                    centerX,
+                    Math.min(getNavigationY() - 24, nameField.getY() + nameField.getHeight() + 14),
+                    pendingCharacter.hasValidName() ? 0xAAFFAA : 0xAAAAAA);
+        }
+    }
+
     private String formatProficiencyRank(int rank) { return rank <= 0 ? "-" : "*".repeat(rank); }
     private String formatModifier(int modifier) { return modifier > 0 ? "+" + modifier : modifier < 0 ? Integer.toString(modifier) : "-"; }
 
@@ -1437,7 +1500,6 @@ public class CharacterCreationScreen extends Screen
             }
             case APPEARANCE -> "Appearance";
             case NAME -> "Name";
-            case REVIEW -> "Review Character";
         };
     }
 
