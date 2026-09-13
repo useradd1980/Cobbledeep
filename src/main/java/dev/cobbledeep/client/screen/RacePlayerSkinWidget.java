@@ -75,25 +75,38 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private float previewRotationX = DEFAULT_ROTATION_X;
     private float previewRotationY = DEFAULT_ROTATION_Y;
 
-    public RacePlayerSkinWidget(int width, int height, EntityModelSet modelSet,
-            Supplier<PlayerSkin> skinSupplier, Supplier<CharacterRace> raceSupplier)
+    public RacePlayerSkinWidget(
+            int width,
+            int height,
+            EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier,
+            Supplier<CharacterRace> raceSupplier)
     {
         this(width, height, modelSet, skinSupplier, raceSupplier, () -> null, () -> PendingCharacter.Gender.MALE);
     }
 
-    public RacePlayerSkinWidget(int width, int height, EntityModelSet modelSet,
-            Supplier<PlayerSkin> skinSupplier, Supplier<CharacterRace> raceSupplier,
+    public RacePlayerSkinWidget(
+            int width,
+            int height,
+            EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier,
+            Supplier<CharacterRace> raceSupplier,
             Supplier<CharacterAppearance> appearanceSupplier)
     {
         this(width, height, modelSet, skinSupplier, raceSupplier, appearanceSupplier, () -> PendingCharacter.Gender.MALE);
     }
 
-    public RacePlayerSkinWidget(int width, int height, EntityModelSet modelSet,
-            Supplier<PlayerSkin> skinSupplier, Supplier<CharacterRace> raceSupplier,
+    public RacePlayerSkinWidget(
+            int width,
+            int height,
+            EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier,
+            Supplier<CharacterRace> raceSupplier,
             Supplier<CharacterAppearance> appearanceSupplier,
             Supplier<PendingCharacter.Gender> genderSupplier)
     {
-        super(width, height, modelSet, skinSupplier);
+        super(width, height, modelSet,
+                () -> buildAppearanceSkin(skinSupplier, appearanceSupplier, genderSupplier));
         this.raceSupplier = raceSupplier;
         this.appearanceSupplier = appearanceSupplier;
         this.genderSupplier = genderSupplier;
@@ -105,6 +118,31 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         this.dwarfBeard = createDwarfBeard();
         this.dwarfBeardHighlights = createDwarfBeardHighlights();
         this.dwarfBeardShadows = createDwarfBeardShadows();
+    }
+
+    private static PlayerSkin buildAppearanceSkin(
+            Supplier<PlayerSkin> fallbackSupplier,
+            Supplier<CharacterAppearance> appearanceSupplier,
+            Supplier<PendingCharacter.Gender> genderSupplier)
+    {
+        PlayerSkin fallback = fallbackSupplier.get();
+        CharacterAppearance appearance = appearanceSupplier.get();
+        if (appearance == null)
+        {
+            return fallback;
+        }
+
+        PlayerSkin.Model model = genderSupplier.get() == PendingCharacter.Gender.FEMALE
+                ? PlayerSkin.Model.SLIM
+                : PlayerSkin.Model.WIDE;
+
+        return new PlayerSkin(
+                AppearanceSkinTexture.get(appearance),
+                fallback.textureUrl(),
+                fallback.capeTexture(),
+                fallback.elytraTexture(),
+                model,
+                false);
     }
 
     @Override
@@ -130,32 +168,45 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     protected void onDrag(double mouseX, double mouseY, double dragX, double dragY)
     {
         super.onDrag(mouseX, mouseY, dragX, dragY);
-        previewRotationX = Mth.clamp(previewRotationX - (float) dragY * ROTATION_SENSITIVITY,
-                -ROTATION_X_LIMIT, ROTATION_X_LIMIT);
+
+        previewRotationX = Mth.clamp(
+                previewRotationX - (float) dragY * ROTATION_SENSITIVITY,
+                -ROTATION_X_LIMIT,
+                ROTATION_X_LIMIT);
         previewRotationY += (float) dragX * ROTATION_SENSITIVITY;
     }
 
     private void renderRaceGeometry(GuiGraphics graphics, CharacterRace race)
     {
-        if (race != CharacterRace.ELF && race != CharacterRace.HALF_ELF && race != CharacterRace.DWARF) return;
+        if (race != CharacterRace.ELF && race != CharacterRace.HALF_ELF && race != CharacterRace.DWARF)
+        {
+            return;
+        }
 
         PoseStack pose = graphics.pose();
         pose.pushPose();
+
         pose.translate(getX() + getWidth() / 2.0F, getY() + getHeight(), Z_OFFSET);
+
         float modelScale = getHeight() / MODEL_HEIGHT;
         pose.scale(modelScale, modelScale, modelScale);
         pose.translate(0.0F, -MODEL_OFFSET, 0.0F);
+
         pose.translate(0.0F, ROTATION_PIVOT_Y, 0.0F);
         pose.mulPose(Axis.XP.rotationDegrees(previewRotationX));
         pose.translate(0.0F, -ROTATION_PIVOT_Y, 0.0F);
         pose.mulPose(Axis.YP.rotationDegrees(previewRotationY));
+
         pose.scale(1.0F, 1.0F, -1.0F);
         pose.translate(0.0F, MODEL_TRANSLATE_Y, 0.0F);
 
         if (race == CharacterRace.DWARF)
         {
             renderDwarfBuild(graphics, pose);
-            if (genderSupplier.get() != PendingCharacter.Gender.FEMALE) renderDwarfBeard(graphics, pose);
+            if (genderSupplier.get() != PendingCharacter.Gender.FEMALE)
+            {
+                renderDwarfBeard(graphics, pose);
+            }
         }
         else
         {
@@ -172,7 +223,10 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         CharacterAppearance appearance = appearanceSupplier.get();
         int earColor = DEFAULT_PREVIEW_SKIN_COLOR;
         if (appearance != null && appearance.getSkinTone() != null)
+        {
             earColor = 0xFF000000 | appearance.getSkinTone().getRgb();
+        }
+
         ears.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
                 LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, earColor);
     }
@@ -182,9 +236,14 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         CharacterAppearance appearance = appearanceSupplier.get();
         int tunicColor = DWARF_TUNIC_COLOR;
         if (appearance != null && appearance.getShirtColor() != null)
+        {
             tunicColor = 0xFF000000 | appearance.getShirtColor().getRgb();
+        }
 
-        ModelPart torso = genderSupplier.get() == PendingCharacter.Gender.FEMALE ? dwarfFemaleBuild : dwarfMaleBuild;
+        ModelPart torso = genderSupplier.get() == PendingCharacter.Gender.FEMALE
+                ? dwarfFemaleBuild
+                : dwarfMaleBuild;
+
         torso.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
                 LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, tunicColor);
         dwarfArms.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
@@ -196,10 +255,13 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         CharacterAppearance appearance = appearanceSupplier.get();
         int beardColor = DEFAULT_DWARF_BEARD_COLOR;
         if (appearance != null && appearance.getHairColor() != null)
+        {
             beardColor = 0xFF000000 | appearance.getHairColor().getRgb();
+        }
 
         int shadowColor = scaleRgb(beardColor, 0.58F);
         int highlightColor = scaleRgb(beardColor, 1.35F);
+
         dwarfBeardShadows.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
                 LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, shadowColor);
         dwarfBeard.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
@@ -246,6 +308,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createDwarfFemaleBuild()
     {
         MeshDefinition mesh = new MeshDefinition();
+
         CubeListBuilder torso = CubeListBuilder.create()
                 .texOffs(0, 0).addBox(-4.50F, 0.35F, -2.25F, 9.00F, 4.00F, 4.50F)
                 .texOffs(0, 0).addBox(-4.25F, 4.35F, -2.18F, 8.50F, 4.10F, 4.36F)
@@ -257,6 +320,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createDwarfArms()
     {
         MeshDefinition mesh = new MeshDefinition();
+
         CubeListBuilder arms = CubeListBuilder.create()
                 .texOffs(0, 0).addBox(-7.10F, 1.10F, -2.15F, 2.45F, 5.35F, 4.30F)
                 .texOffs(0, 0).addBox(4.65F, 1.10F, -2.15F, 2.45F, 5.35F, 4.30F);
