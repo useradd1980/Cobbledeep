@@ -20,16 +20,21 @@ import net.minecraft.network.chat.Component;
 
 public class CharacterCreationScreen extends Screen
 {
+    private static final int PROFICIENCY_ROW_HEIGHT = 22;
+    private static final int PROFICIENCY_START_Y = 112;
+
     private final PendingCharacter pendingCharacter;
 
     private CharacterCreationPage currentPage;
     private Button nextButton;
+    private int proficiencyScrollOffset;
 
     public CharacterCreationScreen()
     {
         super(Component.literal("Character Generation"));
         this.pendingCharacter = new PendingCharacter();
         this.currentPage = CharacterCreationPage.GENDER;
+        this.proficiencyScrollOffset = 0;
     }
 
     @Override
@@ -122,6 +127,7 @@ public class CharacterCreationScreen extends Screen
                                     pendingCharacter.getAbilityScores().reset();
                                     pendingCharacter.getSkills().reset();
                                     pendingCharacter.getProficiencies().reset();
+                                    proficiencyScrollOffset = 0;
                                 }
                                 updateNextButton();
                             })
@@ -172,6 +178,7 @@ public class CharacterCreationScreen extends Screen
                                 {
                                     pendingCharacter.setCharacterClass(characterClass);
                                     pendingCharacter.resetAfterClassChange();
+                                    proficiencyScrollOffset = 0;
                                 }
                                 updateNextButton();
                             })
@@ -425,86 +432,161 @@ public class CharacterCreationScreen extends Screen
             proficiencies.initialize(characterClass);
         }
 
+        clampProficiencyScroll();
+
         int centerX = this.width / 2;
-        int startY = 115;
-        int leftControlsX = centerX - 85;
-        int rightControlsX = centerX + 190;
+        int controlsX = centerX + 80;
+        int visibleRows = getProficiencyVisibleRows();
+        int firstRow = proficiencyScrollOffset;
+        int lastRow = firstRow + visibleRows - 1;
+        int weaponCount = WeaponProficiency.values().length;
 
-        int row = 0;
-        for (WeaponProficiency proficiency : WeaponProficiency.values())
+        for (int i = 0; i < weaponCount; i++)
         {
-            if (proficiencies.canUseWeapon(characterClass, proficiency))
+            if (i < firstRow || i > lastRow)
             {
-                int y = startY + row * 22;
-
-                Button minusButton = Button.builder(
-                        Component.literal("-"),
-                        button ->
-                        {
-                            proficiencies.decreaseWeapon(proficiency);
-                            buildCurrentPage();
-                        })
-                        .bounds(leftControlsX, y, 20, 20)
-                        .build();
-                minusButton.active = proficiencies.getWeaponRank(proficiency) > 0;
-                this.addRenderableWidget(minusButton);
-
-                Button plusButton = Button.builder(
-                        Component.literal("+"),
-                        button ->
-                        {
-                            proficiencies.increaseWeapon(characterClass, proficiency);
-                            buildCurrentPage();
-                        })
-                        .bounds(leftControlsX + 25, y, 20, 20)
-                        .build();
-                plusButton.active = proficiencies.getAvailablePoints() > 0
-                        && proficiencies.getWeaponRank(proficiency)
-                        < proficiencies.getMaximumWeaponRank(characterClass);
-                this.addRenderableWidget(plusButton);
+                continue;
             }
 
-            row++;
-        }
-
-        row = 0;
-        for (FightingStyle style : FightingStyle.values())
-        {
-            if (proficiencies.canUseStyle(characterClass, style))
+            WeaponProficiency proficiency = WeaponProficiency.values()[i];
+            if (!proficiencies.canUseWeapon(characterClass, proficiency))
             {
-                int y = startY + row * 22;
-                int minimumRank = characterClass == CharacterClass.RANGER
-                        && style == FightingStyle.TWO_WEAPON ? 2 : 0;
-
-                Button minusButton = Button.builder(
-                        Component.literal("-"),
-                        button ->
-                        {
-                            proficiencies.decreaseStyle(characterClass, style);
-                            buildCurrentPage();
-                        })
-                        .bounds(rightControlsX, y, 20, 20)
-                        .build();
-                minusButton.active = proficiencies.getStyleRank(style) > minimumRank;
-                this.addRenderableWidget(minusButton);
-
-                Button plusButton = Button.builder(
-                        Component.literal("+"),
-                        button ->
-                        {
-                            proficiencies.increaseStyle(characterClass, style);
-                            buildCurrentPage();
-                        })
-                        .bounds(rightControlsX + 25, y, 20, 20)
-                        .build();
-                plusButton.active = proficiencies.getAvailablePoints() > 0
-                        && proficiencies.getStyleRank(style)
-                        < proficiencies.getMaximumStyleRank(characterClass, style);
-                this.addRenderableWidget(plusButton);
+                continue;
             }
 
-            row++;
+            int y = getProficiencyRowY(i);
+
+            Button minusButton = Button.builder(
+                    Component.literal("-"),
+                    button ->
+                    {
+                        proficiencies.decreaseWeapon(proficiency);
+                        buildCurrentPage();
+                    })
+                    .bounds(controlsX, y, 20, 20)
+                    .build();
+            minusButton.active = proficiencies.getWeaponRank(proficiency) > 0;
+            this.addRenderableWidget(minusButton);
+
+            Button plusButton = Button.builder(
+                    Component.literal("+"),
+                    button ->
+                    {
+                        proficiencies.increaseWeapon(characterClass, proficiency);
+                        buildCurrentPage();
+                    })
+                    .bounds(controlsX + 25, y, 20, 20)
+                    .build();
+            plusButton.active = proficiencies.getAvailablePoints() > 0
+                    && proficiencies.getWeaponRank(proficiency)
+                    < proficiencies.getMaximumWeaponRank(characterClass);
+            this.addRenderableWidget(plusButton);
         }
+
+        int styleHeaderRow = weaponCount;
+        FightingStyle[] styles = FightingStyle.values();
+
+        for (int i = 0; i < styles.length; i++)
+        {
+            int logicalRow = styleHeaderRow + 1 + i;
+            if (logicalRow < firstRow || logicalRow > lastRow)
+            {
+                continue;
+            }
+
+            FightingStyle style = styles[i];
+            if (!proficiencies.canUseStyle(characterClass, style))
+            {
+                continue;
+            }
+
+            int y = getProficiencyRowY(logicalRow);
+            int minimumRank = characterClass == CharacterClass.RANGER
+                    && style == FightingStyle.TWO_WEAPON ? 2 : 0;
+
+            Button minusButton = Button.builder(
+                    Component.literal("-"),
+                    button ->
+                    {
+                        proficiencies.decreaseStyle(characterClass, style);
+                        buildCurrentPage();
+                    })
+                    .bounds(controlsX, y, 20, 20)
+                    .build();
+            minusButton.active = proficiencies.getStyleRank(style) > minimumRank;
+            this.addRenderableWidget(minusButton);
+
+            Button plusButton = Button.builder(
+                    Component.literal("+"),
+                    button ->
+                    {
+                        proficiencies.increaseStyle(characterClass, style);
+                        buildCurrentPage();
+                    })
+                    .bounds(controlsX + 25, y, 20, 20)
+                    .build();
+            plusButton.active = proficiencies.getAvailablePoints() > 0
+                    && proficiencies.getStyleRank(style)
+                    < proficiencies.getMaximumStyleRank(characterClass, style);
+            this.addRenderableWidget(plusButton);
+        }
+    }
+
+    private int getProficiencyVisibleRows()
+    {
+        int availableHeight = this.height - PROFICIENCY_START_Y - 105;
+        return Math.max(4, Math.min(12, availableHeight / PROFICIENCY_ROW_HEIGHT));
+    }
+
+    private int getProficiencyContentRows()
+    {
+        return WeaponProficiency.values().length
+                + 1
+                + FightingStyle.values().length;
+    }
+
+    private int getMaxProficiencyScroll()
+    {
+        return Math.max(0, getProficiencyContentRows() - getProficiencyVisibleRows());
+    }
+
+    private void clampProficiencyScroll()
+    {
+        proficiencyScrollOffset = Math.max(
+                0,
+                Math.min(proficiencyScrollOffset, getMaxProficiencyScroll())
+        );
+    }
+
+    private int getProficiencyRowY(int logicalRow)
+    {
+        return PROFICIENCY_START_Y
+                + (logicalRow - proficiencyScrollOffset) * PROFICIENCY_ROW_HEIGHT;
+    }
+
+    @Override
+    public boolean mouseScrolled(
+            double mouseX,
+            double mouseY,
+            double scrollX,
+            double scrollY)
+    {
+        if (currentPage == CharacterCreationPage.PROFICIENCIES
+                && scrollY != 0.0)
+        {
+            int oldOffset = proficiencyScrollOffset;
+            proficiencyScrollOffset += scrollY > 0.0 ? -1 : 1;
+            clampProficiencyScroll();
+
+            if (proficiencyScrollOffset != oldOffset)
+            {
+                buildCurrentPage();
+            }
+
+            return true;
+        }
+
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     private void buildPlaceholderPage()
@@ -592,6 +674,11 @@ public class CharacterCreationScreen extends Screen
                 continue;
             }
 
+            if (candidate == CharacterCreationPage.PROFICIENCIES)
+            {
+                proficiencyScrollOffset = 0;
+            }
+
             currentPage = candidate;
             buildCurrentPage();
             return;
@@ -617,6 +704,11 @@ public class CharacterCreationScreen extends Screen
             {
                 previousIndex--;
                 continue;
+            }
+
+            if (candidate == CharacterCreationPage.PROFICIENCIES)
+            {
+                proficiencyScrollOffset = 0;
             }
 
             currentPage = candidate;
@@ -893,86 +985,127 @@ public class CharacterCreationScreen extends Screen
             return;
         }
 
+        clampProficiencyScroll();
+
         int centerX = this.width / 2;
-        int startY = 115;
-        int leftLabelX = centerX - 260;
-        int leftRankX = centerX - 105;
-        int rightLabelX = centerX + 20;
-        int rightRankX = centerX + 170;
+        int labelX = centerX - 155;
+        int rankX = centerX + 50;
+        int visibleRows = getProficiencyVisibleRows();
+        int firstRow = proficiencyScrollOffset;
+        int lastRow = firstRow + visibleRows - 1;
+        int weaponCount = WeaponProficiency.values().length;
 
-        graphics.drawString(this.font, "Weapon Proficiencies", leftLabelX, startY - 20, 0xAAAAAA);
-        graphics.drawString(this.font, "Weapon Styles", rightLabelX, startY - 20, 0xAAAAAA);
+        graphics.drawString(this.font, "Weapon / Style", labelX, PROFICIENCY_START_Y - 18, 0xAAAAAA);
+        graphics.drawCenteredString(this.font, "Rank", rankX, PROFICIENCY_START_Y - 18, 0xAAAAAA);
 
-        int row = 0;
-        for (WeaponProficiency proficiency : WeaponProficiency.values())
+        for (int i = 0; i < weaponCount; i++)
         {
-            int y = startY + row * 22;
+            if (i < firstRow || i > lastRow)
+            {
+                continue;
+            }
+
+            WeaponProficiency proficiency = WeaponProficiency.values()[i];
             boolean allowed = proficiencies.canUseWeapon(characterClass, proficiency);
+            int y = getProficiencyRowY(i);
 
             graphics.drawString(
                     this.font,
                     proficiency.getDisplayName(),
-                    leftLabelX,
+                    labelX,
                     y + 6,
                     allowed ? 0xFFFFFF : 0x777777);
 
             graphics.drawCenteredString(
                     this.font,
                     formatProficiencyRank(proficiencies.getWeaponRank(proficiency)),
-                    leftRankX,
+                    rankX,
                     y + 6,
                     allowed ? 0xAAFFAA : 0x666666);
-
-            row++;
         }
 
-        row = 0;
-        for (FightingStyle style : FightingStyle.values())
+        int styleHeaderRow = weaponCount;
+        if (styleHeaderRow >= firstRow && styleHeaderRow <= lastRow)
         {
-            int y = startY + row * 22;
+            int y = getProficiencyRowY(styleHeaderRow);
+            graphics.drawString(this.font, "Weapon Styles", labelX, y + 6, 0xFFFFAA);
+        }
+
+        FightingStyle[] styles = FightingStyle.values();
+        for (int i = 0; i < styles.length; i++)
+        {
+            int logicalRow = styleHeaderRow + 1 + i;
+            if (logicalRow < firstRow || logicalRow > lastRow)
+            {
+                continue;
+            }
+
+            FightingStyle style = styles[i];
             boolean allowed = proficiencies.canUseStyle(characterClass, style);
+            int y = getProficiencyRowY(logicalRow);
 
             graphics.drawString(
                     this.font,
                     style.getDisplayName(),
-                    rightLabelX,
+                    labelX,
                     y + 6,
                     allowed ? 0xFFFFFF : 0x777777);
 
             graphics.drawCenteredString(
                     this.font,
                     formatProficiencyRank(proficiencies.getStyleRank(style)),
-                    rightRankX,
+                    rankX,
                     y + 6,
                     allowed ? 0xAAFFAA : 0x666666);
-
-            row++;
         }
 
+        renderProficiencyScrollbar(graphics);
+
+        int footerY = this.height - 76;
         graphics.drawCenteredString(
                 this.font,
                 "Proficiency Points Remaining: " + proficiencies.getAvailablePoints(),
                 centerX,
-                startY + 190,
+                footerY,
                 0xFFFFAA);
 
         graphics.drawCenteredString(
                 this.font,
-                "Maximum weapon rank for " + characterClass.getDisplayName()
-                        + ": " + proficiencies.getMaximumWeaponRank(characterClass),
+                "Mouse wheel to scroll",
                 centerX,
-                startY + 205,
-                0xAAAAAA);
+                footerY + 13,
+                0x888888);
+    }
 
-        if (characterClass == CharacterClass.RANGER)
+    private void renderProficiencyScrollbar(GuiGraphics graphics)
+    {
+        int totalRows = getProficiencyContentRows();
+        int visibleRows = getProficiencyVisibleRows();
+
+        if (totalRows <= visibleRows)
         {
-            graphics.drawCenteredString(
-                    this.font,
-                    "Rangers begin with ** in Two-Weapon Style at no cost.",
-                    centerX,
-                    startY + 220,
-                    0xAAAAAA);
+            return;
         }
+
+        int centerX = this.width / 2;
+        int trackX = centerX + 145;
+        int trackTop = PROFICIENCY_START_Y;
+        int trackHeight = visibleRows * PROFICIENCY_ROW_HEIGHT - 2;
+        int trackBottom = trackTop + trackHeight;
+
+        graphics.fill(trackX, trackTop, trackX + 4, trackBottom, 0xFF333333);
+
+        int thumbHeight = Math.max(18, trackHeight * visibleRows / totalRows);
+        int maxScroll = getMaxProficiencyScroll();
+        int movable = trackHeight - thumbHeight;
+        int thumbTop = trackTop;
+
+        if (maxScroll > 0)
+        {
+            thumbTop += movable * proficiencyScrollOffset / maxScroll;
+        }
+
+        graphics.fill(trackX, thumbTop, trackX + 4, thumbTop + thumbHeight, 0xFFAAAAAA);
     }
 
     private String formatProficiencyRank(int rank)
