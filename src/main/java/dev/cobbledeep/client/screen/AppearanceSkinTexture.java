@@ -51,6 +51,7 @@ public final class AppearanceSkinTexture
         paintRightLeg(p,trousers); paintLeftLeg(p,trousers);
         paintFace(p,skin,hair,eyes,a.getHairStyle());
         paintFacialHair(p,hair,a.getFacialHair());
+        paintMouth(p,skin,a.getFacialHair());
         paintHair(p,hair,a.getHairStyle());
         texture.upload();
     }
@@ -96,12 +97,25 @@ public final class AppearanceSkinTexture
         switch(style)
         {
             case STUBBLE -> { pixel(i,9,14,dark); pixel(i,11,15,dark); pixel(i,13,14,dark); pixel(i,14,15,dark); }
-            case MOUSTACHE -> { paintRect(i,10,14,4,1,dark); pixel(i,11,14,light); pixel(i,12,14,light); }
-            case GOATEE -> { paintRect(i,10,14,4,1,dark); paintRect(i,11,15,2,1,hair); }
-            case SHORT_BEARD -> { paintRect(i,9,14,6,2,hair); pixel(i,9,14,dark); pixel(i,14,15,dark); pixel(i,11,14,light); }
-            case FULL_BEARD -> { paintRect(i,8,13,1,3,dark); paintRect(i,15,13,1,3,dark); paintRect(i,9,14,6,2,hair); paintRect(i,10,15,4,1,dark); pixel(i,11,14,light); }
+            case MOUSTACHE -> { pixel(i,10,14,dark); pixel(i,13,14,dark); pixel(i,10,15,light); pixel(i,13,15,light); }
+            case GOATEE -> { pixel(i,10,14,dark); pixel(i,13,14,dark); paintRect(i,11,15,2,1,hair); }
+            case SHORT_BEARD -> { paintRect(i,9,15,6,1,hair); pixel(i,9,14,dark); pixel(i,14,14,dark); pixel(i,10,14,light); pixel(i,13,14,light); }
+            case FULL_BEARD -> { paintRect(i,8,13,1,3,dark); paintRect(i,15,13,1,3,dark); paintRect(i,9,15,6,1,hair); pixel(i,9,14,hair); pixel(i,14,14,hair); }
             default -> { }
         }
+    }
+
+    private static void paintMouth(NativeImage i,int skin,CharacterAppearance.FacialHair style)
+    {
+        int mouth = shade(skin, .58F);
+        if (style == null || style == CharacterAppearance.FacialHair.NONE)
+        {
+            pixel(i,11,14,mouth); pixel(i,12,14,mouth);
+            return;
+        }
+        // Keep a clear two-pixel mouth opening even under moustaches and beards.
+        pixel(i,11,14,mouth); pixel(i,12,14,mouth);
+        pixel(i,11,15,shade(skin,.82F)); pixel(i,12,15,shade(skin,.82F));
     }
 
     private static void paintHair(NativeImage i,int hair,CharacterAppearance.HairStyle style)
