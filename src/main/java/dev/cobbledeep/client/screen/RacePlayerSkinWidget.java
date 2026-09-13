@@ -30,8 +30,8 @@ import net.minecraft.util.Mth;
  * the vanilla skin widget's click-and-drag rotation behaviour.
  *
  * Elf and Half-Elf ears are rendered in the same model coordinate system as
- * the vanilla player. Each ear is attached slightly behind the side-centre of
- * the head and given an upward angle.
+ * the vanilla player. Their roots remain centred on the sides of the head,
+ * while mirrored rotations point the ear tips upward and toward the rear.
  */
 public class RacePlayerSkinWidget extends PlayerSkinWidget
 {
@@ -46,14 +46,12 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static final float ROTATION_PIVOT_Y = -1.0625F;
     private static final float MODEL_TRANSLATE_Y = -1.5F;
 
-    // A stronger rise than the first pass, while keeping Half-Elf ears subtler.
-    private static final float ELF_EAR_ANGLE = 24.0F;
-    private static final float HALF_ELF_EAR_ANGLE = 16.0F;
-
-    // Vanilla head spans z=-4..4. Positive Z is toward the rear of the head in
-    // model space, so move the ear roots back from the side-centre.
-    private static final float ELF_EAR_BACK_OFFSET = 1.65F;
-    private static final float HALF_ELF_EAR_BACK_OFFSET = 1.35F;
+    // Z-axis rotation raises the tips. Y-axis rotation sweeps them toward the
+    // rear of the head while leaving the attachment point centred at z=0.
+    private static final float ELF_EAR_UP_ANGLE = 24.0F;
+    private static final float HALF_ELF_EAR_UP_ANGLE = 16.0F;
+    private static final float ELF_EAR_BACK_ANGLE = 20.0F;
+    private static final float HALF_ELF_EAR_BACK_ANGLE = 14.0F;
 
     // Approximate exposed-skin colour used by the current vanilla preview skin.
     // When CharacterAppearance is supplied, the selected tone overrides this.
@@ -191,8 +189,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createEars(boolean halfElf)
     {
         MeshDefinition mesh = new MeshDefinition();
-        float angle = (float) Math.toRadians(halfElf ? HALF_ELF_EAR_ANGLE : ELF_EAR_ANGLE);
-        float backOffset = halfElf ? HALF_ELF_EAR_BACK_OFFSET : ELF_EAR_BACK_OFFSET;
+        float upAngle = (float) Math.toRadians(halfElf ? HALF_ELF_EAR_UP_ANGLE : ELF_EAR_UP_ANGLE);
+        float backAngle = (float) Math.toRadians(halfElf ? HALF_ELF_EAR_BACK_ANGLE : ELF_EAR_BACK_ANGLE);
 
         CubeListBuilder left = CubeListBuilder.create();
         CubeListBuilder right = CubeListBuilder.create();
@@ -222,16 +220,17 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
                     .texOffs(0, 0).addBox(3.45F, -0.20F, -0.20F, 0.40F, 0.40F, 0.40F);
         }
 
-        // Head bounds are x=-4..4, y=-8..0, z=-4..4. Attach at ear height,
-        // but offset toward the rear (+Z) rather than the geometric side-centre.
+        // Vanilla head bounds are x=-4..4, y=-8..0, z=-4..4.
+        // Keep both roots centred on the side at z=0. Mirrored Y rotations sweep
+        // the tips toward +Z (the rear), while mirrored Z rotations raise them.
         mesh.getRoot().addOrReplaceChild(
                 "left_ear",
                 left,
-                PartPose.offsetAndRotation(-4.0F, -4.0F, backOffset, 0.0F, 0.0F, angle));
+                PartPose.offsetAndRotation(-4.0F, -4.0F, 0.0F, 0.0F, backAngle, upAngle));
         mesh.getRoot().addOrReplaceChild(
                 "right_ear",
                 right,
-                PartPose.offsetAndRotation(4.0F, -4.0F, backOffset, 0.0F, 0.0F, -angle));
+                PartPose.offsetAndRotation(4.0F, -4.0F, 0.0F, 0.0F, -backAngle, -upAngle));
 
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
