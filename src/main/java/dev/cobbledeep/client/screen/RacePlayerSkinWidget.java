@@ -29,9 +29,10 @@ import net.minecraft.util.Mth;
  * Player-skin preview that applies Cobbledeep race proportions while retaining
  * the vanilla skin widget's click-and-drag rotation behaviour.
  *
- * Elf and Half-Elf ears are rendered with the exact same pose transform used by
- * the vanilla PlayerSkinWidget so the custom geometry remains attached to the
- * head instead of being positioned independently in screen space.
+ * Elf and Half-Elf ears are rendered in the same model coordinate system as
+ * the vanilla player. Each ear is attached to the side of the head and given
+ * its own slight upward angle so it reads as part of the head instead of a
+ * horizontal bar.
  */
 public class RacePlayerSkinWidget extends PlayerSkinWidget
 {
@@ -45,6 +46,9 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static final float Z_OFFSET = 100.0F;
     private static final float ROTATION_PIVOT_Y = -1.0625F;
     private static final float MODEL_TRANSLATE_Y = -1.5F;
+
+    private static final float ELF_EAR_ANGLE = 12.0F;
+    private static final float HALF_ELF_EAR_ANGLE = 8.0F;
 
     private static ResourceLocation earWhiteTexture;
 
@@ -178,33 +182,50 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createEars(boolean halfElf)
     {
         MeshDefinition mesh = new MeshDefinition();
-        CubeListBuilder builder = CubeListBuilder.create();
+        float angle = (float) Math.toRadians(halfElf ? HALF_ELF_EAR_ANGLE : ELF_EAR_ANGLE);
+
+        CubeListBuilder left = CubeListBuilder.create();
+        CubeListBuilder right = CubeListBuilder.create();
 
         if (halfElf)
         {
-            builder
-                    .texOffs(0, 0).addBox(-6.25F, -5.20F, -0.75F, 2.25F, 2.40F, 1.50F)
-                    .texOffs(0, 0).addBox(-7.75F, -4.85F, -0.55F, 1.50F, 1.70F, 1.10F)
-                    .texOffs(0, 0).addBox(-8.50F, -4.45F, -0.35F, 0.75F, 0.90F, 0.70F)
-                    .texOffs(0, 0).addBox(4.00F, -5.20F, -0.75F, 2.25F, 2.40F, 1.50F)
-                    .texOffs(0, 0).addBox(6.25F, -4.85F, -0.55F, 1.50F, 1.70F, 1.10F)
-                    .texOffs(0, 0).addBox(7.75F, -4.45F, -0.35F, 0.75F, 0.90F, 0.70F);
+            // Short, subtle ears. Local origin is the side-centre of the head.
+            left
+                    .texOffs(0, 0).addBox(-1.20F, -0.75F, -0.55F, 1.20F, 1.50F, 1.10F)
+                    .texOffs(0, 0).addBox(-2.10F, -0.50F, -0.40F, 0.90F, 1.00F, 0.80F)
+                    .texOffs(0, 0).addBox(-2.55F, -0.25F, -0.25F, 0.45F, 0.50F, 0.50F);
+            right
+                    .texOffs(0, 0).addBox(0.00F, -0.75F, -0.55F, 1.20F, 1.50F, 1.10F)
+                    .texOffs(0, 0).addBox(1.20F, -0.50F, -0.40F, 0.90F, 1.00F, 0.80F)
+                    .texOffs(0, 0).addBox(2.10F, -0.25F, -0.25F, 0.45F, 0.50F, 0.50F);
         }
         else
         {
-            builder
-                    .texOffs(0, 0).addBox(-6.50F, -5.50F, -0.85F, 2.50F, 3.00F, 1.70F)
-                    .texOffs(0, 0).addBox(-8.75F, -5.15F, -0.65F, 2.25F, 2.30F, 1.30F)
-                    .texOffs(0, 0).addBox(-10.50F, -4.80F, -0.45F, 1.75F, 1.60F, 0.90F)
-                    .texOffs(0, 0).addBox(-11.50F, -4.40F, -0.30F, 1.00F, 0.80F, 0.60F)
-                    .texOffs(0, 0).addBox(4.00F, -5.50F, -0.85F, 2.50F, 3.00F, 1.70F)
-                    .texOffs(0, 0).addBox(6.50F, -5.15F, -0.65F, 2.25F, 2.30F, 1.30F)
-                    .texOffs(0, 0).addBox(8.75F, -4.80F, -0.45F, 1.75F, 1.60F, 0.90F)
-                    .texOffs(0, 0).addBox(10.50F, -4.40F, -0.30F, 1.00F, 0.80F, 0.60F);
+            // Full Elf ears are longer, but still much smaller than the earlier
+            // prototype. They taper over about 3.5 model units from the head.
+            left
+                    .texOffs(0, 0).addBox(-1.45F, -0.90F, -0.65F, 1.45F, 1.80F, 1.30F)
+                    .texOffs(0, 0).addBox(-2.65F, -0.65F, -0.50F, 1.20F, 1.30F, 1.00F)
+                    .texOffs(0, 0).addBox(-3.45F, -0.40F, -0.35F, 0.80F, 0.80F, 0.70F)
+                    .texOffs(0, 0).addBox(-3.85F, -0.20F, -0.20F, 0.40F, 0.40F, 0.40F);
+            right
+                    .texOffs(0, 0).addBox(0.00F, -0.90F, -0.65F, 1.45F, 1.80F, 1.30F)
+                    .texOffs(0, 0).addBox(1.45F, -0.65F, -0.50F, 1.20F, 1.30F, 1.00F)
+                    .texOffs(0, 0).addBox(2.65F, -0.40F, -0.35F, 0.80F, 0.80F, 0.70F)
+                    .texOffs(0, 0).addBox(3.45F, -0.20F, -0.20F, 0.40F, 0.40F, 0.40F);
         }
 
-        mesh.getRoot().addOrReplaceChild("ears", builder, PartPose.ZERO);
-        return LayerDefinition.create(mesh, 16, 16).bakeRoot().getChild("ears");
+        // Head bounds are x=-4..4, y=-8..0. Attach both ears at y=-4.
+        mesh.getRoot().addOrReplaceChild(
+                "left_ear",
+                left,
+                PartPose.offsetAndRotation(-4.0F, -4.0F, 0.0F, 0.0F, 0.0F, angle));
+        mesh.getRoot().addOrReplaceChild(
+                "right_ear",
+                right,
+                PartPose.offsetAndRotation(4.0F, -4.0F, 0.0F, 0.0F, 0.0F, -angle));
+
+        return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
 
     private static RaceScale getRaceScale(CharacterRace race)
