@@ -33,8 +33,8 @@ import net.minecraft.util.Mth;
  * Race scaling is anchored at the character's feet so shorter races remain
  * planted at the same baseline instead of shrinking toward the widget centre.
  * Elf and Half-Elf ears are rendered in the same model coordinate system as
- * the vanilla player. Dwarves receive a broad torso/shoulder layer and male
- * Dwarves receive a prominent beard so their silhouette reads distinctly.
+ * the vanilla player. Dwarves receive stout torso, arm and jaw geometry, while
+ * male Dwarves also receive a prominent beard.
  */
 public class RacePlayerSkinWidget extends PlayerSkinWidget
 {
@@ -65,7 +65,10 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private final Supplier<PendingCharacter.Gender> genderSupplier;
     private final ModelPart elfEars;
     private final ModelPart halfElfEars;
-    private final ModelPart dwarfBuild;
+    private final ModelPart dwarfMaleBuild;
+    private final ModelPart dwarfFemaleBuild;
+    private final ModelPart dwarfArms;
+    private final ModelPart dwarfJaw;
     private final ModelPart dwarfBeard;
     private final ModelPart dwarfBeardHighlights;
     private final ModelPart dwarfBeardShadows;
@@ -109,7 +112,10 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         this.genderSupplier = genderSupplier;
         this.elfEars = createEars(false);
         this.halfElfEars = createEars(true);
-        this.dwarfBuild = createDwarfBuild();
+        this.dwarfMaleBuild = createDwarfMaleBuild();
+        this.dwarfFemaleBuild = createDwarfFemaleBuild();
+        this.dwarfArms = createDwarfArms();
+        this.dwarfJaw = createDwarfJaw();
         this.dwarfBeard = createDwarfBeard();
         this.dwarfBeardHighlights = createDwarfBeardHighlights();
         this.dwarfBeardShadows = createDwarfBeardShadows();
@@ -173,6 +179,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         if (race == CharacterRace.DWARF)
         {
             renderDwarfBuild(graphics, pose);
+            renderDwarfJaw(graphics, pose);
             if (genderSupplier.get() != PendingCharacter.Gender.FEMALE)
             {
                 renderDwarfBeard(graphics, pose);
@@ -210,8 +217,27 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             tunicColor = 0xFF000000 | appearance.getShirtColor().getRgb();
         }
 
-        dwarfBuild.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+        ModelPart torso = genderSupplier.get() == PendingCharacter.Gender.FEMALE
+                ? dwarfFemaleBuild
+                : dwarfMaleBuild;
+
+        torso.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
                 LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, tunicColor);
+        dwarfArms.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, tunicColor);
+    }
+
+    private void renderDwarfJaw(GuiGraphics graphics, PoseStack pose)
+    {
+        CharacterAppearance appearance = appearanceSupplier.get();
+        int skinColor = DEFAULT_PREVIEW_SKIN_COLOR;
+        if (appearance != null && appearance.getSkinTone() != null)
+        {
+            skinColor = 0xFF000000 | appearance.getSkinTone().getRgb();
+        }
+
+        dwarfJaw.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, skinColor);
     }
 
     private void renderDwarfBeard(GuiGraphics graphics, PoseStack pose)
@@ -258,14 +284,54 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         return whiteTexture;
     }
 
-    private static ModelPart createDwarfBuild()
+    private static ModelPart createDwarfMaleBuild()
     {
         MeshDefinition mesh = new MeshDefinition();
         CubeListBuilder torso = CubeListBuilder.create()
                 .texOffs(0, 0).addBox(-4.75F, 0.25F, -2.30F, 9.50F, 4.25F, 4.60F)
                 .texOffs(0, 0).addBox(-4.45F, 4.50F, -2.20F, 8.90F, 4.00F, 4.40F)
                 .texOffs(0, 0).addBox(-4.20F, 8.50F, -2.10F, 8.40F, 3.25F, 4.20F);
-        mesh.getRoot().addOrReplaceChild("dwarf_torso", torso, PartPose.ZERO);
+        mesh.getRoot().addOrReplaceChild("dwarf_male_torso", torso, PartPose.ZERO);
+        return LayerDefinition.create(mesh, 16, 16).bakeRoot();
+    }
+
+    private static ModelPart createDwarfFemaleBuild()
+    {
+        MeshDefinition mesh = new MeshDefinition();
+
+        // Still distinctly stout, but with slightly less shoulder/chest width
+        // than the male shell so the female model does not read as identical.
+        CubeListBuilder torso = CubeListBuilder.create()
+                .texOffs(0, 0).addBox(-4.50F, 0.35F, -2.25F, 9.00F, 4.00F, 4.50F)
+                .texOffs(0, 0).addBox(-4.25F, 4.35F, -2.18F, 8.50F, 4.10F, 4.36F)
+                .texOffs(0, 0).addBox(-4.15F, 8.45F, -2.12F, 8.30F, 3.25F, 4.24F);
+        mesh.getRoot().addOrReplaceChild("dwarf_female_torso", torso, PartPose.ZERO);
+        return LayerDefinition.create(mesh, 16, 16).bakeRoot();
+    }
+
+    private static ModelPart createDwarfArms()
+    {
+        MeshDefinition mesh = new MeshDefinition();
+
+        // Static preview shoulder/upper-arm shells. These make both sexes read
+        // as compact and powerful without changing the successful whole-body scale.
+        CubeListBuilder arms = CubeListBuilder.create()
+                .texOffs(0, 0).addBox(-7.10F, 1.10F, -2.15F, 2.45F, 5.35F, 4.30F)
+                .texOffs(0, 0).addBox(4.65F, 1.10F, -2.15F, 2.45F, 5.35F, 4.30F);
+        mesh.getRoot().addOrReplaceChild("dwarf_upper_arms", arms, PartPose.ZERO);
+        return LayerDefinition.create(mesh, 16, 16).bakeRoot();
+    }
+
+    private static ModelPart createDwarfJaw()
+    {
+        MeshDefinition mesh = new MeshDefinition();
+
+        // Side-only lower-jaw blocks widen the face without covering the
+        // vanilla eyes, nose or mouth on the front of the skin.
+        CubeListBuilder jaw = CubeListBuilder.create()
+                .texOffs(0, 0).addBox(-4.30F, -3.00F, -3.35F, 0.45F, 2.95F, 6.15F)
+                .texOffs(0, 0).addBox(3.85F, -3.00F, -3.35F, 0.45F, 2.95F, 6.15F);
+        mesh.getRoot().addOrReplaceChild("dwarf_jaw", jaw, PartPose.ZERO);
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
 
