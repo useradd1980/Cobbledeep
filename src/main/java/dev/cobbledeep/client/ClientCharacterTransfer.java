@@ -36,6 +36,9 @@ public final class ClientCharacterTransfer
             if (pending != null && pending.hasValidName())
             {
                 pendingSubmission = new SubmitCharacterPacket(pending);
+                Cobbledeep.LOGGER.info(
+                        "Staged Cobbledeep character '{}' for world creation",
+                        pending.getName());
             }
             return;
         }
@@ -54,7 +57,11 @@ public final class ClientCharacterTransfer
     public static void onLoggingIn(ClientPlayerNetworkEvent.LoggingIn event)
     {
         if (pendingSubmission == null) return;
-        RPGNetwork.CHANNEL.send(pendingSubmission, PacketDistributor.SERVER.noArg());
+
+        Cobbledeep.LOGGER.info("Submitting staged Cobbledeep character to server");
+        RPGNetwork.CHANNEL.send(
+                pendingSubmission,
+                PacketDistributor.SERVER.noArg());
         pendingSubmission = null;
     }
 }
