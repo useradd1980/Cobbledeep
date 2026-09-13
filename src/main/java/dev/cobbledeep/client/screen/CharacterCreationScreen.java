@@ -75,6 +75,11 @@ public class CharacterCreationScreen extends Screen
         return isCompactLayout() ? 20 : 22;
     }
 
+    private int getAbilityRowHeight()
+    {
+        return isCompactLayout() ? 17 : getRowHeight();
+    }
+
     private int getDescriptionWidth()
     {
         return Math.max(180, Math.min(360, this.width - 30));
@@ -84,21 +89,21 @@ public class CharacterCreationScreen extends Screen
     {
         if (isCompactLayout())
         {
-            return getNavigationY() - getButtonHeight() - 10;
+            return getNavigationY() - getButtonHeight() - 4;
         }
 
-        return startY + 6 * getRowHeight() + 38;
+        return startY + 6 * getAbilityRowHeight() + 38;
     }
 
     private int getAbilityInfoY(int startY)
     {
-        int naturalY = startY + getRowHeight() * 6 + (isCompactLayout() ? 1 : 7);
+        int naturalY = startY + getAbilityRowHeight() * 6 + (isCompactLayout() ? 1 : 7);
         if (!isCompactLayout())
         {
             return naturalY;
         }
 
-        return Math.min(naturalY, getAbilityActionY(startY) - 28);
+        return Math.min(naturalY, getAbilityActionY(startY) - 27);
     }
 
     private void buildCurrentPage()
@@ -293,7 +298,7 @@ public class CharacterCreationScreen extends Screen
     {
         int centerX = this.width / 2;
         int startY = getContentTop() + (isCompactLayout() ? 4 : 17);
-        int rowHeight = getRowHeight();
+        int rowHeight = getAbilityRowHeight();
         int buttonHeight = getButtonHeight();
         AbilityScores scores = pendingCharacter.getAbilityScores();
         CharacterRace race = pendingCharacter.getRace();
@@ -368,7 +373,7 @@ public class CharacterCreationScreen extends Screen
 
     private void addAbilityButtons(int centerX, int y, Runnable decrease, Runnable increase)
     {
-        int size = getButtonHeight();
+        int size = isCompactLayout() ? 16 : getButtonHeight();
         this.addRenderableWidget(
                 Button.builder(Component.literal("-"), button ->
                 {
@@ -855,7 +860,7 @@ public class CharacterCreationScreen extends Screen
         CharacterClass characterClass = pendingCharacter.getCharacterClass();
         int centerX = this.width / 2;
         int startY = getContentTop() + (isCompactLayout() ? 4 : 17);
-        int rowHeight = getRowHeight();
+        int rowHeight = getAbilityRowHeight();
 
         if (!scores.isRolled())
         {
@@ -933,12 +938,12 @@ public class CharacterCreationScreen extends Screen
     {
         int centerX = this.width / 2;
         int labelX = Math.max(12, centerX - 120);
-        graphics.drawString(this.font, name, labelX, y + 5, 0xFFFFFF);
-        graphics.drawString(this.font, "Min " + minimum, labelX + 35, y + 5, 0x888888);
-        graphics.drawCenteredString(this.font, Integer.toString(baseValue), Math.min(this.width - 102, centerX + 68), y + 5, 0xFFFFFF);
-        graphics.drawCenteredString(this.font, formatModifier(racialModifier), Math.min(this.width - 62, centerX + 118), y + 5,
+        graphics.drawString(this.font, name, labelX, y + 4, 0xFFFFFF);
+        graphics.drawString(this.font, "Min " + minimum, labelX + 35, y + 4, 0x888888);
+        graphics.drawCenteredString(this.font, Integer.toString(baseValue), Math.min(this.width - 102, centerX + 68), y + 4, 0xFFFFFF);
+        graphics.drawCenteredString(this.font, formatModifier(racialModifier), Math.min(this.width - 62, centerX + 118), y + 4,
                 racialModifier == 0 ? 0x888888 : 0xFFFFAA);
-        graphics.drawCenteredString(this.font, finalValue, Math.min(this.width - 22, centerX + 168), y + 5, 0xAAFFAA);
+        graphics.drawCenteredString(this.font, finalValue, Math.min(this.width - 22, centerX + 168), y + 4, 0xAAFFAA);
     }
 
     private void renderSkills(GuiGraphics graphics)
