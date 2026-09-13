@@ -48,10 +48,10 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
     // Z-axis rotation raises the tips. Y-axis rotation sweeps them toward the
     // rear of the head while leaving the attachment point centred at z=0.
-    private static final float ELF_EAR_UP_ANGLE = 24.0F;
-    private static final float HALF_ELF_EAR_UP_ANGLE = 16.0F;
-    private static final float ELF_EAR_BACK_ANGLE = 20.0F;
-    private static final float HALF_ELF_EAR_BACK_ANGLE = 14.0F;
+    private static final float ELF_EAR_UP_ANGLE = 32.0F;
+    private static final float HALF_ELF_EAR_UP_ANGLE = 22.0F;
+    private static final float ELF_EAR_BACK_ANGLE = 30.0F;
+    private static final float HALF_ELF_EAR_BACK_ANGLE = 20.0F;
 
     // Approximate exposed-skin colour used by the current vanilla preview skin.
     // When CharacterAppearance is supplied, the selected tone overrides this.
