@@ -28,22 +28,15 @@ public class CharacterProficiencies
             return;
         }
 
-        /*
-         * BG2-era character-creation budgets.
-         * Warriors begin with 6 assignable points,
-         * priests/rogues with 3, and mages with 2.
-         */
+        // Level-one BG-style starting proficiency-slot budgets.
         availablePoints = switch (characterClass)
         {
-            case FIGHTER, RANGER, PALADIN -> 6;
-            case CLERIC, DRUID, THIEF, BARD -> 3;
-            case MAGE -> 2;
+            case FIGHTER, RANGER, PALADIN -> 4;
+            case CLERIC, DRUID, THIEF, BARD -> 2;
+            case MAGE -> 1;
         };
 
-        /*
-         * Rangers begin specialized in Two-Weapon Style
-         * without spending from their normal allocation.
-         */
+        // Rangers receive two innate ranks in Two-Weapon Style.
         if (characterClass == CharacterClass.RANGER)
         {
             styleRanks.put(FightingStyle.TWO_WEAPON, 2);
@@ -98,21 +91,17 @@ public class CharacterProficiencies
             return 0;
         }
 
+        // At level one, warriors may specialize; other classes are limited to proficiency.
         return switch (characterClass)
         {
-            case FIGHTER -> 4;
-            case RANGER, PALADIN -> 2;
+            case FIGHTER, RANGER, PALADIN -> 2;
             case CLERIC, DRUID, MAGE, THIEF, BARD -> 1;
         };
     }
 
-    public int getMaximumStyleRank(
-            CharacterClass characterClass,
-            FightingStyle style)
+    public int getMaximumStyleRank(CharacterClass characterClass, FightingStyle style)
     {
-        if (characterClass == null
-                || style == null
-                || !canUseStyle(characterClass, style))
+        if (characterClass == null || style == null || !canUseStyle(characterClass, style))
         {
             return 0;
         }
@@ -133,53 +122,51 @@ public class CharacterProficiencies
         };
     }
 
-    public boolean canUseWeapon(
-            CharacterClass characterClass,
-            WeaponProficiency proficiency)
+    public boolean canUseWeapon(CharacterClass characterClass, WeaponProficiency proficiency)
     {
         if (characterClass == null || proficiency == null)
         {
             return false;
         }
 
-        /*
-         * Restrictions are based on the original Baldur's Gate
-         * broad proficiency groups rather than the later
-         * single-weapon proficiency list.
-         */
         return switch (characterClass)
         {
-            case FIGHTER, RANGER, PALADIN, BARD -> true;
+            case FIGHTER, RANGER, PALADIN -> true;
 
-            case CLERIC ->
-                    proficiency == WeaponProficiency.BLUNT_WEAPONS
-                    || proficiency == WeaponProficiency.SPIKED_WEAPONS
-                    || proficiency == WeaponProficiency.MISSILE_WEAPONS;
+            case BARD -> true;
 
-            case DRUID ->
-                    proficiency == WeaponProficiency.LARGE_SWORD
-                    || proficiency == WeaponProficiency.SMALL_SWORD
-                    || proficiency == WeaponProficiency.SPEAR
-                    || proficiency == WeaponProficiency.BLUNT_WEAPONS
-                    || proficiency == WeaponProficiency.MISSILE_WEAPONS;
+            case CLERIC -> switch (proficiency)
+            {
+                case CLUB, MACE, SLING, FLAIL_MORNING_STAR,
+                     QUARTERSTAFF, WAR_HAMMER -> true;
+                default -> false;
+            };
 
-            case MAGE ->
-                    proficiency == WeaponProficiency.SMALL_SWORD
-                    || proficiency == WeaponProficiency.BLUNT_WEAPONS
-                    || proficiency == WeaponProficiency.MISSILE_WEAPONS;
+            case DRUID -> switch (proficiency)
+            {
+                case CLUB, DAGGER, DART, SCIMITAR_WAKIZASHI_NINJATO,
+                     SPEAR, QUARTERSTAFF, SLING -> true;
+                default -> false;
+            };
 
-            case THIEF ->
-                    proficiency == WeaponProficiency.LARGE_SWORD
-                    || proficiency == WeaponProficiency.SMALL_SWORD
-                    || proficiency == WeaponProficiency.BOW
-                    || proficiency == WeaponProficiency.BLUNT_WEAPONS
-                    || proficiency == WeaponProficiency.MISSILE_WEAPONS;
+            case MAGE -> switch (proficiency)
+            {
+                case DAGGER, DART, SLING, QUARTERSTAFF -> true;
+                default -> false;
+            };
+
+            case THIEF -> switch (proficiency)
+            {
+                case CLUB, DAGGER, DART, LONG_SWORD, SHORTBOW,
+                     SHORT_SWORD, QUARTERSTAFF, SLING,
+                     KATANA, SCIMITAR_WAKIZASHI_NINJATO,
+                     CROSSBOW -> true;
+                default -> false;
+            };
         };
     }
 
-    public boolean canUseStyle(
-            CharacterClass characterClass,
-            FightingStyle style)
+    public boolean canUseStyle(CharacterClass characterClass, FightingStyle style)
     {
         if (characterClass == null || style == null)
         {
@@ -189,12 +176,9 @@ public class CharacterProficiencies
         return characterClass != CharacterClass.MAGE;
     }
 
-    public void increaseWeapon(
-            CharacterClass characterClass,
-            WeaponProficiency proficiency)
+    public void increaseWeapon(CharacterClass characterClass, WeaponProficiency proficiency)
     {
-        if (availablePoints <= 0
-                || !canUseWeapon(characterClass, proficiency))
+        if (availablePoints <= 0 || !canUseWeapon(characterClass, proficiency))
         {
             return;
         }
@@ -224,12 +208,9 @@ public class CharacterProficiencies
         availablePoints++;
     }
 
-    public void increaseStyle(
-            CharacterClass characterClass,
-            FightingStyle style)
+    public void increaseStyle(CharacterClass characterClass, FightingStyle style)
     {
-        if (availablePoints <= 0
-                || !canUseStyle(characterClass, style))
+        if (availablePoints <= 0 || !canUseStyle(characterClass, style))
         {
             return;
         }
@@ -246,21 +227,11 @@ public class CharacterProficiencies
         availablePoints--;
     }
 
-    public void decreaseStyle(
-            CharacterClass characterClass,
-            FightingStyle style)
+    public void decreaseStyle(CharacterClass characterClass, FightingStyle style)
     {
         int currentRank = getStyleRank(style);
-
-        /*
-         * The ranger's two free Two-Weapon ranks are innate
-         * and cannot be reclaimed into the normal point pool.
-         */
-        int minimumRank =
-                characterClass == CharacterClass.RANGER
-                && style == FightingStyle.TWO_WEAPON
-                        ? 2
-                        : 0;
+        int minimumRank = characterClass == CharacterClass.RANGER
+                && style == FightingStyle.TWO_WEAPON ? 2 : 0;
 
         if (currentRank <= minimumRank)
         {
