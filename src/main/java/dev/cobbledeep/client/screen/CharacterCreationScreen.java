@@ -7,6 +7,7 @@ import dev.cobbledeep.character.CharacterClass;
 import dev.cobbledeep.character.CharacterProficiencies;
 import dev.cobbledeep.character.CharacterRace;
 import dev.cobbledeep.character.CharacterSkills;
+import dev.cobbledeep.character.FightingStyle;
 import dev.cobbledeep.character.PendingCharacter;
 import dev.cobbledeep.character.WeaponProficiency;
 import net.minecraft.client.Minecraft;
@@ -425,43 +426,82 @@ public class CharacterCreationScreen extends Screen
         }
 
         int centerX = this.width / 2;
-        int startY = 105;
-        int row = 0;
+        int startY = 115;
+        int leftControlsX = centerX - 85;
+        int rightControlsX = centerX + 190;
 
+        int row = 0;
         for (WeaponProficiency proficiency : WeaponProficiency.values())
         {
-            if (!proficiencies.canUse(characterClass, proficiency))
+            if (proficiencies.canUseWeapon(characterClass, proficiency))
             {
-                row++;
-                continue;
+                int y = startY + row * 22;
+
+                Button minusButton = Button.builder(
+                        Component.literal("-"),
+                        button ->
+                        {
+                            proficiencies.decreaseWeapon(proficiency);
+                            buildCurrentPage();
+                        })
+                        .bounds(leftControlsX, y, 20, 20)
+                        .build();
+                minusButton.active = proficiencies.getWeaponRank(proficiency) > 0;
+                this.addRenderableWidget(minusButton);
+
+                Button plusButton = Button.builder(
+                        Component.literal("+"),
+                        button ->
+                        {
+                            proficiencies.increaseWeapon(characterClass, proficiency);
+                            buildCurrentPage();
+                        })
+                        .bounds(leftControlsX + 25, y, 20, 20)
+                        .build();
+                plusButton.active = proficiencies.getAvailablePoints() > 0
+                        && proficiencies.getWeaponRank(proficiency)
+                        < proficiencies.getMaximumWeaponRank(characterClass);
+                this.addRenderableWidget(plusButton);
             }
 
-            int y = startY + row * 22;
+            row++;
+        }
 
-            Button minusButton = Button.builder(
-                    Component.literal("-"),
-                    button ->
-                    {
-                        proficiencies.decrease(proficiency);
-                        buildCurrentPage();
-                    })
-                    .bounds(centerX + 55, y, 20, 20)
-                    .build();
-            minusButton.active = proficiencies.getRank(proficiency) > 0;
-            this.addRenderableWidget(minusButton);
+        row = 0;
+        for (FightingStyle style : FightingStyle.values())
+        {
+            if (proficiencies.canUseStyle(characterClass, style))
+            {
+                int y = startY + row * 22;
+                int minimumRank = characterClass == CharacterClass.RANGER
+                        && style == FightingStyle.TWO_WEAPON ? 2 : 0;
 
-            Button plusButton = Button.builder(
-                    Component.literal("+"),
-                    button ->
-                    {
-                        proficiencies.increase(characterClass, proficiency);
-                        buildCurrentPage();
-                    })
-                    .bounds(centerX + 80, y, 20, 20)
-                    .build();
-            plusButton.active = proficiencies.getAvailablePoints() > 0
-                    && proficiencies.getRank(proficiency) < proficiencies.getMaximumRank();
-            this.addRenderableWidget(plusButton);
+                Button minusButton = Button.builder(
+                        Component.literal("-"),
+                        button ->
+                        {
+                            proficiencies.decreaseStyle(characterClass, style);
+                            buildCurrentPage();
+                        })
+                        .bounds(rightControlsX, y, 20, 20)
+                        .build();
+                minusButton.active = proficiencies.getStyleRank(style) > minimumRank;
+                this.addRenderableWidget(minusButton);
+
+                Button plusButton = Button.builder(
+                        Component.literal("+"),
+                        button ->
+                        {
+                            proficiencies.increaseStyle(characterClass, style);
+                            buildCurrentPage();
+                        })
+                        .bounds(rightControlsX + 25, y, 20, 20)
+                        .build();
+                plusButton.active = proficiencies.getAvailablePoints() > 0
+                        && proficiencies.getStyleRank(style)
+                        < proficiencies.getMaximumStyleRank(characterClass, style);
+                this.addRenderableWidget(plusButton);
+            }
 
             row++;
         }
@@ -854,32 +894,57 @@ public class CharacterCreationScreen extends Screen
         }
 
         int centerX = this.width / 2;
-        int startY = 105;
+        int startY = 115;
+        int leftLabelX = centerX - 260;
+        int leftRankX = centerX - 105;
+        int rightLabelX = centerX + 20;
+        int rightRankX = centerX + 170;
+
+        graphics.drawString(this.font, "Weapon Proficiencies", leftLabelX, startY - 20, 0xAAAAAA);
+        graphics.drawString(this.font, "Weapon Styles", rightLabelX, startY - 20, 0xAAAAAA);
+
         int row = 0;
-
-        graphics.drawString(this.font, "Weapon Group", centerX - 140, startY - 18, 0xAAAAAA);
-        graphics.drawCenteredString(this.font, "Rank", centerX + 25, startY - 18, 0xAAAAAA);
-
         for (WeaponProficiency proficiency : WeaponProficiency.values())
         {
             int y = startY + row * 22;
-            boolean allowed = proficiencies.canUse(characterClass, proficiency);
-            int labelColor = allowed ? 0xFFFFFF : 0x777777;
-            int rankColor = allowed ? 0xAAFFAA : 0x666666;
+            boolean allowed = proficiencies.canUseWeapon(characterClass, proficiency);
 
             graphics.drawString(
                     this.font,
                     proficiency.getDisplayName(),
-                    centerX - 140,
+                    leftLabelX,
                     y + 6,
-                    labelColor);
+                    allowed ? 0xFFFFFF : 0x777777);
 
             graphics.drawCenteredString(
                     this.font,
-                    formatProficiencyRank(proficiencies.getRank(proficiency)),
-                    centerX + 25,
+                    formatProficiencyRank(proficiencies.getWeaponRank(proficiency)),
+                    leftRankX,
                     y + 6,
-                    rankColor);
+                    allowed ? 0xAAFFAA : 0x666666);
+
+            row++;
+        }
+
+        row = 0;
+        for (FightingStyle style : FightingStyle.values())
+        {
+            int y = startY + row * 22;
+            boolean allowed = proficiencies.canUseStyle(characterClass, style);
+
+            graphics.drawString(
+                    this.font,
+                    style.getDisplayName(),
+                    rightLabelX,
+                    y + 6,
+                    allowed ? 0xFFFFFF : 0x777777);
+
+            graphics.drawCenteredString(
+                    this.font,
+                    formatProficiencyRank(proficiencies.getStyleRank(style)),
+                    rightRankX,
+                    y + 6,
+                    allowed ? 0xAAFFAA : 0x666666);
 
             row++;
         }
@@ -888,15 +953,26 @@ public class CharacterCreationScreen extends Screen
                 this.font,
                 "Proficiency Points Remaining: " + proficiencies.getAvailablePoints(),
                 centerX,
-                startY + 185,
+                startY + 190,
                 0xFFFFAA);
 
         graphics.drawCenteredString(
                 this.font,
-                "Maximum starting rank: " + proficiencies.getMaximumRank(),
+                "Maximum weapon rank for " + characterClass.getDisplayName()
+                        + ": " + proficiencies.getMaximumWeaponRank(characterClass),
                 centerX,
-                startY + 200,
+                startY + 205,
                 0xAAAAAA);
+
+        if (characterClass == CharacterClass.RANGER)
+        {
+            graphics.drawCenteredString(
+                    this.font,
+                    "Rangers begin with ** in Two-Weapon Style at no cost.",
+                    centerX,
+                    startY + 220,
+                    0xAAAAAA);
+        }
     }
 
     private String formatProficiencyRank(int rank)
