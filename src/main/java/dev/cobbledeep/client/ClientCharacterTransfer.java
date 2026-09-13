@@ -12,6 +12,7 @@ import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.network.PacketDistributor;
 
 /**
  * Carries the completed title-screen character across the gap before a play
@@ -53,7 +54,7 @@ public final class ClientCharacterTransfer
     public static void onLoggingIn(ClientPlayerNetworkEvent.LoggingIn event)
     {
         if (pendingSubmission == null) return;
-        RPGNetwork.CHANNEL.sendToServer(pendingSubmission);
+        RPGNetwork.CHANNEL.send(pendingSubmission, PacketDistributor.SERVER.noArg());
         pendingSubmission = null;
     }
 }
