@@ -718,6 +718,12 @@ public class CharacterCreationScreen extends Screen
                 continue;
             }
 
+            if (candidate == CharacterCreationPage.SPELLS && !usesSpellsPage())
+            {
+                nextIndex++;
+                continue;
+            }
+
             if (candidate == CharacterCreationPage.PROFICIENCIES)
             {
                 proficiencyScrollOffset = 0;
@@ -745,6 +751,12 @@ public class CharacterCreationScreen extends Screen
             CharacterCreationPage candidate = pages[previousIndex];
 
             if (candidate == CharacterCreationPage.SKILLS && !usesSkillsPage())
+            {
+                previousIndex--;
+                continue;
+            }
+
+            if (candidate == CharacterCreationPage.SPELLS && !usesSpellsPage())
             {
                 previousIndex--;
                 continue;
@@ -1157,6 +1169,21 @@ public class CharacterCreationScreen extends Screen
     private boolean usesSkillsPage()
     {
         return pendingCharacter.getCharacterClass() == CharacterClass.THIEF;
+    }
+
+    private boolean usesSpellsPage()
+    {
+        CharacterClass characterClass = pendingCharacter.getCharacterClass();
+        if (characterClass == null)
+        {
+            return false;
+        }
+
+        return switch (characterClass)
+        {
+            case MAGE, CLERIC, DRUID, BARD -> true;
+            case FIGHTER, RANGER, PALADIN, THIEF -> false;
+        };
     }
 
     @Override
