@@ -8,113 +8,55 @@ public class PendingCharacter
         FEMALE
     }
 
+    private static PendingCharacter latest;
+
     private Gender gender;
     private CharacterRace race;
     private CharacterClass characterClass;
     private CharacterAlignment alignment;
     private String name = "";
 
-    private final AbilityScores abilityScores =
-            new AbilityScores();
+    private final AbilityScores abilityScores = new AbilityScores();
+    private final CharacterSkills skills = new CharacterSkills();
+    private final CharacterProficiencies proficiencies = new CharacterProficiencies();
+    private final CharacterSpells spells = new CharacterSpells();
+    private final CharacterAppearance appearance = new CharacterAppearance();
 
-    private final CharacterSkills skills =
-            new CharacterSkills();
-
-    private final CharacterProficiencies proficiencies =
-            new CharacterProficiencies();
-
-    private final CharacterSpells spells =
-            new CharacterSpells();
-
-    private final CharacterAppearance appearance =
-            new CharacterAppearance();
-
-    public Gender getGender()
+    public PendingCharacter()
     {
-        return gender;
+        latest = this;
     }
 
-    public void setGender(Gender gender)
+    public static PendingCharacter getLatest()
     {
-        this.gender = gender;
+        return latest;
     }
 
-    public CharacterRace getRace()
-    {
-        return race;
-    }
+    public Gender getGender() { return gender; }
+    public void setGender(Gender gender) { this.gender = gender; }
 
-    public void setRace(CharacterRace race)
-    {
-        this.race = race;
-    }
+    public CharacterRace getRace() { return race; }
+    public void setRace(CharacterRace race) { this.race = race; }
 
-    public CharacterClass getCharacterClass()
-    {
-        return characterClass;
-    }
+    public CharacterClass getCharacterClass() { return characterClass; }
+    public void setCharacterClass(CharacterClass characterClass) { this.characterClass = characterClass; }
 
-    public void setCharacterClass(
-            CharacterClass characterClass)
-    {
-        this.characterClass = characterClass;
-    }
+    public CharacterAlignment getAlignment() { return alignment; }
+    public void setAlignment(CharacterAlignment alignment) { this.alignment = alignment; }
 
-    public CharacterAlignment getAlignment()
-    {
-        return alignment;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name == null ? "" : name; }
+    public boolean hasValidName() { return !name.trim().isEmpty(); }
 
-    public void setAlignment(
-            CharacterAlignment alignment)
-    {
-        this.alignment = alignment;
-    }
-
-    public String getName()
-    {
-        return name;
-    }
-
-    public void setName(String name)
-    {
-        this.name = name == null ? "" : name;
-    }
-
-    public boolean hasValidName()
-    {
-        return !name.trim().isEmpty();
-    }
-
-    public AbilityScores getAbilityScores()
-    {
-        return abilityScores;
-    }
-
-    public CharacterSkills getSkills()
-    {
-        return skills;
-    }
-
-    public CharacterProficiencies getProficiencies()
-    {
-        return proficiencies;
-    }
-
-    public CharacterSpells getSpells()
-    {
-        return spells;
-    }
-
-    public CharacterAppearance getAppearance()
-    {
-        return appearance;
-    }
+    public AbilityScores getAbilityScores() { return abilityScores; }
+    public CharacterSkills getSkills() { return skills; }
+    public CharacterProficiencies getProficiencies() { return proficiencies; }
+    public CharacterSpells getSpells() { return spells; }
+    public CharacterAppearance getAppearance() { return appearance; }
 
     public void resetAfterClassChange()
     {
         alignment = null;
-
         abilityScores.reset();
         skills.reset();
         proficiencies.reset();
