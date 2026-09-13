@@ -3,32 +3,95 @@ package dev.cobbledeep.character;
 /**
  * Level-one arcane spells available to a starting Mage.
  *
- * The initial list is based on classic computer-RPG wizard spellbooks,
- * but Cobbledeep owns the implementation and spell behavior.
+ * The spell names and broad mechanics are inspired by classic tabletop and
+ * computer RPG traditions. Descriptions are written specifically for Cobbledeep.
  */
 public enum MageSpell
 {
-    ARMOR("Armor", "Conjuration", "Creates a protective magical armor around the caster."),
-    BLINDNESS("Blindness", "Illusion", "Attempts to blind a creature, reducing its combat effectiveness."),
-    BURNING_HANDS("Burning Hands", "Alteration", "Projects a short cone of flame from the caster's hands."),
-    CHARM_PERSON("Charm Person", "Enchantment", "Temporarily causes a humanoid target to regard the caster as an ally."),
-    CHILL_TOUCH("Chill Touch", "Necromancy", "Empowers a touch attack with necromantic cold."),
-    CHROMATIC_ORB("Chromatic Orb", "Invocation", "Launches an orb whose damage and secondary effects improve with caster level."),
-    COLOR_SPRAY("Color Spray", "Alteration", "Unleashes a fan of dazzling colors that can disable weaker creatures."),
-    FIND_FAMILIAR("Find Familiar", "Conjuration", "Summons a small magical companion bound to the caster."),
-    FRIENDS("Friends", "Enchantment", "Temporarily improves the caster's presence and social influence."),
-    GREASE("Grease", "Conjuration", "Coats an area in slippery grease, making movement difficult."),
-    IDENTIFY("Identify", "Divination", "Reveals the properties of an unidentified magical item."),
-    INFRAVISION("Infravision", "Divination", "Grants enhanced vision in darkness for a limited time."),
-    LARLOCHS_MINOR_DRAIN("Larloch's Minor Drain", "Necromancy", "Drains a small amount of life from a target and transfers it to the caster."),
-    MAGIC_MISSILE("Magic Missile", "Invocation", "Fires an unerring bolt of magical force at a target."),
-    PROTECTION_FROM_EVIL("Protection From Evil", "Abjuration", "Grants defensive protection against hostile evil creatures."),
-    PROTECTION_FROM_PETRIFICATION("Protection From Petrification", "Abjuration", "Protects a creature from petrifying attacks."),
-    REFLECTED_IMAGE("Reflected Image", "Illusion", "Creates a duplicate image that can absorb an incoming attack."),
-    SHIELD("Shield", "Invocation", "Creates a magical shield that improves defense, especially against missiles."),
-    SHOCKING_GRASP("Shocking Grasp", "Alteration", "Charges the caster's hand with electricity for a touch attack."),
-    SLEEP("Sleep", "Enchantment", "Puts weaker creatures in an area into magical sleep."),
-    SPOOK("Spook", "Illusion", "Conjures a terrifying illusion that may cause a target to flee." );
+    ARMOR(
+            "Armor",
+            "Conjuration",
+            "Surrounds the caster with invisible magical protection. It is intended as a long-lasting defensive spell for lightly armored mages."),
+    BLINDNESS(
+            "Blindness",
+            "Illusion",
+            "Attempts to rob one creature of its sight. A blinded enemy has great difficulty seeing and fighting effectively until the effect ends."),
+    BURNING_HANDS(
+            "Burning Hands",
+            "Alteration",
+            "Projects a short burst of flame from the caster's hands. It is most useful at close range and can scorch several creatures caught in front of the caster."),
+    CHARM_PERSON(
+            "Charm Person",
+            "Enchantment",
+            "Attempts to magically influence a humanoid creature, causing it to treat the caster as a friend for a limited time."),
+    CHILL_TOUCH(
+            "Chill Touch",
+            "Necromancy",
+            "Fills the caster's hand with numbing necromantic energy. A successful touch harms the target and may weaken its ability to fight back."),
+    CHROMATIC_ORB(
+            "Chromatic Orb",
+            "Invocation",
+            "Launches a brightly colored sphere of magical energy. Its damage and possible secondary effects become more potent as the caster grows in experience."),
+    COLOR_SPRAY(
+            "Color Spray",
+            "Alteration",
+            "Unleashes a fan of brilliant colors. Weaker creatures caught in the display may become stunned, blinded, or otherwise unable to act effectively."),
+    FIND_FAMILIAR(
+            "Find Familiar",
+            "Conjuration",
+            "Calls a small magical companion to bond with the caster. A familiar can provide companionship and useful abilities, but the bond also carries risks."),
+    FRIENDS(
+            "Friends",
+            "Enchantment",
+            "Temporarily enhances the caster's personal magnetism, making social interaction and persuasion easier while the spell remains active."),
+    GREASE(
+            "Grease",
+            "Conjuration",
+            "Covers an area with magically slick grease. Creatures moving through it may lose their footing, making the spell useful for controlling a battlefield."),
+    IDENTIFY(
+            "Identify",
+            "Divination",
+            "Reveals the magical properties of an otherwise unidentified item, allowing the caster to learn what the object does."),
+    INFRAVISION(
+            "Infravision",
+            "Divination",
+            "Temporarily grants enhanced vision in darkness, allowing the recipient to see more clearly where ordinary sight would struggle."),
+    LARLOCHS_MINOR_DRAIN(
+            "Larloch's Minor Drain",
+            "Necromancy",
+            "Steals a small amount of life force from a target and transfers it to the caster, harming the victim while temporarily strengthening the mage."),
+    MAGIC_MISSILE(
+            "Magic Missile",
+            "Invocation",
+            "Creates a bolt of magical force that flies directly toward its target. Additional missiles can be produced as the caster becomes more experienced."),
+    PROTECTION_FROM_EVIL(
+            "Protection From Evil",
+            "Abjuration",
+            "Places a protective ward around one creature, improving its defenses against hostile creatures of evil intent."),
+    PROTECTION_FROM_PETRIFICATION(
+            "Protection From Petrification",
+            "Abjuration",
+            "Wards one creature against magical effects that would turn flesh to stone."),
+    REFLECTED_IMAGE(
+            "Reflected Image",
+            "Illusion",
+            "Creates an illusory duplicate of the caster. An incoming attack may strike the false image instead of the real mage."),
+    SHIELD(
+            "Shield",
+            "Invocation",
+            "Creates an invisible barrier of force in front of the caster. It improves defense and is especially useful against missile attacks."),
+    SHOCKING_GRASP(
+            "Shocking Grasp",
+            "Alteration",
+            "Charges the caster's hand with electrical energy. The next successful touch can discharge the stored electricity into an enemy."),
+    SLEEP(
+            "Sleep",
+            "Enchantment",
+            "Sends weaker creatures in an area into magical sleep. Sleeping enemies are temporarily helpless until they awaken or are disturbed."),
+    SPOOK(
+            "Spook",
+            "Illusion",
+            "Creates a terrifying image visible only to the chosen target. If the illusion takes hold, the victim may panic and flee from danger." );
 
     private final String displayName;
     private final String school;
