@@ -594,7 +594,7 @@ public class CharacterCreationScreen extends Screen
                 focusedDivineSpell = spell;
                 spells.increaseDivineSpell(characterClass, finalWisdom, spell);
                 buildCurrentPage();
-            }).bounds(controlsX + 64, y, 22, buttonHeight).build());
+            }).bounds(controlsX + 64, y, 22, buttonHeight).build();
             plusButton.active = spells.canMemorizeAnotherDivineSpell(characterClass, finalWisdom);
             this.addRenderableWidget(plusButton);
         }
