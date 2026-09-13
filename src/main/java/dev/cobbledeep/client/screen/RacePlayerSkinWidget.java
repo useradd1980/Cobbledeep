@@ -29,6 +29,8 @@ import net.minecraft.util.Mth;
  * Player-skin preview that applies Cobbledeep race proportions while retaining
  * the vanilla skin widget's click-and-drag rotation behaviour.
  *
+ * Race scaling is anchored at the character's feet so shorter races remain
+ * planted at the same baseline instead of shrinking toward the widget centre.
  * Elf and Half-Elf ears are rendered in the same model coordinate system as
  * the vanilla player. Their roots remain centred on the sides of the head,
  * while mirrored rotations point the ear tips upward and toward the rear.
@@ -98,12 +100,18 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         CharacterRace race = raceSupplier.get();
         RaceScale scale = getRaceScale(race);
         float centerX = getX() + getWidth() / 2.0F;
-        float centerY = getY() + getHeight() / 2.0F;
+        float feetY = getY() + getHeight();
 
         graphics.pose().pushPose();
-        graphics.pose().translate(centerX, centerY, 0.0F);
+
+        /*
+         * Width scales around the horizontal centre, while height scales from
+         * the player's feet. This keeps every race standing on the same visual
+         * baseline and makes the short-race silhouettes read much more naturally.
+         */
+        graphics.pose().translate(centerX, feetY, 0.0F);
         graphics.pose().scale(scale.widthScale(), scale.heightScale(), 1.0F);
-        graphics.pose().translate(-centerX, -centerY, 0.0F);
+        graphics.pose().translate(-centerX, -feetY, 0.0F);
 
         super.renderWidget(graphics, mouseX, mouseY, partialTick);
         renderRaceGeometry(graphics, race);
@@ -247,9 +255,17 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             case HUMAN -> RaceScale.HUMAN;
             case ELF -> new RaceScale(0.90F, 1.06F);
             case HALF_ELF -> new RaceScale(0.96F, 1.02F);
-            case DWARF -> new RaceScale(1.15F, 0.82F);
-            case HALFLING -> new RaceScale(0.88F, 0.72F);
-            case GNOME -> new RaceScale(0.95F, 0.76F);
+
+            // Dwarves are deliberately stocky: clearly shorter than humans but
+            // with a much broader silhouette.
+            case DWARF -> new RaceScale(1.22F, 0.78F);
+
+            // Halflings are the smallest and lightest-looking race in the set.
+            case HALFLING -> new RaceScale(0.84F, 0.68F);
+
+            // Gnomes remain short, but are a little broader and taller than
+            // halflings so the two races do not collapse into one silhouette.
+            case GNOME -> new RaceScale(0.90F, 0.72F);
         };
     }
 
