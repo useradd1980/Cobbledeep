@@ -32,8 +32,8 @@ import net.minecraft.util.Mth;
  * Race scaling is anchored at the character's feet so shorter races remain
  * planted at the same baseline instead of shrinking toward the widget centre.
  * Elf and Half-Elf ears are rendered in the same model coordinate system as
- * the vanilla player. Dwarves receive an additional broad torso/shoulder layer
- * to make their build read as stockier than simple whole-model scaling alone.
+ * the vanilla player. Dwarves receive a broad torso/shoulder layer and a
+ * prominent beard so their silhouette reads distinctly from a scaled human.
  */
 public class RacePlayerSkinWidget extends PlayerSkinWidget
 {
@@ -54,6 +54,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static final float HALF_ELF_EAR_BACK_ANGLE = 20.0F;
 
     private static final int DEFAULT_PREVIEW_SKIN_COLOR = 0xFFB47A60;
+    private static final int DEFAULT_DWARF_BEARD_COLOR = 0xFF3B261B;
     private static final int DWARF_TUNIC_COLOR = 0xFF5B4636;
 
     private static ResourceLocation whiteTexture;
@@ -63,6 +64,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private final ModelPart elfEars;
     private final ModelPart halfElfEars;
     private final ModelPart dwarfBuild;
+    private final ModelPart dwarfBeard;
 
     private float previewRotationX = DEFAULT_ROTATION_X;
     private float previewRotationY = DEFAULT_ROTATION_Y;
@@ -91,6 +93,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         this.elfEars = createEars(false);
         this.halfElfEars = createEars(true);
         this.dwarfBuild = createDwarfBuild();
+        this.dwarfBeard = createDwarfBeard();
     }
 
     @Override
@@ -151,6 +154,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         if (race == CharacterRace.DWARF)
         {
             renderDwarfBuild(graphics, pose);
+            renderDwarfBeard(graphics, pose);
         }
         else
         {
@@ -196,6 +200,23 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
                 tunicColor);
     }
 
+    private void renderDwarfBeard(GuiGraphics graphics, PoseStack pose)
+    {
+        CharacterAppearance appearance = appearanceSupplier.get();
+        int beardColor = DEFAULT_DWARF_BEARD_COLOR;
+        if (appearance != null && appearance.getHairColor() != null)
+        {
+            beardColor = 0xFF000000 | appearance.getHairColor().getRgb();
+        }
+
+        dwarfBeard.render(
+                pose,
+                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT,
+                OverlayTexture.NO_OVERLAY,
+                beardColor);
+    }
+
     private static ResourceLocation getWhiteTexture()
     {
         if (whiteTexture == null)
@@ -217,15 +238,37 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     {
         MeshDefinition mesh = new MeshDefinition();
 
-        // The vanilla torso spans x=-4..4, y=0..12, z=-2..2. This thin shell
-        // broadens the shoulders and chest without changing the successful
-        // overall dwarf height/width proportions.
         CubeListBuilder torso = CubeListBuilder.create()
                 .texOffs(0, 0).addBox(-4.75F, 0.25F, -2.30F, 9.50F, 4.25F, 4.60F)
                 .texOffs(0, 0).addBox(-4.45F, 4.50F, -2.20F, 8.90F, 4.00F, 4.40F)
                 .texOffs(0, 0).addBox(-4.20F, 8.50F, -2.10F, 8.40F, 3.25F, 4.20F);
 
         mesh.getRoot().addOrReplaceChild("dwarf_torso", torso, PartPose.ZERO);
+        return LayerDefinition.create(mesh, 16, 16).bakeRoot();
+    }
+
+    private static ModelPart createDwarfBeard()
+    {
+        MeshDefinition mesh = new MeshDefinition();
+
+        /*
+         * Vanilla head bounds are x=-4..4, y=-8..0, z=-4..4. The beard sits
+         * just in front of the lower face and then steps inward as it reaches
+         * the upper chest. Keeping it blocky matches Minecraft's visual style.
+         */
+        CubeListBuilder beard = CubeListBuilder.create()
+                // moustache / upper beard
+                .texOffs(0, 0).addBox(-3.35F, -2.55F, -4.65F, 6.70F, 1.20F, 0.85F)
+                // broad chin section
+                .texOffs(0, 0).addBox(-3.65F, -1.45F, -4.55F, 7.30F, 2.20F, 0.95F)
+                // upper hanging beard
+                .texOffs(0, 0).addBox(-3.20F, 0.60F, -3.90F, 6.40F, 2.35F, 1.25F)
+                // lower hanging beard
+                .texOffs(0, 0).addBox(-2.65F, 2.75F, -3.55F, 5.30F, 2.20F, 1.20F)
+                // tapered tip
+                .texOffs(0, 0).addBox(-1.80F, 4.75F, -3.25F, 3.60F, 1.45F, 1.05F);
+
+        mesh.getRoot().addOrReplaceChild("dwarf_beard", beard, PartPose.ZERO);
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
 
