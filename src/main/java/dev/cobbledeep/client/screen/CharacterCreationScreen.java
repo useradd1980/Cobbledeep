@@ -57,7 +57,7 @@ public class CharacterCreationScreen extends Screen
 
     private int getContentTop()
     {
-        return isCompactLayout() ? 52 : 95;
+        return isCompactLayout() ? 58 : 95;
     }
 
     private int getNavigationY()
@@ -72,7 +72,7 @@ public class CharacterCreationScreen extends Screen
 
     private int getRowHeight()
     {
-        return isCompactLayout() ? 18 : 22;
+        return isCompactLayout() ? 20 : 22;
     }
 
     private int getDescriptionWidth()
@@ -84,7 +84,7 @@ public class CharacterCreationScreen extends Screen
     {
         if (isCompactLayout())
         {
-            return getNavigationY() - getButtonHeight() - 12;
+            return getNavigationY() - getButtonHeight() - 10;
         }
 
         return startY + 6 * getRowHeight() + 38;
@@ -92,13 +92,13 @@ public class CharacterCreationScreen extends Screen
 
     private int getAbilityInfoY(int startY)
     {
-        int naturalY = startY + getRowHeight() * 6 + (isCompactLayout() ? 2 : 7);
+        int naturalY = startY + getRowHeight() * 6 + (isCompactLayout() ? 1 : 7);
         if (!isCompactLayout())
         {
             return naturalY;
         }
 
-        return Math.min(naturalY, getAbilityActionY(startY) - 16);
+        return Math.min(naturalY, getAbilityActionY(startY) - 28);
     }
 
     private void buildCurrentPage()
@@ -292,7 +292,7 @@ public class CharacterCreationScreen extends Screen
     private void buildAbilitiesPage()
     {
         int centerX = this.width / 2;
-        int startY = getContentTop() + (isCompactLayout() ? 2 : 17);
+        int startY = getContentTop() + (isCompactLayout() ? 4 : 17);
         int rowHeight = getRowHeight();
         int buttonHeight = getButtonHeight();
         AbilityScores scores = pendingCharacter.getAbilityScores();
@@ -304,8 +304,6 @@ public class CharacterCreationScreen extends Screen
             return;
         }
 
-        // Arriving on the Ability Scores page should feel like classic character
-        // generation: present a valid roll immediately rather than an empty page.
         if (!scores.isRolled())
         {
             scores.roll(race, characterClass);
@@ -856,10 +854,17 @@ public class CharacterCreationScreen extends Screen
         CharacterRace race = pendingCharacter.getRace();
         CharacterClass characterClass = pendingCharacter.getCharacterClass();
         int centerX = this.width / 2;
-        int startY = getContentTop() + (isCompactLayout() ? 2 : 17);
+        int startY = getContentTop() + (isCompactLayout() ? 4 : 17);
         int rowHeight = getRowHeight();
 
-        if (!scores.isRolled() || race == null || characterClass == null)
+        if (!scores.isRolled())
+        {
+            graphics.drawCenteredString(this.font, "Roll your ability scores",
+                    centerX, getContentTop(), 0xAAAAAA);
+            return;
+        }
+
+        if (race == null || characterClass == null)
         {
             return;
         }
@@ -894,7 +899,18 @@ public class CharacterCreationScreen extends Screen
         graphics.drawCenteredString(this.font, "Available Points: " + scores.getAvailablePoints(),
                 centerX, infoY, 0xFFFFAA);
 
-        if (!isCompactLayout())
+        if (isCompactLayout())
+        {
+            String totals = "Roll Total: " + scores.getTotal();
+            if (scores.hasStoredRoll())
+            {
+                totals += "   Stored Total: " + scores.getStoredTotal();
+            }
+
+            graphics.drawCenteredString(this.font, totals,
+                    centerX, infoY + 13, 0xAAAAAA);
+        }
+        else
         {
             graphics.drawCenteredString(this.font, "Roll Total: " + scores.getTotal(),
                     centerX, infoY + 15, 0xAAAAAA);
@@ -917,12 +933,12 @@ public class CharacterCreationScreen extends Screen
     {
         int centerX = this.width / 2;
         int labelX = Math.max(12, centerX - 120);
-        graphics.drawString(this.font, name, labelX, y + 4, 0xFFFFFF);
-        graphics.drawString(this.font, "Min " + minimum, labelX + 35, y + 4, 0x888888);
-        graphics.drawCenteredString(this.font, Integer.toString(baseValue), Math.min(this.width - 102, centerX + 68), y + 4, 0xFFFFFF);
-        graphics.drawCenteredString(this.font, formatModifier(racialModifier), Math.min(this.width - 62, centerX + 118), y + 4,
+        graphics.drawString(this.font, name, labelX, y + 5, 0xFFFFFF);
+        graphics.drawString(this.font, "Min " + minimum, labelX + 35, y + 5, 0x888888);
+        graphics.drawCenteredString(this.font, Integer.toString(baseValue), Math.min(this.width - 102, centerX + 68), y + 5, 0xFFFFFF);
+        graphics.drawCenteredString(this.font, formatModifier(racialModifier), Math.min(this.width - 62, centerX + 118), y + 5,
                 racialModifier == 0 ? 0x888888 : 0xFFFFAA);
-        graphics.drawCenteredString(this.font, finalValue, Math.min(this.width - 22, centerX + 168), y + 4, 0xAAFFAA);
+        graphics.drawCenteredString(this.font, finalValue, Math.min(this.width - 22, centerX + 168), y + 5, 0xAAFFAA);
     }
 
     private void renderSkills(GuiGraphics graphics)
