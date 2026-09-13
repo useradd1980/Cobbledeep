@@ -8,6 +8,7 @@ import com.mojang.math.Axis;
 
 import dev.cobbledeep.character.CharacterAppearance;
 import dev.cobbledeep.character.CharacterRace;
+import dev.cobbledeep.character.PendingCharacter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerSkinWidget;
@@ -32,8 +33,8 @@ import net.minecraft.util.Mth;
  * Race scaling is anchored at the character's feet so shorter races remain
  * planted at the same baseline instead of shrinking toward the widget centre.
  * Elf and Half-Elf ears are rendered in the same model coordinate system as
- * the vanilla player. Dwarves receive a broad torso/shoulder layer and a
- * prominent beard so their silhouette reads distinctly from a scaled human.
+ * the vanilla player. Dwarves receive a broad torso/shoulder layer and male
+ * Dwarves receive a prominent beard so their silhouette reads distinctly.
  */
 public class RacePlayerSkinWidget extends PlayerSkinWidget
 {
@@ -61,6 +62,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
     private final Supplier<CharacterRace> raceSupplier;
     private final Supplier<CharacterAppearance> appearanceSupplier;
+    private final Supplier<PendingCharacter.Gender> genderSupplier;
     private final ModelPart elfEars;
     private final ModelPart halfElfEars;
     private final ModelPart dwarfBuild;
@@ -78,7 +80,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             Supplier<PlayerSkin> skinSupplier,
             Supplier<CharacterRace> raceSupplier)
     {
-        this(width, height, modelSet, skinSupplier, raceSupplier, () -> null);
+        this(width, height, modelSet, skinSupplier, raceSupplier, () -> null, () -> PendingCharacter.Gender.MALE);
     }
 
     public RacePlayerSkinWidget(
@@ -89,9 +91,22 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             Supplier<CharacterRace> raceSupplier,
             Supplier<CharacterAppearance> appearanceSupplier)
     {
+        this(width, height, modelSet, skinSupplier, raceSupplier, appearanceSupplier, () -> PendingCharacter.Gender.MALE);
+    }
+
+    public RacePlayerSkinWidget(
+            int width,
+            int height,
+            EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier,
+            Supplier<CharacterRace> raceSupplier,
+            Supplier<CharacterAppearance> appearanceSupplier,
+            Supplier<PendingCharacter.Gender> genderSupplier)
+    {
         super(width, height, modelSet, skinSupplier);
         this.raceSupplier = raceSupplier;
         this.appearanceSupplier = appearanceSupplier;
+        this.genderSupplier = genderSupplier;
         this.elfEars = createEars(false);
         this.halfElfEars = createEars(true);
         this.dwarfBuild = createDwarfBuild();
@@ -158,7 +173,10 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         if (race == CharacterRace.DWARF)
         {
             renderDwarfBuild(graphics, pose);
-            renderDwarfBeard(graphics, pose);
+            if (genderSupplier.get() != PendingCharacter.Gender.FEMALE)
+            {
+                renderDwarfBeard(graphics, pose);
+            }
         }
         else
         {
@@ -179,12 +197,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             earColor = 0xFF000000 | appearance.getSkinTone().getRgb();
         }
 
-        ears.render(
-                pose,
-                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
-                LightTexture.FULL_BRIGHT,
-                OverlayTexture.NO_OVERLAY,
-                earColor);
+        ears.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, earColor);
     }
 
     private void renderDwarfBuild(GuiGraphics graphics, PoseStack pose)
@@ -196,12 +210,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             tunicColor = 0xFF000000 | appearance.getShirtColor().getRgb();
         }
 
-        dwarfBuild.render(
-                pose,
-                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
-                LightTexture.FULL_BRIGHT,
-                OverlayTexture.NO_OVERLAY,
-                tunicColor);
+        dwarfBuild.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, tunicColor);
     }
 
     private void renderDwarfBeard(GuiGraphics graphics, PoseStack pose)
@@ -216,26 +226,12 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         int shadowColor = scaleRgb(beardColor, 0.58F);
         int highlightColor = scaleRgb(beardColor, 1.35F);
 
-        dwarfBeardShadows.render(
-                pose,
-                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
-                LightTexture.FULL_BRIGHT,
-                OverlayTexture.NO_OVERLAY,
-                shadowColor);
-
-        dwarfBeard.render(
-                pose,
-                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
-                LightTexture.FULL_BRIGHT,
-                OverlayTexture.NO_OVERLAY,
-                beardColor);
-
-        dwarfBeardHighlights.render(
-                pose,
-                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
-                LightTexture.FULL_BRIGHT,
-                OverlayTexture.NO_OVERLAY,
-                highlightColor);
+        dwarfBeardShadows.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, shadowColor);
+        dwarfBeard.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, beardColor);
+        dwarfBeardHighlights.render(pose, graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, highlightColor);
     }
 
     private static int scaleRgb(int argb, float factor)
@@ -257,8 +253,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
                 pixels.setPixelRGBA(0, 0, 0xFFFFFFFF);
                 texture.upload();
             }
-            whiteTexture = Minecraft.getInstance().getTextureManager()
-                    .register("cobbledeep_preview_white", texture);
+            whiteTexture = Minecraft.getInstance().getTextureManager().register("cobbledeep_preview_white", texture);
         }
         return whiteTexture;
     }
@@ -266,12 +261,10 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createDwarfBuild()
     {
         MeshDefinition mesh = new MeshDefinition();
-
         CubeListBuilder torso = CubeListBuilder.create()
                 .texOffs(0, 0).addBox(-4.75F, 0.25F, -2.30F, 9.50F, 4.25F, 4.60F)
                 .texOffs(0, 0).addBox(-4.45F, 4.50F, -2.20F, 8.90F, 4.00F, 4.40F)
                 .texOffs(0, 0).addBox(-4.20F, 8.50F, -2.10F, 8.40F, 3.25F, 4.20F);
-
         mesh.getRoot().addOrReplaceChild("dwarf_torso", torso, PartPose.ZERO);
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
@@ -279,14 +272,12 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createDwarfBeard()
     {
         MeshDefinition mesh = new MeshDefinition();
-
         CubeListBuilder beard = CubeListBuilder.create()
                 .texOffs(0, 0).addBox(-3.35F, -2.55F, -4.65F, 6.70F, 1.20F, 0.85F)
                 .texOffs(0, 0).addBox(-3.65F, -1.45F, -4.55F, 7.30F, 2.20F, 0.95F)
                 .texOffs(0, 0).addBox(-3.20F, 0.60F, -3.90F, 6.40F, 2.35F, 1.25F)
                 .texOffs(0, 0).addBox(-2.65F, 2.75F, -3.55F, 5.30F, 2.20F, 1.20F)
                 .texOffs(0, 0).addBox(-1.80F, 4.75F, -3.25F, 3.60F, 1.45F, 1.05F);
-
         mesh.getRoot().addOrReplaceChild("dwarf_beard", beard, PartPose.ZERO);
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
@@ -294,17 +285,12 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createDwarfBeardHighlights()
     {
         MeshDefinition mesh = new MeshDefinition();
-
         CubeListBuilder highlights = CubeListBuilder.create()
-                // Raised centre ridge on the moustache/chin.
                 .texOffs(0, 0).addBox(-1.45F, -2.45F, -4.78F, 2.90F, 0.55F, 0.24F)
                 .texOffs(0, 0).addBox(-1.65F, -1.15F, -4.68F, 3.30F, 0.85F, 0.24F)
-                // Two vertical locks create visible strand separation.
                 .texOffs(0, 0).addBox(-2.25F, 0.90F, -4.02F, 1.25F, 3.40F, 0.26F)
                 .texOffs(0, 0).addBox(1.00F, 0.90F, -4.02F, 1.25F, 3.40F, 0.26F)
-                // Small highlight on the central tip.
                 .texOffs(0, 0).addBox(-0.70F, 4.95F, -3.37F, 1.40F, 0.85F, 0.22F);
-
         mesh.getRoot().addOrReplaceChild("dwarf_beard_highlights", highlights, PartPose.ZERO);
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
@@ -312,15 +298,12 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createDwarfBeardShadows()
     {
         MeshDefinition mesh = new MeshDefinition();
-
         CubeListBuilder shadows = CubeListBuilder.create()
-                // Dark side locks and underside bands break up the solid silhouette.
                 .texOffs(0, 0).addBox(-3.58F, -1.20F, -4.67F, 0.70F, 2.05F, 0.28F)
                 .texOffs(0, 0).addBox(2.88F, -1.20F, -4.67F, 0.70F, 2.05F, 0.28F)
                 .texOffs(0, 0).addBox(-2.95F, 2.35F, -3.70F, 0.75F, 2.35F, 0.30F)
                 .texOffs(0, 0).addBox(2.20F, 2.35F, -3.70F, 0.75F, 2.35F, 0.30F)
                 .texOffs(0, 0).addBox(-1.65F, 5.75F, -3.37F, 3.30F, 0.38F, 0.24F);
-
         mesh.getRoot().addOrReplaceChild("dwarf_beard_shadows", shadows, PartPose.ZERO);
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
@@ -330,52 +313,40 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         MeshDefinition mesh = new MeshDefinition();
         float upAngle = (float) Math.toRadians(halfElf ? HALF_ELF_EAR_UP_ANGLE : ELF_EAR_UP_ANGLE);
         float backAngle = (float) Math.toRadians(halfElf ? HALF_ELF_EAR_BACK_ANGLE : ELF_EAR_BACK_ANGLE);
-
         CubeListBuilder left = CubeListBuilder.create();
         CubeListBuilder right = CubeListBuilder.create();
 
         if (halfElf)
         {
-            left
-                    .texOffs(0, 0).addBox(-1.20F, -0.75F, -0.55F, 1.20F, 1.50F, 1.10F)
+            left.texOffs(0, 0).addBox(-1.20F, -0.75F, -0.55F, 1.20F, 1.50F, 1.10F)
                     .texOffs(0, 0).addBox(-2.10F, -0.50F, -0.40F, 0.90F, 1.00F, 0.80F)
                     .texOffs(0, 0).addBox(-2.55F, -0.25F, -0.25F, 0.45F, 0.50F, 0.50F);
-            right
-                    .texOffs(0, 0).addBox(0.00F, -0.75F, -0.55F, 1.20F, 1.50F, 1.10F)
+            right.texOffs(0, 0).addBox(0.00F, -0.75F, -0.55F, 1.20F, 1.50F, 1.10F)
                     .texOffs(0, 0).addBox(1.20F, -0.50F, -0.40F, 0.90F, 1.00F, 0.80F)
                     .texOffs(0, 0).addBox(2.10F, -0.25F, -0.25F, 0.45F, 0.50F, 0.50F);
         }
         else
         {
-            left
-                    .texOffs(0, 0).addBox(-1.45F, -0.90F, -0.65F, 1.45F, 1.80F, 1.30F)
+            left.texOffs(0, 0).addBox(-1.45F, -0.90F, -0.65F, 1.45F, 1.80F, 1.30F)
                     .texOffs(0, 0).addBox(-2.65F, -0.65F, -0.50F, 1.20F, 1.30F, 1.00F)
                     .texOffs(0, 0).addBox(-3.45F, -0.40F, -0.35F, 0.80F, 0.80F, 0.70F)
                     .texOffs(0, 0).addBox(-3.85F, -0.20F, -0.20F, 0.40F, 0.40F, 0.40F);
-            right
-                    .texOffs(0, 0).addBox(0.00F, -0.90F, -0.65F, 1.45F, 1.80F, 1.30F)
+            right.texOffs(0, 0).addBox(0.00F, -0.90F, -0.65F, 1.45F, 1.80F, 1.30F)
                     .texOffs(0, 0).addBox(1.45F, -0.65F, -0.50F, 1.20F, 1.30F, 1.00F)
                     .texOffs(0, 0).addBox(2.65F, -0.40F, -0.35F, 0.80F, 0.80F, 0.70F)
                     .texOffs(0, 0).addBox(3.45F, -0.20F, -0.20F, 0.40F, 0.40F, 0.40F);
         }
 
-        mesh.getRoot().addOrReplaceChild(
-                "left_ear", left,
+        mesh.getRoot().addOrReplaceChild("left_ear", left,
                 PartPose.offsetAndRotation(-4.0F, -4.0F, 0.0F, 0.0F, backAngle, upAngle));
-        mesh.getRoot().addOrReplaceChild(
-                "right_ear", right,
+        mesh.getRoot().addOrReplaceChild("right_ear", right,
                 PartPose.offsetAndRotation(4.0F, -4.0F, 0.0F, 0.0F, -backAngle, -upAngle));
-
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
 
     private static RaceScale getRaceScale(CharacterRace race)
     {
-        if (race == null)
-        {
-            return RaceScale.HUMAN;
-        }
-
+        if (race == null) return RaceScale.HUMAN;
         return switch (race)
         {
             case HUMAN -> RaceScale.HUMAN;
