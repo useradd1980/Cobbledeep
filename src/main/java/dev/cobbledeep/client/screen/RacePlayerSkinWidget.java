@@ -32,8 +32,8 @@ import net.minecraft.util.Mth;
  * Race scaling is anchored at the character's feet so shorter races remain
  * planted at the same baseline instead of shrinking toward the widget centre.
  * Elf and Half-Elf ears are rendered in the same model coordinate system as
- * the vanilla player. Their roots remain centred on the sides of the head,
- * while mirrored rotations point the ear tips upward and toward the rear.
+ * the vanilla player. Dwarves receive an additional broad torso/shoulder layer
+ * to make their build read as stockier than simple whole-model scaling alone.
  */
 public class RacePlayerSkinWidget extends PlayerSkinWidget
 {
@@ -48,23 +48,21 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static final float ROTATION_PIVOT_Y = -1.0625F;
     private static final float MODEL_TRANSLATE_Y = -1.5F;
 
-    // Z-axis rotation raises the tips. Y-axis rotation sweeps them toward the
-    // rear of the head while leaving the attachment point centred at z=0.
     private static final float ELF_EAR_UP_ANGLE = 32.0F;
     private static final float HALF_ELF_EAR_UP_ANGLE = 22.0F;
     private static final float ELF_EAR_BACK_ANGLE = 30.0F;
     private static final float HALF_ELF_EAR_BACK_ANGLE = 20.0F;
 
-    // Approximate exposed-skin colour used by the current vanilla preview skin.
-    // When CharacterAppearance is supplied, the selected tone overrides this.
     private static final int DEFAULT_PREVIEW_SKIN_COLOR = 0xFFB47A60;
+    private static final int DWARF_TUNIC_COLOR = 0xFF5B4636;
 
-    private static ResourceLocation earWhiteTexture;
+    private static ResourceLocation whiteTexture;
 
     private final Supplier<CharacterRace> raceSupplier;
     private final Supplier<CharacterAppearance> appearanceSupplier;
     private final ModelPart elfEars;
     private final ModelPart halfElfEars;
+    private final ModelPart dwarfBuild;
 
     private float previewRotationX = DEFAULT_ROTATION_X;
     private float previewRotationY = DEFAULT_ROTATION_Y;
@@ -92,6 +90,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         this.appearanceSupplier = appearanceSupplier;
         this.elfEars = createEars(false);
         this.halfElfEars = createEars(true);
+        this.dwarfBuild = createDwarfBuild();
     }
 
     @Override
@@ -103,12 +102,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         float feetY = getY() + getHeight();
 
         graphics.pose().pushPose();
-
-        /*
-         * Width scales around the horizontal centre, while height scales from
-         * the player's feet. This keeps every race standing on the same visual
-         * baseline and makes the short-race silhouettes read much more naturally.
-         */
         graphics.pose().translate(centerX, feetY, 0.0F);
         graphics.pose().scale(scale.widthScale(), scale.heightScale(), 1.0F);
         graphics.pose().translate(-centerX, -feetY, 0.0F);
@@ -133,7 +126,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
     private void renderRaceGeometry(GuiGraphics graphics, CharacterRace race)
     {
-        if (race != CharacterRace.ELF && race != CharacterRace.HALF_ELF)
+        if (race != CharacterRace.ELF && race != CharacterRace.HALF_ELF && race != CharacterRace.DWARF)
         {
             return;
         }
@@ -141,10 +134,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         PoseStack pose = graphics.pose();
         pose.pushPose();
 
-        pose.translate(
-                getX() + getWidth() / 2.0F,
-                getY() + getHeight(),
-                Z_OFFSET);
+        pose.translate(getX() + getWidth() / 2.0F, getY() + getHeight(), Z_OFFSET);
 
         float modelScale = getHeight() / MODEL_HEIGHT;
         pose.scale(modelScale, modelScale, modelScale);
@@ -158,6 +148,21 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         pose.scale(1.0F, 1.0F, -1.0F);
         pose.translate(0.0F, MODEL_TRANSLATE_Y, 0.0F);
 
+        if (race == CharacterRace.DWARF)
+        {
+            renderDwarfBuild(graphics, pose);
+        }
+        else
+        {
+            renderElvenEars(graphics, pose, race);
+        }
+
+        graphics.flush();
+        pose.popPose();
+    }
+
+    private void renderElvenEars(GuiGraphics graphics, PoseStack pose, CharacterRace race)
+    {
         ModelPart ears = race == CharacterRace.ELF ? elfEars : halfElfEars;
         CharacterAppearance appearance = appearanceSupplier.get();
         int earColor = DEFAULT_PREVIEW_SKIN_COLOR;
@@ -168,18 +173,32 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
         ears.render(
                 pose,
-                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getEarWhiteTexture())),
+                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
                 LightTexture.FULL_BRIGHT,
                 OverlayTexture.NO_OVERLAY,
                 earColor);
-
-        graphics.flush();
-        pose.popPose();
     }
 
-    private static ResourceLocation getEarWhiteTexture()
+    private void renderDwarfBuild(GuiGraphics graphics, PoseStack pose)
     {
-        if (earWhiteTexture == null)
+        CharacterAppearance appearance = appearanceSupplier.get();
+        int tunicColor = DWARF_TUNIC_COLOR;
+        if (appearance != null && appearance.getShirtColor() != null)
+        {
+            tunicColor = 0xFF000000 | appearance.getShirtColor().getRgb();
+        }
+
+        dwarfBuild.render(
+                pose,
+                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT,
+                OverlayTexture.NO_OVERLAY,
+                tunicColor);
+    }
+
+    private static ResourceLocation getWhiteTexture()
+    {
+        if (whiteTexture == null)
         {
             DynamicTexture texture = new DynamicTexture(1, 1, false);
             NativeImage pixels = texture.getPixels();
@@ -188,10 +207,26 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
                 pixels.setPixelRGBA(0, 0, 0xFFFFFFFF);
                 texture.upload();
             }
-            earWhiteTexture = Minecraft.getInstance().getTextureManager()
-                    .register("cobbledeep_ear_white", texture);
+            whiteTexture = Minecraft.getInstance().getTextureManager()
+                    .register("cobbledeep_preview_white", texture);
         }
-        return earWhiteTexture;
+        return whiteTexture;
+    }
+
+    private static ModelPart createDwarfBuild()
+    {
+        MeshDefinition mesh = new MeshDefinition();
+
+        // The vanilla torso spans x=-4..4, y=0..12, z=-2..2. This thin shell
+        // broadens the shoulders and chest without changing the successful
+        // overall dwarf height/width proportions.
+        CubeListBuilder torso = CubeListBuilder.create()
+                .texOffs(0, 0).addBox(-4.75F, 0.25F, -2.30F, 9.50F, 4.25F, 4.60F)
+                .texOffs(0, 0).addBox(-4.45F, 4.50F, -2.20F, 8.90F, 4.00F, 4.40F)
+                .texOffs(0, 0).addBox(-4.20F, 8.50F, -2.10F, 8.40F, 3.25F, 4.20F);
+
+        mesh.getRoot().addOrReplaceChild("dwarf_torso", torso, PartPose.ZERO);
+        return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
 
     private static ModelPart createEars(boolean halfElf)
@@ -228,16 +263,11 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
                     .texOffs(0, 0).addBox(3.45F, -0.20F, -0.20F, 0.40F, 0.40F, 0.40F);
         }
 
-        // Vanilla head bounds are x=-4..4, y=-8..0, z=-4..4.
-        // Keep both roots centred on the side at z=0. Mirrored Y rotations sweep
-        // the tips toward +Z (the rear), while mirrored Z rotations raise them.
         mesh.getRoot().addOrReplaceChild(
-                "left_ear",
-                left,
+                "left_ear", left,
                 PartPose.offsetAndRotation(-4.0F, -4.0F, 0.0F, 0.0F, backAngle, upAngle));
         mesh.getRoot().addOrReplaceChild(
-                "right_ear",
-                right,
+                "right_ear", right,
                 PartPose.offsetAndRotation(4.0F, -4.0F, 0.0F, 0.0F, -backAngle, -upAngle));
 
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
@@ -255,16 +285,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             case HUMAN -> RaceScale.HUMAN;
             case ELF -> new RaceScale(0.90F, 1.06F);
             case HALF_ELF -> new RaceScale(0.96F, 1.02F);
-
-            // Dwarves are deliberately stocky: clearly shorter than humans but
-            // with a much broader silhouette.
             case DWARF -> new RaceScale(1.22F, 0.78F);
-
-            // Halflings are the smallest and lightest-looking race in the set.
             case HALFLING -> new RaceScale(0.84F, 0.68F);
-
-            // Gnomes remain short, but are a little broader and taller than
-            // halflings so the two races do not collapse into one silhouette.
             case GNOME -> new RaceScale(0.90F, 0.72F);
         };
     }
