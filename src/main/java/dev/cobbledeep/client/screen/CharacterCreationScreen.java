@@ -7,7 +7,9 @@ import dev.cobbledeep.character.CharacterClass;
 import dev.cobbledeep.character.CharacterProficiencies;
 import dev.cobbledeep.character.CharacterRace;
 import dev.cobbledeep.character.CharacterSkills;
+import dev.cobbledeep.character.CharacterSpells;
 import dev.cobbledeep.character.FightingStyle;
+import dev.cobbledeep.character.MageSpell;
 import dev.cobbledeep.character.PendingCharacter;
 import dev.cobbledeep.character.WeaponProficiency;
 import net.minecraft.client.Minecraft;
@@ -25,6 +27,8 @@ public class CharacterCreationScreen extends Screen
     private CharacterCreationPage currentPage;
     private Button nextButton;
     private int proficiencyScrollOffset;
+    private int mageSpellScrollOffset;
+    private MageSpell focusedMageSpell;
 
     public CharacterCreationScreen()
     {
@@ -32,6 +36,8 @@ public class CharacterCreationScreen extends Screen
         this.pendingCharacter = new PendingCharacter();
         this.currentPage = CharacterCreationPage.GENDER;
         this.proficiencyScrollOffset = 0;
+        this.mageSpellScrollOffset = 0;
+        this.focusedMageSpell = MageSpell.ARMOR;
     }
 
     @Override
@@ -119,7 +125,8 @@ public class CharacterCreationScreen extends Screen
             case ABILITIES -> buildAbilitiesPage();
             case SKILLS -> buildSkillsPage();
             case PROFICIENCIES -> buildProficienciesPage();
-            case SPELLS, APPEARANCE, NAME, REVIEW -> buildPlaceholderPage();
+            case SPELLS -> buildSpellsPage();
+            case APPEARANCE, NAME, REVIEW -> buildPlaceholderPage();
         }
 
         buildNavigationButtons();
@@ -188,7 +195,9 @@ public class CharacterCreationScreen extends Screen
                             pendingCharacter.getAbilityScores().reset();
                             pendingCharacter.getSkills().reset();
                             pendingCharacter.getProficiencies().reset();
+                            pendingCharacter.getSpells().reset();
                             proficiencyScrollOffset = 0;
+                            mageSpellScrollOffset = 0;
                         }
                         updateNextButton();
                     })
@@ -239,6 +248,7 @@ public class CharacterCreationScreen extends Screen
                             pendingCharacter.setCharacterClass(characterClass);
                             pendingCharacter.resetAfterClassChange();
                             proficiencyScrollOffset = 0;
+                            mageSpellScrollOffset = 0;
                         }
                         updateNextButton();
                     })
@@ -374,6 +384,7 @@ public class CharacterCreationScreen extends Screen
     private void addAbilityButtons(int centerX, int y, Runnable decrease, Runnable increase)
     {
         int size = isCompactLayout() ? 16 : getButtonHeight();
+
         this.addRenderableWidget(
                 Button.builder(Component.literal("-"), button ->
                 {
@@ -444,6 +455,7 @@ public class CharacterCreationScreen extends Screen
     private void addSkillButtons(int centerX, int y, Runnable decrease, Runnable increase)
     {
         int size = getButtonHeight();
+
         this.addRenderableWidget(
                 Button.builder(Component.literal("-"), button ->
                 {
@@ -566,6 +578,7 @@ public class CharacterCreationScreen extends Screen
             int y)
     {
         int size = getButtonHeight();
+
         Button minusButton = Button.builder(Component.literal("-"), button ->
         {
             proficiencies.decreaseWeapon(proficiency);
@@ -616,16 +629,128 @@ public class CharacterCreationScreen extends Screen
                 + (logicalRow - proficiencyScrollOffset) * getRowHeight();
     }
 
+    private int getMageSpellStartY()
+    {
+        return getContentTop() + 8;
+    }
+
+    private int getMageSpellVisibleRows()
+    {
+        int reservedBelowList = isCompactLayout() ? 92 : 112;
+        int availableHeight = getNavigationY() - getMageSpellStartY() - reservedBelowList;
+        return Math.max(3, Math.min(8, availableHeight / getRowHeight()));
+    }
+
+    private int getMaxMageSpellScroll()
+    {
+        return Math.max(0, MageSpell.values().length - getMageSpellVisibleRows());
+    }
+
+    private void clampMageSpellScroll()
+    {
+        mageSpellScrollOffset = Math.max(0, Math.min(mageSpellScrollOffset, getMaxMageSpellScroll()));
+    }
+
+    private int getMageSpellRowY(int logicalRow)
+    {
+        return getMageSpellStartY()
+                + (logicalRow - mageSpellScrollOffset) * getRowHeight();
+    }
+
+    private void buildSpellsPage()
+    {
+        if (pendingCharacter.getCharacterClass() != CharacterClass.MAGE)
+        {
+            return;
+        }
+
+        CharacterSpells spells = pendingCharacter.getSpells();
+        MageSpell[] mageSpells = MageSpell.values();
+        clampMageSpellScroll();
+
+        int centerX = this.width / 2;
+        int panelWidth = Math.min(440, this.width - 24);
+        int rightX = centerX + panelWidth / 2;
+        int controlsX = rightX - 146;
+        int rowHeight = getRowHeight();
+        int buttonHeight = Math.min(getButtonHeight(), rowHeight - 2);
+        int firstRow = mageSpellScrollOffset;
+        int lastRow = firstRow + getMageSpellVisibleRows() - 1;
+
+        for (int i = 0; i < mageSpells.length; i++)
+        {
+            if (i < firstRow || i > lastRow)
+            {
+                continue;
+            }
+
+            MageSpell spell = mageSpells[i];
+            int y = getMageSpellRowY(i);
+
+            this.addRenderableWidget(
+                    Button.builder(Component.literal("Info"), button -> focusedMageSpell = spell)
+                    .bounds(controlsX, y, 34, buttonHeight)
+                    .build()
+            );
+
+            boolean known = spells.knowsMageSpell(spell);
+            Button learnButton = Button.builder(
+                    Component.literal(known ? "Forget" : "Learn"),
+                    button ->
+                    {
+                        focusedMageSpell = spell;
+                        spells.toggleKnownMageSpell(spell);
+                        buildCurrentPage();
+                    })
+                    .bounds(controlsX + 38, y, 50, buttonHeight)
+                    .build();
+            learnButton.active = known || spells.canLearnAnotherMageSpell();
+            this.addRenderableWidget(learnButton);
+
+            boolean memorized = spells.getMemorizedMageSpell() == spell;
+            Button prepareButton = Button.builder(
+                    Component.literal(memorized ? "Ready" : "Prep"),
+                    button ->
+                    {
+                        focusedMageSpell = spell;
+                        spells.setMemorizedMageSpell(spell);
+                        buildCurrentPage();
+                    })
+                    .bounds(controlsX + 92, y, 54, buttonHeight)
+                    .build();
+            prepareButton.active = known && !memorized;
+            this.addRenderableWidget(prepareButton);
+        }
+    }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY)
     {
-        if (currentPage == CharacterCreationPage.PROFICIENCIES && scrollY != 0.0)
+        if (scrollY == 0.0)
+        {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
+
+        if (currentPage == CharacterCreationPage.PROFICIENCIES)
         {
             int oldOffset = proficiencyScrollOffset;
             proficiencyScrollOffset += scrollY > 0.0 ? -1 : 1;
             clampProficiencyScroll();
 
             if (proficiencyScrollOffset != oldOffset)
+            {
+                buildCurrentPage();
+            }
+            return true;
+        }
+
+        if (currentPage == CharacterCreationPage.SPELLS)
+        {
+            int oldOffset = mageSpellScrollOffset;
+            mageSpellScrollOffset += scrollY > 0.0 ? -1 : 1;
+            clampMageSpellScroll();
+
+            if (mageSpellScrollOffset != oldOffset)
             {
                 buildCurrentPage();
             }
@@ -693,6 +818,8 @@ public class CharacterCreationScreen extends Screen
                 nextButton.active = proficiencies.isInitialized()
                         && proficiencies.getAvailablePoints() == 0;
             }
+            case SPELLS -> nextButton.active = pendingCharacter.getCharacterClass() == CharacterClass.MAGE
+                    && pendingCharacter.getSpells().isMageSelectionComplete();
             default -> nextButton.active = true;
         }
     }
@@ -727,6 +854,12 @@ public class CharacterCreationScreen extends Screen
             if (candidate == CharacterCreationPage.PROFICIENCIES)
             {
                 proficiencyScrollOffset = 0;
+            }
+
+            if (candidate == CharacterCreationPage.SPELLS)
+            {
+                mageSpellScrollOffset = 0;
+                focusedMageSpell = MageSpell.ARMOR;
             }
 
             currentPage = candidate;
@@ -767,6 +900,11 @@ public class CharacterCreationScreen extends Screen
                 proficiencyScrollOffset = 0;
             }
 
+            if (candidate == CharacterCreationPage.SPELLS)
+            {
+                mageSpellScrollOffset = 0;
+            }
+
             currentPage = candidate;
             buildCurrentPage();
             return;
@@ -793,6 +931,7 @@ public class CharacterCreationScreen extends Screen
             case ABILITIES -> renderAbilities(graphics);
             case SKILLS -> renderSkills(graphics);
             case PROFICIENCIES -> renderProficiencies(graphics);
+            case SPELLS -> renderSpells(graphics);
             default -> { }
         }
     }
@@ -1088,13 +1227,127 @@ public class CharacterCreationScreen extends Screen
 
         graphics.fill(trackX, trackTop, trackX + 4, trackTop + trackHeight, 0xFF333333);
 
-        int thumbHeight = Math.max(18, trackHeight * visibleRows / totalRows);
+        int thumbHeight = Math.max(18, trackHeight * visibleRows / getProficiencyContentRows());
         int movable = trackHeight - thumbHeight;
         int thumbTop = trackTop;
         int maxScroll = getMaxProficiencyScroll();
         if (maxScroll > 0)
         {
             thumbTop += movable * proficiencyScrollOffset / maxScroll;
+        }
+
+        graphics.fill(trackX, thumbTop, trackX + 4, thumbTop + thumbHeight, 0xFFAAAAAA);
+    }
+
+    private void renderSpells(GuiGraphics graphics)
+    {
+        if (pendingCharacter.getCharacterClass() != CharacterClass.MAGE)
+        {
+            return;
+        }
+
+        CharacterSpells spells = pendingCharacter.getSpells();
+        MageSpell[] mageSpells = MageSpell.values();
+        clampMageSpellScroll();
+
+        int centerX = this.width / 2;
+        int panelWidth = Math.min(440, this.width - 24);
+        int labelX = centerX - panelWidth / 2;
+        int rightX = centerX + panelWidth / 2;
+        int controlsX = rightX - 146;
+        int firstRow = mageSpellScrollOffset;
+        int lastRow = firstRow + getMageSpellVisibleRows() - 1;
+
+        graphics.drawString(this.font, "Level 1 Mage Spells", labelX,
+                getMageSpellStartY() - 13, 0xAAAAAA);
+
+        for (int i = 0; i < mageSpells.length; i++)
+        {
+            if (i < firstRow || i > lastRow)
+            {
+                continue;
+            }
+
+            MageSpell spell = mageSpells[i];
+            int y = getMageSpellRowY(i);
+            boolean known = spells.knowsMageSpell(spell);
+            boolean memorized = spells.getMemorizedMageSpell() == spell;
+
+            int color = known ? 0xAAFFAA : 0xFFFFFF;
+            if (memorized)
+            {
+                color = 0xFFFFAA;
+            }
+
+            graphics.drawString(this.font, spell.getDisplayName(), labelX, y + 5, color);
+        }
+
+        renderMageSpellScrollbar(graphics);
+
+        MageSpell focused = focusedMageSpell == null ? MageSpell.ARMOR : focusedMageSpell;
+        int descriptionY = getMageSpellStartY() + getMageSpellVisibleRows() * getRowHeight() + 4;
+
+        graphics.drawCenteredString(this.font,
+                focused.getDisplayName() + " - " + focused.getSchool(),
+                centerX,
+                descriptionY,
+                0xFFFFAA);
+
+        graphics.drawWordWrap(
+                this.font,
+                Component.literal(focused.getDescription()),
+                centerX - panelWidth / 2,
+                descriptionY + 13,
+                panelWidth,
+                0xCCCCCC);
+
+        int statusY = getNavigationY() - (isCompactLayout() ? 25 : 36);
+        String preparedName = spells.getMemorizedMageSpell() == null
+                ? "None"
+                : spells.getMemorizedMageSpell().getDisplayName();
+
+        graphics.drawCenteredString(this.font,
+                "Spellbook: " + spells.getKnownMageSpellCount()
+                        + "/" + CharacterSpells.STARTING_MAGE_KNOWN_SPELLS
+                        + "   Prepared: " + preparedName,
+                centerX,
+                statusY,
+                0xAAFFAA);
+
+        if (!isCompactLayout())
+        {
+            graphics.drawCenteredString(this.font,
+                    "Learn two spells and prepare one. Mouse wheel scrolls the list.",
+                    centerX,
+                    statusY + 13,
+                    0x888888);
+        }
+    }
+
+    private void renderMageSpellScrollbar(GuiGraphics graphics)
+    {
+        int totalRows = MageSpell.values().length;
+        int visibleRows = getMageSpellVisibleRows();
+        if (totalRows <= visibleRows)
+        {
+            return;
+        }
+
+        int centerX = this.width / 2;
+        int panelWidth = Math.min(440, this.width - 24);
+        int trackX = centerX + panelWidth / 2 - 4;
+        int trackTop = getMageSpellStartY();
+        int trackHeight = visibleRows * getRowHeight() - 2;
+
+        graphics.fill(trackX, trackTop, trackX + 4, trackTop + trackHeight, 0xFF333333);
+
+        int thumbHeight = Math.max(18, trackHeight * visibleRows / totalRows);
+        int movable = trackHeight - thumbHeight;
+        int thumbTop = trackTop;
+        int maxScroll = getMaxMageSpellScroll();
+        if (maxScroll > 0)
+        {
+            thumbTop += movable * mageSpellScrollOffset / maxScroll;
         }
 
         graphics.fill(trackX, thumbTop, trackX + 4, thumbTop + thumbHeight, 0xFFAAAAAA);
@@ -1159,7 +1412,7 @@ public class CharacterCreationScreen extends Screen
             case ABILITIES -> "Ability Scores";
             case SKILLS -> "Skills / Class Abilities";
             case PROFICIENCIES -> "Weapon Proficiencies";
-            case SPELLS -> "Spells / Divine Abilities";
+            case SPELLS -> "Mage Spells";
             case APPEARANCE -> "Appearance";
             case NAME -> "Name";
             case REVIEW -> "Review Character";
@@ -1173,17 +1426,7 @@ public class CharacterCreationScreen extends Screen
 
     private boolean usesSpellsPage()
     {
-        CharacterClass characterClass = pendingCharacter.getCharacterClass();
-        if (characterClass == null)
-        {
-            return false;
-        }
-
-        return switch (characterClass)
-        {
-            case MAGE, CLERIC, DRUID, BARD -> true;
-            case FIGHTER, RANGER, PALADIN, THIEF -> false;
-        };
+        return pendingCharacter.getCharacterClass() == CharacterClass.MAGE;
     }
 
     @Override
