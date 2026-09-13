@@ -65,9 +65,13 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private final ModelPart dwarfBeardHighlights;
     private final ModelPart dwarfBeardShadows;
 
+    private final ModelPart croppedHair;
+    private final ModelPart shortHair;
     private final ModelPart shoulderHair;
     private final ModelPart longHair;
     private final ModelPart braidedHair;
+    private final ModelPart hairHighlights;
+    private final ModelPart hairShadows;
 
     private final ModelPart stubbleGeometry;
     private final ModelPart moustacheGeometry;
@@ -78,33 +82,22 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private float previewRotationX = savedRotationX;
     private float previewRotationY = savedRotationY;
 
-    public RacePlayerSkinWidget(
-            int width,
-            int height,
-            EntityModelSet modelSet,
-            Supplier<PlayerSkin> skinSupplier,
-            Supplier<CharacterRace> raceSupplier)
+    public RacePlayerSkinWidget(int width, int height, EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier, Supplier<CharacterRace> raceSupplier)
     {
         this(width, height, modelSet, skinSupplier, raceSupplier, () -> null, () -> PendingCharacter.Gender.MALE);
     }
 
-    public RacePlayerSkinWidget(
-            int width,
-            int height,
-            EntityModelSet modelSet,
-            Supplier<PlayerSkin> skinSupplier,
-            Supplier<CharacterRace> raceSupplier,
+    public RacePlayerSkinWidget(int width, int height, EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier, Supplier<CharacterRace> raceSupplier,
             Supplier<CharacterAppearance> appearanceSupplier)
     {
-        this(width, height, modelSet, skinSupplier, raceSupplier, appearanceSupplier, () -> PendingCharacter.Gender.MALE);
+        this(width, height, modelSet, skinSupplier, raceSupplier, appearanceSupplier,
+                () -> PendingCharacter.Gender.MALE);
     }
 
-    public RacePlayerSkinWidget(
-            int width,
-            int height,
-            EntityModelSet modelSet,
-            Supplier<PlayerSkin> skinSupplier,
-            Supplier<CharacterRace> raceSupplier,
+    public RacePlayerSkinWidget(int width, int height, EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier, Supplier<CharacterRace> raceSupplier,
             Supplier<CharacterAppearance> appearanceSupplier,
             Supplier<PendingCharacter.Gender> genderSupplier)
     {
@@ -124,9 +117,13 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         this.dwarfBeardHighlights = createDwarfBeardHighlights();
         this.dwarfBeardShadows = createDwarfBeardShadows();
 
-        this.shoulderHair = createBackHair(6.5F, 3.0F, false);
-        this.longHair = createBackHair(6.5F, 6.0F, false);
-        this.braidedHair = createBackHair(2.8F, 8.0F, true);
+        this.croppedHair = createHairGeometry(CharacterAppearance.HairStyle.CROPPED);
+        this.shortHair = createHairGeometry(CharacterAppearance.HairStyle.SHORT);
+        this.shoulderHair = createHairGeometry(CharacterAppearance.HairStyle.SHOULDER_LENGTH);
+        this.longHair = createHairGeometry(CharacterAppearance.HairStyle.LONG);
+        this.braidedHair = createHairGeometry(CharacterAppearance.HairStyle.BRAIDED);
+        this.hairHighlights = createHairHighlights();
+        this.hairShadows = createHairShadows();
 
         this.stubbleGeometry = createStubbleGeometry();
         this.moustacheGeometry = createMoustacheGeometry();
@@ -201,13 +198,13 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private void renderAdditionalGeometry(GuiGraphics graphics, CharacterRace race)
     {
         CharacterAppearance appearance = appearanceSupplier.get();
-        boolean hasLongHair = hasLongHair(appearance);
+        boolean hasHair = hasDimensionalHair(appearance);
         boolean hasFacialHair = hasDimensionalFacialHair(appearance);
         boolean hasRaceGeometry = race == CharacterRace.ELF
                 || race == CharacterRace.HALF_ELF
                 || race == CharacterRace.DWARF;
 
-        if (!hasRaceGeometry && !hasLongHair && !hasFacialHair) return;
+        if (!hasRaceGeometry && !hasHair && !hasFacialHair) return;
 
         PoseStack pose = graphics.pose();
         pose.pushPose();
@@ -232,9 +229,9 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             renderElvenEars(graphics, pose, race);
         }
 
-        if (hasLongHair)
+        if (hasHair)
         {
-            renderBackHair(graphics, pose, appearance);
+            renderHair(graphics, pose, appearance);
         }
 
         if (hasFacialHair)
@@ -246,12 +243,11 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         pose.popPose();
     }
 
-    private static boolean hasLongHair(CharacterAppearance appearance)
+    private static boolean hasDimensionalHair(CharacterAppearance appearance)
     {
-        if (appearance == null || appearance.getHairStyle() == null) return false;
-        return appearance.getHairStyle() == CharacterAppearance.HairStyle.SHOULDER_LENGTH
-                || appearance.getHairStyle() == CharacterAppearance.HairStyle.LONG
-                || appearance.getHairStyle() == CharacterAppearance.HairStyle.BRAIDED;
+        return appearance != null
+                && appearance.getHairStyle() != null
+                && appearance.getHairStyle() != CharacterAppearance.HairStyle.BALD;
     }
 
     private boolean hasDimensionalFacialHair(CharacterAppearance appearance)
@@ -262,7 +258,7 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
                 && appearance.getFacialHair() != CharacterAppearance.FacialHair.NONE;
     }
 
-    private void renderBackHair(GuiGraphics graphics, PoseStack pose, CharacterAppearance appearance)
+    private void renderHair(GuiGraphics graphics, PoseStack pose, CharacterAppearance appearance)
     {
         int hairColor = 0xFF3B261B;
         if (appearance.getHairColor() != null)
@@ -272,17 +268,26 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
         ModelPart part = switch (appearance.getHairStyle())
         {
+            case CROPPED -> croppedHair;
+            case SHORT -> shortHair;
             case SHOULDER_LENGTH -> shoulderHair;
             case LONG -> longHair;
             case BRAIDED -> braidedHair;
-            default -> shoulderHair;
+            default -> null;
         };
 
-        part.render(pose,
-                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
-                LightTexture.FULL_BRIGHT,
-                OverlayTexture.NO_OVERLAY,
-                hairColor);
+        if (part == null) return;
+
+        RenderType type = RenderType.entityCutoutNoCull(getWhiteTexture());
+        int shadow = scaleRgb(hairColor, 0.72F);
+        int highlight = scaleRgb(hairColor, 1.18F);
+
+        hairShadows.render(pose, graphics.bufferSource().getBuffer(type),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, shadow);
+        part.render(pose, graphics.bufferSource().getBuffer(type),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, hairColor);
+        hairHighlights.render(pose, graphics.bufferSource().getBuffer(type),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, highlight);
     }
 
     private void renderFacialHair(
@@ -414,57 +419,102 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         return whiteTexture;
     }
 
-    private static ModelPart createBackHair(float width, float length, boolean braided)
+    private static ModelPart createHairGeometry(CharacterAppearance.HairStyle style)
     {
         MeshDefinition mesh = new MeshDefinition();
-        float x = -width / 2.0F;
-
         CubeListBuilder hair = CubeListBuilder.create()
-                // Connector sits just behind the head instead of inside the torso.
-                .texOffs(0, 0).addBox(x, -1.30F, 3.92F, width, 2.20F, 0.70F)
-                // Main hanging section remains behind the shirt surface.
-                .texOffs(0, 0).addBox(x, 0.65F, 3.35F, width, length, 0.85F);
+                // Three stepped crown layers make the top less box-shaped.
+                .texOffs(0, 0).addBox(-3.35F, -8.95F, -3.35F, 6.70F, 0.45F, 6.70F)
+                .texOffs(0, 0).addBox(-3.85F, -8.55F, -3.85F, 7.70F, 0.55F, 7.70F)
+                .texOffs(0, 0).addBox(-4.20F, -8.05F, -4.15F, 8.40F, 0.70F, 8.30F)
+                // Softly projecting fringe across the forehead.
+                .texOffs(0, 0).addBox(-3.80F, -7.55F, -4.32F, 7.60F, 1.30F, 0.55F);
 
-        if (braided)
+        float sideLength = switch (style)
         {
-            hair.texOffs(0, 0).addBox(-0.85F, 5.90F, 3.28F, 1.70F, 3.20F, 0.95F);
+            case CROPPED -> 2.25F;
+            case SHORT -> 4.10F;
+            default -> 6.60F;
+        };
+
+        hair.texOffs(0, 0).addBox(-4.35F, -7.55F, -3.80F, 0.55F, sideLength, 7.60F)
+                .texOffs(0, 0).addBox(3.80F, -7.55F, -3.80F, 0.55F, sideLength, 7.60F)
+                .texOffs(0, 0).addBox(-3.95F, -7.70F, 3.78F, 7.90F, Math.min(sideLength + 0.7F, 7.5F), 0.62F);
+
+        if (style == CharacterAppearance.HairStyle.SHOULDER_LENGTH)
+        {
+            hair.texOffs(0, 0).addBox(-3.80F, -1.45F, 3.60F, 7.60F, 3.10F, 0.82F);
+        }
+        else if (style == CharacterAppearance.HairStyle.LONG)
+        {
+            hair.texOffs(0, 0).addBox(-3.85F, -1.45F, 3.58F, 7.70F, 6.20F, 0.86F)
+                    .texOffs(0, 0).addBox(-3.25F, 4.55F, 3.54F, 6.50F, 2.10F, 0.82F);
+        }
+        else if (style == CharacterAppearance.HairStyle.BRAIDED)
+        {
+            hair.texOffs(0, 0).addBox(-2.20F, -1.35F, 3.58F, 4.40F, 2.15F, 0.84F)
+                    .texOffs(0, 0).addBox(-1.20F, 0.65F, 3.48F, 2.40F, 7.10F, 1.02F)
+                    .texOffs(0, 0).addBox(-0.82F, 7.50F, 3.42F, 1.64F, 1.55F, 0.92F);
         }
 
-        mesh.getRoot().addOrReplaceChild("back_hair", hair, PartPose.ZERO);
+        mesh.getRoot().addOrReplaceChild("hair_" + style.name().toLowerCase(), hair, PartPose.ZERO);
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
+    }
+
+    private static ModelPart createHairHighlights()
+    {
+        return createSimplePart("hair_highlights", CubeListBuilder.create()
+                .texOffs(0, 0).addBox(-2.35F, -9.02F, -2.65F, 2.30F, 0.16F, 4.20F)
+                .texOffs(0, 0).addBox(-4.43F, -6.85F, -2.65F, 0.16F, 2.70F, 3.20F)
+                .texOffs(0, 0).addBox(-2.30F, -6.80F, 4.42F, 2.00F, 3.25F, 0.16F));
+    }
+
+    private static ModelPart createHairShadows()
+    {
+        return createSimplePart("hair_shadows", CubeListBuilder.create()
+                .texOffs(0, 0).addBox(2.05F, -8.62F, -2.20F, 1.35F, 0.16F, 4.90F)
+                .texOffs(0, 0).addBox(4.27F, -6.45F, -1.60F, 0.16F, 3.20F, 4.50F)
+                .texOffs(0, 0).addBox(1.05F, -5.85F, 4.40F, 2.20F, 3.60F, 0.16F));
     }
 
     private static ModelPart createStubbleGeometry()
     {
         return createSimplePart("stubble", CubeListBuilder.create()
-                .texOffs(0, 0).addBox(-3.10F, -2.05F, -4.16F, 6.20F, 1.85F, 0.16F));
+                .texOffs(0, 0).addBox(-3.10F, -1.45F, -4.16F, 1.85F, 1.30F, 0.16F)
+                .texOffs(0, 0).addBox(1.25F, -1.45F, -4.16F, 1.85F, 1.30F, 0.16F)
+                .texOffs(0, 0).addBox(-2.00F, -0.35F, -4.14F, 4.00F, 0.35F, 0.14F));
     }
 
     private static ModelPart createMoustacheGeometry()
     {
         return createSimplePart("moustache", CubeListBuilder.create()
-                .texOffs(0, 0).addBox(-2.55F, -2.30F, -4.38F, 5.10F, 0.72F, 0.42F));
+                .texOffs(0, 0).addBox(-3.00F, -2.30F, -4.38F, 1.85F, 0.70F, 0.42F)
+                .texOffs(0, 0).addBox(1.15F, -2.30F, -4.38F, 1.85F, 0.70F, 0.42F));
     }
 
     private static ModelPart createGoateeGeometry()
     {
         return createSimplePart("goatee", CubeListBuilder.create()
-                .texOffs(0, 0).addBox(-2.55F, -2.30F, -4.38F, 5.10F, 0.72F, 0.42F)
-                .texOffs(0, 0).addBox(-1.45F, -1.55F, -4.34F, 2.90F, 1.85F, 0.38F));
+                .texOffs(0, 0).addBox(-3.00F, -2.30F, -4.38F, 1.85F, 0.70F, 0.42F)
+                .texOffs(0, 0).addBox(1.15F, -2.30F, -4.38F, 1.85F, 0.70F, 0.42F)
+                .texOffs(0, 0).addBox(-1.35F, -0.60F, -4.32F, 2.70F, 1.15F, 0.40F));
     }
 
     private static ModelPart createShortBeardGeometry()
     {
         return createSimplePart("short_beard", CubeListBuilder.create()
-                .texOffs(0, 0).addBox(-3.35F, -2.15F, -4.36F, 6.70F, 2.20F, 0.42F)
-                .texOffs(0, 0).addBox(-2.45F, -0.10F, -4.10F, 4.90F, 0.95F, 0.50F));
+                // Cheeks stop short of the mouth, leaving the centre visibly open.
+                .texOffs(0, 0).addBox(-3.45F, -2.05F, -4.38F, 2.10F, 2.05F, 0.44F)
+                .texOffs(0, 0).addBox(1.35F, -2.05F, -4.38F, 2.10F, 2.05F, 0.44F)
+                .texOffs(0, 0).addBox(-2.35F, -0.35F, -4.12F, 4.70F, 1.10F, 0.52F));
     }
 
     private static ModelPart createFullBeardGeometry()
     {
         return createSimplePart("full_beard", CubeListBuilder.create()
-                .texOffs(0, 0).addBox(-3.65F, -2.35F, -4.46F, 7.30F, 2.55F, 0.52F)
-                .texOffs(0, 0).addBox(-3.05F, 0.10F, -4.10F, 6.10F, 1.55F, 0.68F)
+                .texOffs(0, 0).addBox(-3.70F, -2.20F, -4.48F, 2.35F, 2.55F, 0.54F)
+                .texOffs(0, 0).addBox(1.35F, -2.20F, -4.48F, 2.35F, 2.55F, 0.54F)
+                .texOffs(0, 0).addBox(-3.05F, -0.25F, -4.12F, 6.10F, 2.00F, 0.70F)
                 .texOffs(0, 0).addBox(-2.10F, 1.55F, -3.82F, 4.20F, 1.15F, 0.72F));
     }
 
@@ -501,9 +551,12 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createDwarfBeard()
     {
         return createSimplePart("dwarf_beard", CubeListBuilder.create()
-                .texOffs(0, 0).addBox(-3.35F, -2.55F, -4.65F, 6.70F, 1.20F, 0.85F)
-                .texOffs(0, 0).addBox(-3.65F, -1.45F, -4.55F, 7.30F, 2.20F, 0.95F)
-                .texOffs(0, 0).addBox(-3.20F, 0.60F, -3.90F, 6.40F, 2.35F, 1.25F)
+                // Split moustache and upper cheeks around the centre of the mouth.
+                .texOffs(0, 0).addBox(-3.35F, -2.55F, -4.65F, 2.15F, 1.10F, 0.85F)
+                .texOffs(0, 0).addBox(1.20F, -2.55F, -4.65F, 2.15F, 1.10F, 0.85F)
+                .texOffs(0, 0).addBox(-3.65F, -1.45F, -4.55F, 2.45F, 1.65F, 0.95F)
+                .texOffs(0, 0).addBox(1.20F, -1.45F, -4.55F, 2.45F, 1.65F, 0.95F)
+                .texOffs(0, 0).addBox(-3.20F, 0.00F, -3.90F, 6.40F, 2.95F, 1.25F)
                 .texOffs(0, 0).addBox(-2.65F, 2.75F, -3.55F, 5.30F, 2.20F, 1.20F)
                 .texOffs(0, 0).addBox(-1.80F, 4.75F, -3.25F, 3.60F, 1.45F, 1.05F));
     }
@@ -511,8 +564,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static ModelPart createDwarfBeardHighlights()
     {
         return createSimplePart("dwarf_beard_highlights", CubeListBuilder.create()
-                .texOffs(0, 0).addBox(-1.45F, -2.45F, -4.78F, 2.90F, 0.55F, 0.24F)
-                .texOffs(0, 0).addBox(-1.65F, -1.15F, -4.68F, 3.30F, 0.85F, 0.24F)
+                .texOffs(0, 0).addBox(-2.65F, -2.45F, -4.78F, 1.10F, 0.50F, 0.24F)
+                .texOffs(0, 0).addBox(1.55F, -2.45F, -4.78F, 1.10F, 0.50F, 0.24F)
                 .texOffs(0, 0).addBox(-2.25F, 0.90F, -4.02F, 1.25F, 3.40F, 0.26F)
                 .texOffs(0, 0).addBox(1.00F, 0.90F, -4.02F, 1.25F, 3.40F, 0.26F)
                 .texOffs(0, 0).addBox(-0.70F, 4.95F, -3.37F, 1.40F, 0.85F, 0.22F));
