@@ -19,6 +19,9 @@ public class PendingCharacter
     private final CharacterSkills skills =
             new CharacterSkills();
 
+    private final CharacterProficiencies proficiencies =
+            new CharacterProficiencies();
+
     public Gender getGender()
     {
         return gender;
@@ -71,22 +74,30 @@ public class PendingCharacter
         return skills;
     }
 
+    public CharacterProficiencies getProficiencies()
+    {
+        return proficiencies;
+    }
+
     public void resetAfterClassChange()
     {
         alignment = null;
 
         abilityScores.reset();
         skills.reset();
+        proficiencies.reset();
     }
 
     public void resetAfterAlignmentChange()
     {
         abilityScores.reset();
         skills.reset();
+        proficiencies.reset();
     }
 
     public void resetAfterAbilitiesChange()
     {
         skills.reset();
+        proficiencies.reset();
     }
 }

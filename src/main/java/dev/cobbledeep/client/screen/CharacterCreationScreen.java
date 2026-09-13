@@ -4,9 +4,12 @@ import dev.cobbledeep.character.AbilityScores;
 import dev.cobbledeep.character.CharacterAbilityRules;
 import dev.cobbledeep.character.CharacterAlignment;
 import dev.cobbledeep.character.CharacterClass;
+import dev.cobbledeep.character.CharacterProficiencies;
 import dev.cobbledeep.character.CharacterRace;
 import dev.cobbledeep.character.CharacterSkills;
+import dev.cobbledeep.character.FightingStyle;
 import dev.cobbledeep.character.PendingCharacter;
+import dev.cobbledeep.character.WeaponProficiency;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -20,15 +23,15 @@ public class CharacterCreationScreen extends Screen
     private final PendingCharacter pendingCharacter;
 
     private CharacterCreationPage currentPage;
-
     private Button nextButton;
+    private int proficiencyScrollOffset;
 
     public CharacterCreationScreen()
     {
         super(Component.literal("Character Generation"));
-
         this.pendingCharacter = new PendingCharacter();
         this.currentPage = CharacterCreationPage.GENDER;
+        this.proficiencyScrollOffset = 0;
     }
 
     @Override
@@ -37,43 +40,86 @@ public class CharacterCreationScreen extends Screen
         buildCurrentPage();
     }
 
+    private boolean isCompactLayout()
+    {
+        return this.height < 360 || this.width < 560;
+    }
+
+    private int getHeaderY()
+    {
+        return isCompactLayout() ? 16 : 40;
+    }
+
+    private int getPageTitleY()
+    {
+        return isCompactLayout() ? 34 : 70;
+    }
+
+    private int getContentTop()
+    {
+        return isCompactLayout() ? 58 : 95;
+    }
+
+    private int getNavigationY()
+    {
+        return this.height - (isCompactLayout() ? 28 : 40);
+    }
+
+    private int getButtonHeight()
+    {
+        return isCompactLayout() ? 18 : 20;
+    }
+
+    private int getRowHeight()
+    {
+        return isCompactLayout() ? 20 : 22;
+    }
+
+    private int getAbilityRowHeight()
+    {
+        return isCompactLayout() ? 17 : getRowHeight();
+    }
+
+    private int getDescriptionWidth()
+    {
+        return Math.max(180, Math.min(360, this.width - 30));
+    }
+
+    private int getAbilityActionY(int startY)
+    {
+        if (isCompactLayout())
+        {
+            return getNavigationY() - getButtonHeight() - 4;
+        }
+
+        return startY + 6 * getAbilityRowHeight() + 38;
+    }
+
+    private int getAbilityInfoY(int startY)
+    {
+        int naturalY = startY + getAbilityRowHeight() * 6 + (isCompactLayout() ? 1 : 7);
+        if (!isCompactLayout())
+        {
+            return naturalY;
+        }
+
+        return Math.min(naturalY, getAbilityActionY(startY) - 27);
+    }
+
     private void buildCurrentPage()
     {
         this.clearWidgets();
 
         switch (currentPage)
         {
-            case GENDER:
-                buildGenderPage();
-                break;
-
-            case RACE:
-                buildRacePage();
-                break;
-
-            case CLASS:
-                buildClassPage();
-                break;
-
-            case ALIGNMENT:
-                buildAlignmentPage();
-                break;
-
-            case ABILITIES:
-                buildAbilitiesPage();
-                break;
-
-            case SKILLS:
-                buildSkillsPage();
-                break;
-                
-            case PROFICIENCIES:
-            case SPELLS:
-            case APPEARANCE:
-            case NAME:
-            case REVIEW:
-                buildPlaceholderPage();
-                break;
+            case GENDER -> buildGenderPage();
+            case RACE -> buildRacePage();
+            case CLASS -> buildClassPage();
+            case ALIGNMENT -> buildAlignmentPage();
+            case ABILITIES -> buildAbilitiesPage();
+            case SKILLS -> buildSkillsPage();
+            case PROFICIENCIES -> buildProficienciesPage();
+            case SPELLS, APPEARANCE, NAME, REVIEW -> buildPlaceholderPage();
         }
 
         buildNavigationButtons();
@@ -82,59 +128,28 @@ public class CharacterCreationScreen extends Screen
     private void buildGenderPage()
     {
         int centerX = this.width / 2;
-        int centerY = this.height / 2;
+        int y = Math.max(getContentTop() + 20, this.height / 2 - 10);
+        int gap = 10;
+        int buttonWidth = Math.min(100, Math.max(70, (this.width - 30 - gap) / 2));
+        int buttonHeight = getButtonHeight();
 
         this.addRenderableWidget(
-                Button.builder(
-                        Component.literal("Male"),
-                        button ->
-                        {
-                            PendingCharacter.Gender oldGender =
-                                    pendingCharacter.getGender();
-
-                            if (oldGender != PendingCharacter.Gender.MALE)
-                            {
-                                pendingCharacter.setGender(
-                                        PendingCharacter.Gender.MALE
-                                );
-                            }
-
-                            updateNextButton();
-                        }
-                )
-                .bounds(
-                        centerX - 105,
-                        centerY - 10,
-                        100,
-                        20
-                )
+                Button.builder(Component.literal("Male"), button ->
+                {
+                    pendingCharacter.setGender(PendingCharacter.Gender.MALE);
+                    updateNextButton();
+                })
+                .bounds(centerX - gap / 2 - buttonWidth, y, buttonWidth, buttonHeight)
                 .build()
         );
 
         this.addRenderableWidget(
-                Button.builder(
-                        Component.literal("Female"),
-                        button ->
-                        {
-                            PendingCharacter.Gender oldGender =
-                                    pendingCharacter.getGender();
-
-                            if (oldGender != PendingCharacter.Gender.FEMALE)
-                            {
-                                pendingCharacter.setGender(
-                                        PendingCharacter.Gender.FEMALE
-                                );
-                            }
-
-                            updateNextButton();
-                        }
-                )
-                .bounds(
-                        centerX + 5,
-                        centerY - 10,
-                        100,
-                        20
-                )
+                Button.builder(Component.literal("Female"), button ->
+                {
+                    pendingCharacter.setGender(PendingCharacter.Gender.FEMALE);
+                    updateNextButton();
+                })
+                .bounds(centerX + gap / 2, y, buttonWidth, buttonHeight)
                 .build()
         );
     }
@@ -142,79 +157,42 @@ public class CharacterCreationScreen extends Screen
     private void buildRacePage()
     {
         int centerX = this.width / 2;
-        int centerY = this.height / 2;
-
-        CharacterRace[] races =
-                CharacterRace.values();
-
-        int buttonWidth = 100;
-        int buttonHeight = 20;
-
-        int horizontalSpacing = 10;
-        int verticalSpacing = 10;
-
-        int leftX =
-                centerX
-                - buttonWidth
-                - horizontalSpacing / 2;
-
-        int rightX =
-                centerX
-                + horizontalSpacing / 2;
-
-        int startY = centerY - 40;
+        CharacterRace[] races = CharacterRace.values();
+        int columns = this.width < 340 ? 1 : 2;
+        int gap = 8;
+        int buttonHeight = getButtonHeight();
+        int buttonWidth = columns == 1
+                ? Math.min(130, this.width - 30)
+                : Math.min(110, Math.max(80, (this.width - 30 - gap) / 2));
+        int totalWidth = columns * buttonWidth + (columns - 1) * gap;
+        int startX = centerX - totalWidth / 2;
+        int startY = getContentTop();
+        int rowGap = isCompactLayout() ? 4 : 8;
 
         for (int i = 0; i < races.length; i++)
         {
             CharacterRace race = races[i];
-
-            int column = i % 2;
-            int row = i / 2;
-
-            int x =
-                    column == 0
-                            ? leftX
-                            : rightX;
-
-            int y =
-                    startY
-                    + row
-                    * (buttonHeight + verticalSpacing);
+            int column = i % columns;
+            int row = i / columns;
+            int x = startX + column * (buttonWidth + gap);
+            int y = startY + row * (buttonHeight + rowGap);
 
             this.addRenderableWidget(
-                    Button.builder(
-                            Component.literal(
-                                    race.getDisplayName()
-                            ),
-                            button ->
-                            {
-                                CharacterRace oldRace =
-                                        pendingCharacter.getRace();
-
-                                if (oldRace != race)
-                                {
-                                    pendingCharacter.setRace(race);
-
-                                    pendingCharacter
-                                            .setCharacterClass(null);
-
-                                    pendingCharacter
-                                            .setAlignment(null);
-
-                                    pendingCharacter
-                                            .getAbilityScores()
-                                            .reset();
-                                }
-
-                                updateNextButton();
-                            }
-                    )
-                    .bounds(
-                            x,
-                            y,
-                            buttonWidth,
-                            buttonHeight
-                    )
+                    Button.builder(Component.literal(race.getDisplayName()), button ->
+                    {
+                        if (pendingCharacter.getRace() != race)
+                        {
+                            pendingCharacter.setRace(race);
+                            pendingCharacter.setCharacterClass(null);
+                            pendingCharacter.setAlignment(null);
+                            pendingCharacter.getAbilityScores().reset();
+                            pendingCharacter.getSkills().reset();
+                            pendingCharacter.getProficiencies().reset();
+                            proficiencyScrollOffset = 0;
+                        }
+                        updateNextButton();
+                    })
+                    .bounds(x, y, buttonWidth, buttonHeight)
                     .build()
             );
         }
@@ -222,94 +200,49 @@ public class CharacterCreationScreen extends Screen
 
     private void buildClassPage()
     {
-        int centerX = this.width / 2;
-        int centerY = this.height / 2;
-
-        CharacterRace race =
-                pendingCharacter.getRace();
-
+        CharacterRace race = pendingCharacter.getRace();
         if (race == null)
         {
             return;
         }
 
-        CharacterClass[] classes =
-                CharacterClass.values();
-
-        int buttonWidth = 100;
-        int buttonHeight = 20;
-
-        int horizontalSpacing = 10;
-        int verticalSpacing = 8;
-
-        int leftX =
-                centerX
-                - buttonWidth
-                - horizontalSpacing / 2;
-
-        int rightX =
-                centerX
-                + horizontalSpacing / 2;
-
-        int startY = centerY - 55;
-
+        int centerX = this.width / 2;
+        int columns = this.width < 340 ? 1 : 2;
+        int gap = 8;
+        int buttonHeight = getButtonHeight();
+        int buttonWidth = columns == 1
+                ? Math.min(130, this.width - 30)
+                : Math.min(110, Math.max(80, (this.width - 30 - gap) / 2));
+        int totalWidth = columns * buttonWidth + (columns - 1) * gap;
+        int startX = centerX - totalWidth / 2;
+        int startY = getContentTop();
+        int rowGap = isCompactLayout() ? 3 : 8;
         int visibleIndex = 0;
 
-        for (CharacterClass characterClass : classes)
+        for (CharacterClass characterClass : CharacterClass.values())
         {
             if (!race.canChooseClass(characterClass))
             {
                 continue;
             }
 
-            int column = visibleIndex % 2;
-            int row = visibleIndex / 2;
-
-            int x =
-                    column == 0
-                            ? leftX
-                            : rightX;
-
-            int y =
-                    startY
-                    + row
-                    * (buttonHeight + verticalSpacing);
+            int column = visibleIndex % columns;
+            int row = visibleIndex / columns;
+            int x = startX + column * (buttonWidth + gap);
+            int y = startY + row * (buttonHeight + rowGap);
 
             this.addRenderableWidget(
-                    Button.builder(
-                            Component.literal(
-                                    characterClass.getDisplayName()
-                            ),
-                            button ->
-                            {
-                                CharacterClass oldClass =
-                                        pendingCharacter
-                                                .getCharacterClass();
-
-                                if (oldClass != characterClass)
-                                {
-                                    pendingCharacter
-                                            .setCharacterClass(
-                                                    characterClass
-                                            );
-
-                                    pendingCharacter
-                                            .setAlignment(null);
-
-                                    pendingCharacter
-                                            .getAbilityScores()
-                                            .reset();
-                                }
-
-                                updateNextButton();
-                            }
-                    )
-                    .bounds(
-                            x,
-                            y,
-                            buttonWidth,
-                            buttonHeight
-                    )
+                    Button.builder(Component.literal(characterClass.getDisplayName()), button ->
+                    {
+                        if (pendingCharacter.getCharacterClass() != characterClass)
+                        {
+                            pendingCharacter.setCharacterClass(characterClass);
+                            pendingCharacter.resetAfterClassChange();
+                            proficiencyScrollOffset = 0;
+                        }
+                        updateNextButton();
+                    })
+                    .bounds(x, y, buttonWidth, buttonHeight)
                     .build()
             );
 
@@ -319,325 +252,387 @@ public class CharacterCreationScreen extends Screen
 
     private void buildAlignmentPage()
     {
-        int centerX = this.width / 2;
-        int centerY = this.height / 2;
-
-        CharacterClass characterClass =
-                pendingCharacter.getCharacterClass();
-
+        CharacterClass characterClass = pendingCharacter.getCharacterClass();
         if (characterClass == null)
         {
             return;
         }
 
-        CharacterAlignment[] alignments =
-                CharacterAlignment.values();
+        int centerX = this.width / 2;
+        int gap = isCompactLayout() ? 4 : 10;
+        int buttonHeight = getButtonHeight();
+        int buttonWidth = Math.min(120, Math.max(72, (this.width - 30 - gap * 2) / 3));
+        int totalWidth = buttonWidth * 3 + gap * 2;
+        int startX = centerX - totalWidth / 2;
+        int startY = getContentTop();
+        int rowGap = isCompactLayout() ? 4 : 10;
+        CharacterAlignment[] alignments = CharacterAlignment.values();
 
-        int buttonWidth = 120;
-        int buttonHeight = 20;
-
-        int horizontalSpacing = 10;
-        int verticalSpacing = 8;
-
-        int leftX =
-                centerX
-                - buttonWidth
-                - horizontalSpacing / 2;
-
-        int rightX =
-                centerX
-                + horizontalSpacing / 2;
-
-        int startY = centerY - 70;
-
-        int visibleIndex = 0;
-
-        for (CharacterAlignment alignment : alignments)
+        for (int i = 0; i < alignments.length; i++)
         {
-            if (!characterClass.canChooseAlignment(alignment))
-            {
-                continue;
-            }
+            CharacterAlignment alignment = alignments[i];
+            int column = i % 3;
+            int row = i / 3;
+            int x = startX + column * (buttonWidth + gap);
+            int y = startY + row * (buttonHeight + rowGap);
 
-            int column = visibleIndex % 2;
-            int row = visibleIndex / 2;
+            Button alignmentButton = Button.builder(
+                    Component.literal(alignment.getDisplayName()), button ->
+                    {
+                        if (pendingCharacter.getAlignment() != alignment)
+                        {
+                            pendingCharacter.setAlignment(alignment);
+                            pendingCharacter.resetAfterAlignmentChange();
+                        }
+                        updateNextButton();
+                    })
+                    .bounds(x, y, buttonWidth, buttonHeight)
+                    .build();
 
-            int x =
-                    column == 0
-                            ? leftX
-                            : rightX;
-
-            int y =
-                    startY
-                    + row
-                    * (buttonHeight + verticalSpacing);
-
-            this.addRenderableWidget(
-                    Button.builder(
-                            Component.literal(
-                                    alignment.getDisplayName()
-                            ),
-                            button ->
-                            {
-                                CharacterAlignment oldAlignment =
-                                        pendingCharacter
-                                                .getAlignment();
-
-                                if (oldAlignment != alignment)
-                                {
-                                    pendingCharacter
-                                            .setAlignment(alignment);
-
-                                    pendingCharacter
-                                            .getAbilityScores()
-                                            .reset();
-                                }
-
-                                updateNextButton();
-                            }
-                    )
-                    .bounds(
-                            x,
-                            y,
-                            buttonWidth,
-                            buttonHeight
-                    )
-                    .build()
-            );
-
-            visibleIndex++;
+            alignmentButton.active = characterClass.canChooseAlignment(alignment);
+            this.addRenderableWidget(alignmentButton);
         }
     }
 
     private void buildAbilitiesPage()
     {
         int centerX = this.width / 2;
-        int startY = 112;
-
-        AbilityScores scores =
-                pendingCharacter.getAbilityScores();
-
-        CharacterRace race =
-                pendingCharacter.getRace();
-
-        CharacterClass characterClass =
-                pendingCharacter.getCharacterClass();
+        int startY = getContentTop() + (isCompactLayout() ? 4 : 17);
+        int rowHeight = getAbilityRowHeight();
+        int buttonHeight = getButtonHeight();
+        AbilityScores scores = pendingCharacter.getAbilityScores();
+        CharacterRace race = pendingCharacter.getRace();
+        CharacterClass characterClass = pendingCharacter.getCharacterClass();
 
         if (race == null || characterClass == null)
         {
             return;
         }
 
-        Button storeButton =
-                Button.builder(
-                        Component.literal("Store"),
-                        button ->
-                        {
-                            scores.storeCurrentRoll();
-                            buildCurrentPage();
-                        }
-                )
-                .bounds(
-                        centerX - 155,
-                        startY + 170,
-                        100,
-                        20
-                )
-                .build();
+        if (!scores.isRolled())
+        {
+            scores.roll(race, characterClass);
+            pendingCharacter.resetAfterAbilitiesChange();
+        }
 
-        storeButton.active =
-                scores.isRolled();
+        int actionY = getAbilityActionY(startY);
+        int actionGap = 5;
+        int actionWidth = Math.min(100, Math.max(62, (this.width - 30 - actionGap * 2) / 3));
 
+        Button storeButton = Button.builder(Component.literal("Store"), button ->
+        {
+            scores.storeCurrentRoll();
+            buildCurrentPage();
+        })
+        .bounds(centerX - actionWidth - actionGap - actionWidth / 2, actionY, actionWidth, buttonHeight)
+        .build();
+        storeButton.active = scores.isRolled();
         this.addRenderableWidget(storeButton);
 
         this.addRenderableWidget(
-                Button.builder(
-                        Component.literal("Reroll"),
-                        button ->
-                        {
-                            scores.roll(
-                                    race,
-                                    characterClass
-                            );
-
-                            buildCurrentPage();
-                        }
-                )
-                .bounds(
-                        centerX - 50,
-                        startY + 170,
-                        100,
-                        20
-                )
+                Button.builder(Component.literal("Reroll"), button ->
+                {
+                    scores.roll(race, characterClass);
+                    pendingCharacter.resetAfterAbilitiesChange();
+                    buildCurrentPage();
+                })
+                .bounds(centerX - actionWidth / 2, actionY, actionWidth, buttonHeight)
                 .build()
         );
 
-        Button recallButton =
-                Button.builder(
-                        Component.literal("Recall"),
-                        button ->
-                        {
-                            scores.recallStoredRoll();
-                            buildCurrentPage();
-                        }
-                )
-                .bounds(
-                        centerX + 55,
-                        startY + 170,
-                        100,
-                        20
-                )
-                .build();
-
-        recallButton.active =
-                scores.hasStoredRoll();
-
+        Button recallButton = Button.builder(Component.literal("Recall"), button ->
+        {
+            scores.recallStoredRoll();
+            pendingCharacter.resetAfterAbilitiesChange();
+            buildCurrentPage();
+        })
+        .bounds(centerX + actionWidth / 2 + actionGap, actionY, actionWidth, buttonHeight)
+        .build();
+        recallButton.active = scores.hasStoredRoll();
         this.addRenderableWidget(recallButton);
 
-        if (!scores.isRolled())
+        addAbilityButtons(centerX, startY,
+                () -> scores.decreaseStrength(race, characterClass),
+                () -> scores.increaseStrength(race, characterClass));
+        addAbilityButtons(centerX, startY + rowHeight,
+                () -> scores.decreaseDexterity(race, characterClass),
+                () -> scores.increaseDexterity(race));
+        addAbilityButtons(centerX, startY + rowHeight * 2,
+                () -> scores.decreaseConstitution(race, characterClass),
+                () -> scores.increaseConstitution(race));
+        addAbilityButtons(centerX, startY + rowHeight * 3,
+                () -> scores.decreaseIntelligence(race, characterClass),
+                () -> scores.increaseIntelligence(race));
+        addAbilityButtons(centerX, startY + rowHeight * 4,
+                () -> scores.decreaseWisdom(race, characterClass),
+                () -> scores.increaseWisdom(race));
+        addAbilityButtons(centerX, startY + rowHeight * 5,
+                () -> scores.decreaseCharisma(race, characterClass),
+                () -> scores.increaseCharisma(race));
+    }
+
+    private void addAbilityButtons(int centerX, int y, Runnable decrease, Runnable increase)
+    {
+        int size = isCompactLayout() ? 16 : getButtonHeight();
+        this.addRenderableWidget(
+                Button.builder(Component.literal("-"), button ->
+                {
+                    int oldPool = pendingCharacter.getAbilityScores().getAvailablePoints();
+                    decrease.run();
+                    int newPool = pendingCharacter.getAbilityScores().getAvailablePoints();
+                    if (newPool != oldPool)
+                    {
+                        pendingCharacter.resetAfterAbilitiesChange();
+                    }
+                    buildCurrentPage();
+                })
+                .bounds(centerX - 20, y, size, size)
+                .build()
+        );
+
+        this.addRenderableWidget(
+                Button.builder(Component.literal("+"), button ->
+                {
+                    int oldPool = pendingCharacter.getAbilityScores().getAvailablePoints();
+                    increase.run();
+                    int newPool = pendingCharacter.getAbilityScores().getAvailablePoints();
+                    if (newPool != oldPool)
+                    {
+                        pendingCharacter.resetAfterAbilitiesChange();
+                    }
+                    buildCurrentPage();
+                })
+                .bounds(centerX + 20, y, size, size)
+                .build()
+        );
+    }
+
+    private void buildSkillsPage()
+    {
+        int centerX = this.width / 2;
+        int startY = getContentTop() + 5;
+        int rowHeight = getRowHeight();
+        CharacterClass characterClass = pendingCharacter.getCharacterClass();
+        CharacterRace race = pendingCharacter.getRace();
+        AbilityScores abilityScores = pendingCharacter.getAbilityScores();
+        CharacterSkills skills = pendingCharacter.getSkills();
+
+        if (characterClass == null || race == null || !abilityScores.isRolled())
         {
             return;
         }
 
-        addAbilityButtons(
-                centerX,
-                startY,
-                () -> scores.decreaseStrength(
-                        race,
-                        characterClass
-                ),
-                () -> scores.increaseStrength(
-                        race,
-                        characterClass
-                )
+        if (!skills.isInitialized())
+        {
+            skills.initialize(race, characterClass, abilityScores);
+        }
+
+        if (characterClass != CharacterClass.THIEF)
+        {
+            return;
+        }
+
+        addSkillButtons(centerX, startY, skills::decreaseOpenLocks, skills::increaseOpenLocks);
+        addSkillButtons(centerX, startY + rowHeight, skills::decreaseFindTraps, skills::increaseFindTraps);
+        addSkillButtons(centerX, startY + rowHeight * 2, skills::decreasePickPockets, skills::increasePickPockets);
+        addSkillButtons(centerX, startY + rowHeight * 3, skills::decreaseMoveSilently, skills::increaseMoveSilently);
+        addSkillButtons(centerX, startY + rowHeight * 4, skills::decreaseHideInShadows, skills::increaseHideInShadows);
+        addSkillButtons(centerX, startY + rowHeight * 5, skills::decreaseDetectIllusion, skills::increaseDetectIllusion);
+        addSkillButtons(centerX, startY + rowHeight * 6, skills::decreaseSetTraps, skills::increaseSetTraps);
+    }
+
+    private void addSkillButtons(int centerX, int y, Runnable decrease, Runnable increase)
+    {
+        int size = getButtonHeight();
+        this.addRenderableWidget(
+                Button.builder(Component.literal("-"), button ->
+                {
+                    decrease.run();
+                    buildCurrentPage();
+                })
+                .bounds(centerX + 35, y, size, size)
+                .build()
         );
 
-        addAbilityButtons(
-                centerX,
-                startY + 22,
-                () -> scores.decreaseDexterity(
-                        race,
-                        characterClass
-                ),
-                () -> scores.increaseDexterity(race)
-        );
-
-        addAbilityButtons(
-                centerX,
-                startY + 44,
-                () -> scores.decreaseConstitution(
-                        race,
-                        characterClass
-                ),
-                () -> scores.increaseConstitution(race)
-        );
-
-        addAbilityButtons(
-                centerX,
-                startY + 66,
-                () -> scores.decreaseIntelligence(
-                        race,
-                        characterClass
-                ),
-                () -> scores.increaseIntelligence(race)
-        );
-
-        addAbilityButtons(
-                centerX,
-                startY + 88,
-                () -> scores.decreaseWisdom(
-                        race,
-                        characterClass
-                ),
-                () -> scores.increaseWisdom(race)
-        );
-
-        addAbilityButtons(
-                centerX,
-                startY + 110,
-                () -> scores.decreaseCharisma(
-                        race,
-                        characterClass
-                ),
-                () -> scores.increaseCharisma(race)
+        this.addRenderableWidget(
+                Button.builder(Component.literal("+"), button ->
+                {
+                    increase.run();
+                    buildCurrentPage();
+                })
+                .bounds(centerX + 60, y, size, size)
+                .build()
         );
     }
 
-    private void addAbilityButtons(
-            int centerX,
-            int y,
-            Runnable decrease,
-            Runnable increase)
+    private int getProficiencyStartY()
     {
-        this.addRenderableWidget(
-                Button.builder(
-                        Component.literal("-"),
-                        button ->
-                        {
-                            int oldPool =
-                                    pendingCharacter
-                                            .getAbilityScores()
-                                            .getAvailablePoints();
+        return getContentTop() + 12;
+    }
 
-                            decrease.run();
+    private void buildProficienciesPage()
+    {
+        CharacterClass characterClass = pendingCharacter.getCharacterClass();
+        CharacterProficiencies proficiencies = pendingCharacter.getProficiencies();
 
-                            int newPool =
-                                    pendingCharacter
-                                            .getAbilityScores()
-                                            .getAvailablePoints();
+        if (characterClass == null)
+        {
+            return;
+        }
 
-                            if (newPool != oldPool)
-                            {
-                                pendingCharacter
-                                        .resetAfterAbilitiesChange();
-                            }
+        if (!proficiencies.isInitialized())
+        {
+            proficiencies.initialize(characterClass);
+        }
 
-                            buildCurrentPage();
-                        }
-                )
-                .bounds(
-                        centerX - 20,
-                        y,
-                        20,
-                        20
-                )
-                .build()
-        );
+        clampProficiencyScroll();
 
-        this.addRenderableWidget(
-                Button.builder(
-                        Component.literal("+"),
-                        button ->
-                        {
-                            int oldPool =
-                                    pendingCharacter
-                                            .getAbilityScores()
-                                            .getAvailablePoints();
+        int centerX = this.width / 2;
+        int panelWidth = Math.min(360, this.width - 24);
+        int controlsX = centerX + panelWidth / 2 - 58;
+        int visibleRows = getProficiencyVisibleRows();
+        int firstRow = proficiencyScrollOffset;
+        int lastRow = firstRow + visibleRows - 1;
+        int weaponCount = WeaponProficiency.values().length;
 
-                            increase.run();
+        for (int i = 0; i < weaponCount; i++)
+        {
+            if (i < firstRow || i > lastRow)
+            {
+                continue;
+            }
 
-                            int newPool =
-                                    pendingCharacter
-                                            .getAbilityScores()
-                                            .getAvailablePoints();
+            WeaponProficiency proficiency = WeaponProficiency.values()[i];
+            if (!proficiencies.canUseWeapon(characterClass, proficiency))
+            {
+                continue;
+            }
 
-                            if (newPool != oldPool)
-                            {
-                                pendingCharacter
-                                        .resetAfterAbilitiesChange();
-                            }
+            int y = getProficiencyRowY(i);
+            addProficiencyButtons(characterClass, proficiencies, proficiency, controlsX, y);
+        }
 
-                            buildCurrentPage();
-                        }
-                )
-                .bounds(
-                        centerX + 20,
-                        y,
-                        20,
-                        20
-                )
-                .build()
-        );
+        int styleHeaderRow = weaponCount;
+        FightingStyle[] styles = FightingStyle.values();
+
+        for (int i = 0; i < styles.length; i++)
+        {
+            int logicalRow = styleHeaderRow + 1 + i;
+            if (logicalRow < firstRow || logicalRow > lastRow)
+            {
+                continue;
+            }
+
+            FightingStyle style = styles[i];
+            if (!proficiencies.canUseStyle(characterClass, style))
+            {
+                continue;
+            }
+
+            int y = getProficiencyRowY(logicalRow);
+            int minimumRank = characterClass == CharacterClass.RANGER
+                    && style == FightingStyle.TWO_WEAPON ? 2 : 0;
+            int size = getButtonHeight();
+
+            Button minusButton = Button.builder(Component.literal("-"), button ->
+            {
+                proficiencies.decreaseStyle(characterClass, style);
+                buildCurrentPage();
+            })
+            .bounds(controlsX, y, size, size)
+            .build();
+            minusButton.active = proficiencies.getStyleRank(style) > minimumRank;
+            this.addRenderableWidget(minusButton);
+
+            Button plusButton = Button.builder(Component.literal("+"), button ->
+            {
+                proficiencies.increaseStyle(characterClass, style);
+                buildCurrentPage();
+            })
+            .bounds(controlsX + size + 5, y, size, size)
+            .build();
+            plusButton.active = proficiencies.getAvailablePoints() > 0
+                    && proficiencies.getStyleRank(style)
+                    < proficiencies.getMaximumStyleRank(characterClass, style);
+            this.addRenderableWidget(plusButton);
+        }
+    }
+
+    private void addProficiencyButtons(
+            CharacterClass characterClass,
+            CharacterProficiencies proficiencies,
+            WeaponProficiency proficiency,
+            int controlsX,
+            int y)
+    {
+        int size = getButtonHeight();
+        Button minusButton = Button.builder(Component.literal("-"), button ->
+        {
+            proficiencies.decreaseWeapon(proficiency);
+            buildCurrentPage();
+        })
+        .bounds(controlsX, y, size, size)
+        .build();
+        minusButton.active = proficiencies.getWeaponRank(proficiency) > 0;
+        this.addRenderableWidget(minusButton);
+
+        Button plusButton = Button.builder(Component.literal("+"), button ->
+        {
+            proficiencies.increaseWeapon(characterClass, proficiency);
+            buildCurrentPage();
+        })
+        .bounds(controlsX + size + 5, y, size, size)
+        .build();
+        plusButton.active = proficiencies.getAvailablePoints() > 0
+                && proficiencies.getWeaponRank(proficiency)
+                < proficiencies.getMaximumWeaponRank(characterClass);
+        this.addRenderableWidget(plusButton);
+    }
+
+    private int getProficiencyVisibleRows()
+    {
+        int availableHeight = getNavigationY() - getProficiencyStartY() - 42;
+        return Math.max(3, Math.min(12, availableHeight / getRowHeight()));
+    }
+
+    private int getProficiencyContentRows()
+    {
+        return WeaponProficiency.values().length + 1 + FightingStyle.values().length;
+    }
+
+    private int getMaxProficiencyScroll()
+    {
+        return Math.max(0, getProficiencyContentRows() - getProficiencyVisibleRows());
+    }
+
+    private void clampProficiencyScroll()
+    {
+        proficiencyScrollOffset = Math.max(0, Math.min(proficiencyScrollOffset, getMaxProficiencyScroll()));
+    }
+
+    private int getProficiencyRowY(int logicalRow)
+    {
+        return getProficiencyStartY()
+                + (logicalRow - proficiencyScrollOffset) * getRowHeight();
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY)
+    {
+        if (currentPage == CharacterCreationPage.PROFICIENCIES && scrollY != 0.0)
+        {
+            int oldOffset = proficiencyScrollOffset;
+            proficiencyScrollOffset += scrollY > 0.0 ? -1 : 1;
+            clampProficiencyScroll();
+
+            if (proficiencyScrollOffset != oldOffset)
+            {
+                buildCurrentPage();
+            }
+            return true;
+        }
+
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     private void buildPlaceholderPage()
@@ -648,48 +643,27 @@ public class CharacterCreationScreen extends Screen
     private void buildNavigationButtons()
     {
         int centerX = this.width / 2;
-        int bottomY = this.height - 40;
+        int bottomY = getNavigationY();
+        int gap = 10;
+        int buttonWidth = Math.min(100, Math.max(70, (this.width - 30 - gap) / 2));
+        int buttonHeight = getButtonHeight();
 
-        Button backButton =
+        this.addRenderableWidget(
                 Button.builder(
-                        Component.literal(
-                                currentPage
-                                        == CharacterCreationPage.GENDER
-                                                ? "Back to Title"
-                                                : "Back"
-                        ),
-                        button -> previousPage()
-                )
-                .bounds(
-                        centerX - 105,
-                        bottomY,
-                        100,
-                        20
-                )
-                .build();
+                        Component.literal(currentPage == CharacterCreationPage.GENDER
+                                ? "Back to Title" : "Back"),
+                        button -> previousPage())
+                .bounds(centerX - gap / 2 - buttonWidth, bottomY, buttonWidth, buttonHeight)
+                .build()
+        );
 
-        this.addRenderableWidget(backButton);
-
-        nextButton =
-                Button.builder(
-                        Component.literal(
-                                currentPage
-                                        == CharacterCreationPage.REVIEW
-                                                ? "Finish"
-                                                : "Next"
-                        ),
-                        button -> nextPage()
-                )
-                .bounds(
-                        centerX + 5,
-                        bottomY,
-                        100,
-                        20
-                )
+        nextButton = Button.builder(
+                Component.literal(currentPage == CharacterCreationPage.REVIEW ? "Finish" : "Next"),
+                button -> nextPage())
+                .bounds(centerX + gap / 2, bottomY, buttonWidth, buttonHeight)
                 .build();
 
         this.addRenderableWidget(nextButton);
-
         updateNextButton();
     }
 
@@ -702,90 +676,57 @@ public class CharacterCreationScreen extends Screen
 
         switch (currentPage)
         {
-            case GENDER:
-                nextButton.active =
-                        pendingCharacter.getGender() != null;
-                break;
-
-            case RACE:
-                nextButton.active =
-                        pendingCharacter.getRace() != null;
-                break;
-
-            case CLASS:
-                nextButton.active =
-                        pendingCharacter.getCharacterClass() != null;
-                break;
-
-            case ALIGNMENT:
-                nextButton.active =
-                        pendingCharacter.getAlignment() != null;
-                break;
-
-            case ABILITIES:
-                nextButton.active =
-                        pendingCharacter
-                                .getAbilityScores()
-                                .isRolled()
-                        && pendingCharacter
-                                .getAbilityScores()
-                                .getAvailablePoints() == 0;
-                break;
-                      
-            case SKILLS:
+            case GENDER -> nextButton.active = pendingCharacter.getGender() != null;
+            case RACE -> nextButton.active = pendingCharacter.getRace() != null;
+            case CLASS -> nextButton.active = pendingCharacter.getCharacterClass() != null;
+            case ALIGNMENT -> nextButton.active = pendingCharacter.getAlignment() != null;
+            case ABILITIES -> nextButton.active = pendingCharacter.getAbilityScores().isRolled()
+                    && pendingCharacter.getAbilityScores().getAvailablePoints() == 0;
+            case SKILLS ->
             {
-                CharacterClass characterClass =
-                        pendingCharacter.getCharacterClass();
-
-                CharacterSkills skills =
-                        pendingCharacter.getSkills();
-
-                if (characterClass == CharacterClass.THIEF)
-                {
-                    nextButton.active =
-                            skills.isInitialized()
-                            && skills.getAvailablePoints() == 0;
-                }
-                else
-                {
-                    nextButton.active = true;
-                }
-
-                break;
+                CharacterSkills skills = pendingCharacter.getSkills();
+                nextButton.active = skills.isInitialized() && skills.getAvailablePoints() == 0;
             }
-
-            default:
-                nextButton.active = true;
-                break;
+            case PROFICIENCIES ->
+            {
+                CharacterProficiencies proficiencies = pendingCharacter.getProficiencies();
+                nextButton.active = proficiencies.isInitialized()
+                        && proficiencies.getAvailablePoints() == 0;
+            }
+            default -> nextButton.active = true;
         }
     }
 
     private void nextPage()
     {
-        if (currentPage
-                == CharacterCreationPage.REVIEW)
+        if (currentPage == CharacterCreationPage.REVIEW)
         {
             continueToWorldCreation();
             return;
         }
 
-        CharacterCreationPage[] pages =
-                CharacterCreationPage.values();
-
-        int nextIndex =
-                currentPage.ordinal() + 1;
+        CharacterCreationPage[] pages = CharacterCreationPage.values();
+        int nextIndex = currentPage.ordinal() + 1;
 
         while (nextIndex < pages.length)
         {
-            CharacterCreationPage candidate =
-                    pages[nextIndex];
+            CharacterCreationPage candidate = pages[nextIndex];
 
-            if (candidate
-                    == CharacterCreationPage.SKILLS
-                    && !usesSkillsPage())
+            if (candidate == CharacterCreationPage.SKILLS && !usesSkillsPage())
             {
                 nextIndex++;
                 continue;
+            }
+
+            if (candidate == CharacterCreationPage.SPELLS && !usesSpellsPage())
+            {
+                nextIndex++;
+                continue;
+            }
+
+            if (candidate == CharacterCreationPage.PROFICIENCIES)
+            {
+                proficiencyScrollOffset = 0;
             }
 
             currentPage = candidate;
@@ -796,30 +737,34 @@ public class CharacterCreationScreen extends Screen
 
     private void previousPage()
     {
-        if (currentPage
-                == CharacterCreationPage.GENDER)
+        if (currentPage == CharacterCreationPage.GENDER)
         {
             returnToTitle();
             return;
         }
 
-        CharacterCreationPage[] pages =
-                CharacterCreationPage.values();
-
-        int previousIndex =
-                currentPage.ordinal() - 1;
+        CharacterCreationPage[] pages = CharacterCreationPage.values();
+        int previousIndex = currentPage.ordinal() - 1;
 
         while (previousIndex >= 0)
         {
-            CharacterCreationPage candidate =
-                    pages[previousIndex];
+            CharacterCreationPage candidate = pages[previousIndex];
 
-            if (candidate
-                    == CharacterCreationPage.SKILLS
-                    && !usesSkillsPage())
+            if (candidate == CharacterCreationPage.SKILLS && !usesSkillsPage())
             {
                 previousIndex--;
                 continue;
+            }
+
+            if (candidate == CharacterCreationPage.SPELLS && !usesSpellsPage())
+            {
+                previousIndex--;
+                continue;
+            }
+
+            if (candidate == CharacterCreationPage.PROFICIENCIES)
+            {
+                proficiencyScrollOffset = 0;
             }
 
             currentPage = candidate;
@@ -829,253 +774,110 @@ public class CharacterCreationScreen extends Screen
     }
 
     @Override
-    public void render(
-            GuiGraphics graphics,
-            int mouseX,
-            int mouseY,
-            float partialTick)
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick)
     {
-        this.renderBackground(
-                graphics,
-                mouseX,
-                mouseY,
-                partialTick
-        );
+        this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        super.render(graphics, mouseX, mouseY, partialTick);
 
-        super.render(
-                graphics,
-                mouseX,
-                mouseY,
-                partialTick
-        );
+        graphics.drawCenteredString(this.font, "CHARACTER GENERATION",
+                this.width / 2, getHeaderY(), 0xFFFFFF);
+        graphics.drawCenteredString(this.font, getPageTitle(),
+                this.width / 2, getPageTitleY(), 0xFFFFAA);
 
-        graphics.drawCenteredString(
-                this.font,
-                "CHARACTER GENERATION",
-                this.width / 2,
-                40,
-                0xFFFFFF
-        );
-
-        graphics.drawCenteredString(
-                this.font,
-                getPageTitle(),
-                this.width / 2,
-                70,
-                0xFFFFAA
-        );
-
-        if (currentPage == CharacterCreationPage.GENDER)
+        switch (currentPage)
         {
-            renderGenderSelection(graphics);
-        }
-
-        if (currentPage == CharacterCreationPage.RACE)
-        {
-            renderRaceSelection(graphics);
-        }
-
-        if (currentPage == CharacterCreationPage.CLASS)
-        {
-            renderClassSelection(graphics);
-        }
-
-        if (currentPage == CharacterCreationPage.ALIGNMENT)
-        {
-            renderAlignmentSelection(graphics);
-        }
-
-        if (currentPage == CharacterCreationPage.ABILITIES)
-        {
-            renderAbilities(graphics);
-        }
-        if (currentPage == CharacterCreationPage.SKILLS)
-        {
-            renderSkills(graphics);
+            case GENDER -> renderGenderSelection(graphics);
+            case RACE -> renderRaceSelection(graphics);
+            case CLASS -> renderClassSelection(graphics);
+            case ALIGNMENT -> renderAlignmentSelection(graphics);
+            case ABILITIES -> renderAbilities(graphics);
+            case SKILLS -> renderSkills(graphics);
+            case PROFICIENCIES -> renderProficiencies(graphics);
+            default -> { }
         }
     }
 
-    private void renderGenderSelection(
-            GuiGraphics graphics)
+    private void renderGenderSelection(GuiGraphics graphics)
     {
-        PendingCharacter.Gender gender =
-                pendingCharacter.getGender();
-
+        PendingCharacter.Gender gender = pendingCharacter.getGender();
         if (gender == null)
         {
-            graphics.drawCenteredString(
-                    this.font,
-                    "Choose your character's gender",
-                    this.width / 2,
-                    this.height / 2 - 40,
-                    0xAAAAAA
-            );
-
+            graphics.drawCenteredString(this.font, "Choose your character's gender",
+                    this.width / 2, getContentTop(), 0xAAAAAA);
             return;
         }
 
-        graphics.drawCenteredString(
-                this.font,
-                "Selected: " + formatGender(gender),
-                this.width / 2,
-                this.height / 2 + 25,
-                0xAAFFAA
-        );
+        graphics.drawCenteredString(this.font, "Selected: " + formatGender(gender),
+                this.width / 2, Math.min(getNavigationY() - 28, this.height / 2 + 25), 0xAAFFAA);
     }
 
-    private void renderRaceSelection(
-            GuiGraphics graphics)
+    private void renderRaceSelection(GuiGraphics graphics)
     {
-        CharacterRace race =
-                pendingCharacter.getRace();
-
+        CharacterRace race = pendingCharacter.getRace();
         if (race == null)
         {
-            graphics.drawCenteredString(
-                    this.font,
-                    "Choose your character's race",
-                    this.width / 2,
-                    this.height / 2 - 75,
-                    0xAAAAAA
-            );
-
             return;
         }
 
-        int centerX = this.width / 2;
-        int descriptionY =
-                this.height / 2 + 55;
-
-        graphics.drawCenteredString(
-                this.font,
-                race.getDisplayName(),
-                centerX,
-                descriptionY,
-                0xAAFFAA
-        );
-
-        graphics.drawWordWrap(
-                this.font,
-                Component.literal(
-                        race.getDescription()
-                ),
-                centerX - 150,
-                descriptionY + 18,
-                300,
-                0xCCCCCC
-        );
+        renderSelectionDescription(graphics, race.getDisplayName(), race.getDescription(),
+                isCompactLayout() ? getNavigationY() - 62 : this.height / 2 + 55);
     }
 
-    private void renderClassSelection(
-            GuiGraphics graphics)
+    private void renderClassSelection(GuiGraphics graphics)
     {
-        CharacterClass characterClass =
-                pendingCharacter.getCharacterClass();
-
+        CharacterClass characterClass = pendingCharacter.getCharacterClass();
         if (characterClass == null)
         {
-            graphics.drawCenteredString(
-                    this.font,
-                    "Choose your character's class",
-                    this.width / 2,
-                    this.height / 2 - 85,
-                    0xAAAAAA
-            );
-
             return;
         }
 
-        int centerX = this.width / 2;
-        int descriptionY =
-                this.height / 2 + 65;
-
-        graphics.drawCenteredString(
-                this.font,
-                characterClass.getDisplayName(),
-                centerX,
-                descriptionY,
-                0xAAFFAA
-        );
-
-        graphics.drawWordWrap(
-                this.font,
-                Component.literal(
-                        characterClass.getDescription()
-                ),
-                centerX - 150,
-                descriptionY + 18,
-                300,
-                0xCCCCCC
-        );
+        renderSelectionDescription(graphics, characterClass.getDisplayName(), characterClass.getDescription(),
+                isCompactLayout() ? getNavigationY() - 62 : this.height / 2 + 65);
     }
 
-    private void renderAlignmentSelection(
-            GuiGraphics graphics)
+    private void renderAlignmentSelection(GuiGraphics graphics)
     {
-        CharacterAlignment alignment =
-                pendingCharacter.getAlignment();
-
+        CharacterAlignment alignment = pendingCharacter.getAlignment();
         if (alignment == null)
         {
-            graphics.drawCenteredString(
-                    this.font,
-                    "Choose your character's alignment",
-                    this.width / 2,
-                    this.height / 2 - 95,
-                    0xAAAAAA
-            );
-
+            graphics.drawCenteredString(this.font, "Choose your character's alignment",
+                    this.width / 2, getContentTop() - 13, 0xAAAAAA);
             return;
         }
 
-        int centerX = this.width / 2;
-        int descriptionY =
-                this.height / 2 + 85;
-
-        graphics.drawCenteredString(
-                this.font,
-                alignment.getDisplayName(),
-                centerX,
-                descriptionY,
-                0xAAFFAA
-        );
-
-        graphics.drawWordWrap(
-                this.font,
-                Component.literal(
-                        alignment.getDescription()
-                ),
-                centerX - 150,
-                descriptionY + 18,
-                300,
-                0xCCCCCC
-        );
+        int gridBottom = getContentTop() + 3 * (getButtonHeight() + (isCompactLayout() ? 4 : 10));
+        int descriptionY = Math.min(getNavigationY() - 58, gridBottom + 5);
+        renderSelectionDescription(graphics, alignment.getDisplayName(), alignment.getDescription(), descriptionY);
     }
 
-    private void renderAbilities(
-            GuiGraphics graphics)
+    private void renderSelectionDescription(
+            GuiGraphics graphics,
+            String name,
+            String description,
+            int requestedY)
     {
-        AbilityScores scores =
-                pendingCharacter.getAbilityScores();
-
-        CharacterRace race =
-                pendingCharacter.getRace();
-
-        CharacterClass characterClass =
-                pendingCharacter.getCharacterClass();
-
+        int width = getDescriptionWidth();
         int centerX = this.width / 2;
+        int y = Math.max(getContentTop(), Math.min(requestedY, getNavigationY() - 55));
+
+        graphics.drawCenteredString(this.font, name, centerX, y, 0xAAFFAA);
+        graphics.drawWordWrap(this.font, Component.literal(description),
+                centerX - width / 2, y + 14, width, 0xCCCCCC);
+    }
+
+    private void renderAbilities(GuiGraphics graphics)
+    {
+        AbilityScores scores = pendingCharacter.getAbilityScores();
+        CharacterRace race = pendingCharacter.getRace();
+        CharacterClass characterClass = pendingCharacter.getCharacterClass();
+        int centerX = this.width / 2;
+        int startY = getContentTop() + (isCompactLayout() ? 4 : 17);
+        int rowHeight = getAbilityRowHeight();
 
         if (!scores.isRolled())
         {
-            graphics.drawCenteredString(
-                    this.font,
-                    "Roll your ability scores",
-                    centerX,
-                    105,
-                    0xAAAAAA
-            );
-
+            graphics.drawCenteredString(this.font, "Roll your ability scores",
+                    centerX, getContentTop(), 0xAAAAAA);
             return;
         }
 
@@ -1084,166 +886,56 @@ public class CharacterCreationScreen extends Screen
             return;
         }
 
-        int startY = 112;
+        int labelX = Math.max(12, centerX - 120);
+        int finalX = Math.min(this.width - 22, centerX + 168);
+        int raceX = Math.min(this.width - 62, centerX + 118);
+        int baseX = Math.min(this.width - 102, centerX + 68);
 
-        graphics.drawString(
-                this.font,
-                "Ability",
-                centerX - 120,
-                startY - 20,
-                0xAAAAAA
-        );
-
-        graphics.drawString(
-                this.font,
-                "Base",
-                centerX + 55,
-                startY - 20,
-                0xAAAAAA
-        );
-
-        graphics.drawString(
-                this.font,
-                "Race",
-                centerX + 105,
-                startY - 20,
-                0xAAAAAA
-        );
-
-        graphics.drawString(
-                this.font,
-                "Final",
-                centerX + 155,
-                startY - 20,
-                0xAAAAAA
-        );
-
-        drawAbility(
-                graphics,
-                "STR",
-                scores.getStrength(),
-                CharacterAbilityRules
-                        .getStrengthModifier(race),
-                formatFinalStrength(
-                        scores,
-                        race,
-                        characterClass
-                ),
-                CharacterAbilityRules
-                        .getMinimumStrength(
-                                race,
-                                characterClass),
-                startY
-        );
-
-        drawAbility(
-                graphics,
-                "DEX",
-                scores.getDexterity(),
-                CharacterAbilityRules
-                        .getDexterityModifier(race),
-                Integer.toString(
-                        scores.getFinalDexterity(race)
-                ),
-                CharacterAbilityRules
-                        .getMinimumDexterity(
-                                race,
-                                characterClass),
-                startY + 22
-        );
-
-        drawAbility(
-                graphics,
-                "CON",
-                scores.getConstitution(),
-                CharacterAbilityRules
-                        .getConstitutionModifier(race),
-                Integer.toString(
-                        scores.getFinalConstitution(race)
-                ),
-                CharacterAbilityRules
-                        .getMinimumConstitution(
-                                race,
-                                characterClass),
-                startY + 44
-        );
-
-        drawAbility(
-                graphics,
-                "INT",
-                scores.getIntelligence(),
-                CharacterAbilityRules
-                        .getIntelligenceModifier(race),
-                Integer.toString(
-                        scores.getFinalIntelligence(race)
-                ),
-                CharacterAbilityRules
-                        .getMinimumIntelligence(
-                                race,
-                                characterClass),
-                startY + 66
-        );
-
-        drawAbility(
-                graphics,
-                "WIS",
-                scores.getWisdom(),
-                CharacterAbilityRules
-                        .getWisdomModifier(race),
-                Integer.toString(
-                        scores.getFinalWisdom(race)
-                ),
-                CharacterAbilityRules
-                        .getMinimumWisdom(
-                                race,
-                                characterClass),
-                startY + 88
-        );
-
-        drawAbility(
-                graphics,
-                "CHA",
-                scores.getCharisma(),
-                CharacterAbilityRules
-                        .getCharismaModifier(race),
-                Integer.toString(
-                        scores.getFinalCharisma(race)
-                ),
-                CharacterAbilityRules
-                        .getMinimumCharisma(
-                                race,
-                                characterClass),
-                startY + 110
-        );
-
-        graphics.drawCenteredString(
-                this.font,
-                "Available Points: "
-                        + scores.getAvailablePoints(),
-                centerX,
-                startY + 138,
-                0xFFFFAA
-        );
-
-        graphics.drawCenteredString(
-                this.font,
-                "Roll Total: "
-                        + scores.getTotal(),
-                centerX,
-                startY + 153,
-                0xAAAAAA
-        );
-        
-        if (scores.hasStoredRoll())
+        if (!isCompactLayout())
         {
-            graphics.drawCenteredString(
-                    this.font,
-                    "Stored Total: "
-                            + scores.getStoredTotal(),
-                    centerX,
-                    startY + 168,
-                    0xAAFFAA
-            );
+            graphics.drawString(this.font, "Ability", labelX, startY - 18, 0xAAAAAA);
+            graphics.drawString(this.font, "Base", baseX - 12, startY - 18, 0xAAAAAA);
+            graphics.drawString(this.font, "Race", raceX - 12, startY - 18, 0xAAAAAA);
+            graphics.drawString(this.font, "Final", finalX - 12, startY - 18, 0xAAAAAA);
+        }
+
+        drawAbility(graphics, "STR", scores.getStrength(), CharacterAbilityRules.getStrengthModifier(race),
+                formatFinalStrength(scores, race, characterClass), CharacterAbilityRules.getMinimumStrength(race, characterClass), startY);
+        drawAbility(graphics, "DEX", scores.getDexterity(), CharacterAbilityRules.getDexterityModifier(race),
+                Integer.toString(scores.getFinalDexterity(race)), CharacterAbilityRules.getMinimumDexterity(race, characterClass), startY + rowHeight);
+        drawAbility(graphics, "CON", scores.getConstitution(), CharacterAbilityRules.getConstitutionModifier(race),
+                Integer.toString(scores.getFinalConstitution(race)), CharacterAbilityRules.getMinimumConstitution(race, characterClass), startY + rowHeight * 2);
+        drawAbility(graphics, "INT", scores.getIntelligence(), CharacterAbilityRules.getIntelligenceModifier(race),
+                Integer.toString(scores.getFinalIntelligence(race)), CharacterAbilityRules.getMinimumIntelligence(race, characterClass), startY + rowHeight * 3);
+        drawAbility(graphics, "WIS", scores.getWisdom(), CharacterAbilityRules.getWisdomModifier(race),
+                Integer.toString(scores.getFinalWisdom(race)), CharacterAbilityRules.getMinimumWisdom(race, characterClass), startY + rowHeight * 4);
+        drawAbility(graphics, "CHA", scores.getCharisma(), CharacterAbilityRules.getCharismaModifier(race),
+                Integer.toString(scores.getFinalCharisma(race)), CharacterAbilityRules.getMinimumCharisma(race, characterClass), startY + rowHeight * 5);
+
+        int infoY = getAbilityInfoY(startY);
+        graphics.drawCenteredString(this.font, "Available Points: " + scores.getAvailablePoints(),
+                centerX, infoY, 0xFFFFAA);
+
+        if (isCompactLayout())
+        {
+            String totals = "Roll Total: " + scores.getTotal();
+            if (scores.hasStoredRoll())
+            {
+                totals += "   Stored Total: " + scores.getStoredTotal();
+            }
+
+            graphics.drawCenteredString(this.font, totals,
+                    centerX, infoY + 13, 0xAAAAAA);
+        }
+        else
+        {
+            graphics.drawCenteredString(this.font, "Roll Total: " + scores.getTotal(),
+                    centerX, infoY + 15, 0xAAAAAA);
+            if (scores.hasStoredRoll())
+            {
+                graphics.drawCenteredString(this.font, "Stored Total: " + scores.getStoredTotal(),
+                        centerX, infoY + 30, 0xAAFFAA);
+            }
         }
     }
 
@@ -1257,63 +949,172 @@ public class CharacterCreationScreen extends Screen
             int y)
     {
         int centerX = this.width / 2;
-
-        graphics.drawString(
-                this.font,
-                name,
-                centerX - 120,
-                y + 6,
-                0xFFFFFF
-        );
-
-        graphics.drawString(
-                this.font,
-                "Min " + minimum,
-                centerX - 85,
-                y + 6,
-                0x888888
-        );
-
-        graphics.drawCenteredString(
-                this.font,
-                Integer.toString(baseValue),
-                centerX + 68,
-                y + 6,
-                0xFFFFFF
-        );
-
-        graphics.drawCenteredString(
-                this.font,
-                formatModifier(racialModifier),
-                centerX + 118,
-                y + 6,
-                racialModifier == 0
-                        ? 0x888888
-                        : 0xFFFFAA
-        );
-
-        graphics.drawCenteredString(
-                this.font,
-                finalValue,
-                centerX + 168,
-                y + 6,
-                0xAAFFAA
-        );
+        int labelX = Math.max(12, centerX - 120);
+        graphics.drawString(this.font, name, labelX, y + 4, 0xFFFFFF);
+        graphics.drawString(this.font, "Min " + minimum, labelX + 35, y + 4, 0x888888);
+        graphics.drawCenteredString(this.font, Integer.toString(baseValue), Math.min(this.width - 102, centerX + 68), y + 4, 0xFFFFFF);
+        graphics.drawCenteredString(this.font, formatModifier(racialModifier), Math.min(this.width - 62, centerX + 118), y + 4,
+                racialModifier == 0 ? 0x888888 : 0xFFFFAA);
+        graphics.drawCenteredString(this.font, finalValue, Math.min(this.width - 22, centerX + 168), y + 4, 0xAAFFAA);
     }
 
-    private String formatModifier(
-            int modifier)
+    private void renderSkills(GuiGraphics graphics)
+    {
+        CharacterSkills skills = pendingCharacter.getSkills();
+        if (!skills.isInitialized())
+        {
+            return;
+        }
+
+        int centerX = this.width / 2;
+        int startY = getContentTop() + 5;
+        int rowHeight = getRowHeight();
+
+        drawSkill(graphics, "Open Locks", skills.getOpenLocks(), startY);
+        drawSkill(graphics, "Find Traps", skills.getFindTraps(), startY + rowHeight);
+        drawSkill(graphics, "Pick Pockets", skills.getPickPockets(), startY + rowHeight * 2);
+        drawSkill(graphics, "Move Silently", skills.getMoveSilently(), startY + rowHeight * 3);
+        drawSkill(graphics, "Hide in Shadows", skills.getHideInShadows(), startY + rowHeight * 4);
+        drawSkill(graphics, "Detect Illusion", skills.getDetectIllusion(), startY + rowHeight * 5);
+        drawSkill(graphics, "Set Traps", skills.getSetTraps(), startY + rowHeight * 6);
+
+        graphics.drawCenteredString(this.font, "Points Remaining: " + skills.getAvailablePoints(),
+                centerX, Math.min(getNavigationY() - 18, startY + rowHeight * 7 + 5), 0xFFFFAA);
+    }
+
+    private void drawSkill(GuiGraphics graphics, String name, int value, int y)
+    {
+        int centerX = this.width / 2;
+        graphics.drawString(this.font, name, Math.max(12, centerX - 120), y + 5, 0xFFFFFF);
+        graphics.drawCenteredString(this.font, Integer.toString(value), centerX + 5, y + 5, 0xAAFFAA);
+    }
+
+    private void renderProficiencies(GuiGraphics graphics)
+    {
+        CharacterClass characterClass = pendingCharacter.getCharacterClass();
+        CharacterProficiencies proficiencies = pendingCharacter.getProficiencies();
+        if (characterClass == null || !proficiencies.isInitialized())
+        {
+            return;
+        }
+
+        clampProficiencyScroll();
+
+        int centerX = this.width / 2;
+        int panelWidth = Math.min(360, this.width - 24);
+        int labelX = centerX - panelWidth / 2;
+        int rankX = centerX + panelWidth / 2 - 78;
+        int visibleRows = getProficiencyVisibleRows();
+        int firstRow = proficiencyScrollOffset;
+        int lastRow = firstRow + visibleRows - 1;
+        int weaponCount = WeaponProficiency.values().length;
+        int startY = getProficiencyStartY();
+
+        graphics.drawString(this.font, "Weapon / Style", labelX, startY - 14, 0xAAAAAA);
+        graphics.drawCenteredString(this.font, "Rank", rankX, startY - 14, 0xAAAAAA);
+
+        for (int i = 0; i < weaponCount; i++)
+        {
+            if (i < firstRow || i > lastRow)
+            {
+                continue;
+            }
+
+            WeaponProficiency proficiency = WeaponProficiency.values()[i];
+            boolean allowed = proficiencies.canUseWeapon(characterClass, proficiency);
+            int y = getProficiencyRowY(i);
+
+            graphics.drawString(this.font, proficiency.getDisplayName(), labelX, y + 5,
+                    allowed ? 0xFFFFFF : 0x777777);
+            graphics.drawCenteredString(this.font,
+                    formatProficiencyRank(proficiencies.getWeaponRank(proficiency)),
+                    rankX, y + 5, allowed ? 0xAAFFAA : 0x666666);
+        }
+
+        int styleHeaderRow = weaponCount;
+        if (styleHeaderRow >= firstRow && styleHeaderRow <= lastRow)
+        {
+            graphics.drawString(this.font, "Weapon Styles", labelX,
+                    getProficiencyRowY(styleHeaderRow) + 5, 0xFFFFAA);
+        }
+
+        FightingStyle[] styles = FightingStyle.values();
+        for (int i = 0; i < styles.length; i++)
+        {
+            int logicalRow = styleHeaderRow + 1 + i;
+            if (logicalRow < firstRow || logicalRow > lastRow)
+            {
+                continue;
+            }
+
+            FightingStyle style = styles[i];
+            boolean allowed = proficiencies.canUseStyle(characterClass, style);
+            int y = getProficiencyRowY(logicalRow);
+
+            graphics.drawString(this.font, style.getDisplayName(), labelX, y + 5,
+                    allowed ? 0xFFFFFF : 0x777777);
+            graphics.drawCenteredString(this.font,
+                    formatProficiencyRank(proficiencies.getStyleRank(style)),
+                    rankX, y + 5, allowed ? 0xAAFFAA : 0x666666);
+        }
+
+        renderProficiencyScrollbar(graphics);
+
+        int footerY = getNavigationY() - (isCompactLayout() ? 30 : 36);
+        graphics.drawCenteredString(this.font,
+                "Proficiency Points Remaining: " + proficiencies.getAvailablePoints(),
+                centerX, footerY, 0xFFFFAA);
+        if (!isCompactLayout())
+        {
+            graphics.drawCenteredString(this.font, "Mouse wheel to scroll",
+                    centerX, footerY + 13, 0x888888);
+        }
+    }
+
+    private void renderProficiencyScrollbar(GuiGraphics graphics)
+    {
+        int totalRows = getProficiencyContentRows();
+        int visibleRows = getProficiencyVisibleRows();
+        if (totalRows <= visibleRows)
+        {
+            return;
+        }
+
+        int centerX = this.width / 2;
+        int panelWidth = Math.min(360, this.width - 24);
+        int trackX = centerX + panelWidth / 2 - 4;
+        int trackTop = getProficiencyStartY();
+        int trackHeight = visibleRows * getRowHeight() - 2;
+
+        graphics.fill(trackX, trackTop, trackX + 4, trackTop + trackHeight, 0xFF333333);
+
+        int thumbHeight = Math.max(18, trackHeight * visibleRows / totalRows);
+        int movable = trackHeight - thumbHeight;
+        int thumbTop = trackTop;
+        int maxScroll = getMaxProficiencyScroll();
+        if (maxScroll > 0)
+        {
+            thumbTop += movable * proficiencyScrollOffset / maxScroll;
+        }
+
+        graphics.fill(trackX, thumbTop, trackX + 4, thumbTop + thumbHeight, 0xFFAAAAAA);
+    }
+
+    private String formatProficiencyRank(int rank)
+    {
+        return rank <= 0 ? "-" : "*".repeat(rank);
+    }
+
+    private String formatModifier(int modifier)
     {
         if (modifier > 0)
         {
             return "+" + modifier;
         }
-
         if (modifier < 0)
         {
             return Integer.toString(modifier);
         }
-
         return "-";
     }
 
@@ -1322,39 +1123,23 @@ public class CharacterCreationScreen extends Screen
             CharacterRace race,
             CharacterClass characterClass)
     {
-        int finalStrength =
-                scores.getFinalStrength(race);
-
-        if (!CharacterAbilityRules
-                .canHaveExceptionalStrength(
-                        race,
-                        characterClass,
-                        finalStrength))
+        int finalStrength = scores.getFinalStrength(race);
+        if (!CharacterAbilityRules.canHaveExceptionalStrength(race, characterClass, finalStrength))
         {
             return Integer.toString(finalStrength);
         }
 
-        int exceptional =
-                scores.getExceptionalStrength();
-
+        int exceptional = scores.getExceptionalStrength();
         if (exceptional <= 0)
         {
             return Integer.toString(finalStrength);
         }
 
-        String percentile =
-                exceptional == 100
-                        ? "00"
-                        : String.format(
-                                "%02d",
-                                exceptional
-                        );
-
+        String percentile = exceptional == 100 ? "00" : String.format("%02d", exceptional);
         return "18/" + percentile;
     }
 
-    private String formatGender(
-            PendingCharacter.Gender gender)
+    private String formatGender(PendingCharacter.Gender gender)
     {
         return switch (gender)
         {
@@ -1367,38 +1152,37 @@ public class CharacterCreationScreen extends Screen
     {
         return switch (currentPage)
         {
-            case GENDER ->
-                "Gender";
+            case GENDER -> "Gender";
+            case RACE -> "Race";
+            case CLASS -> "Class";
+            case ALIGNMENT -> "Alignment";
+            case ABILITIES -> "Ability Scores";
+            case SKILLS -> "Skills / Class Abilities";
+            case PROFICIENCIES -> "Weapon Proficiencies";
+            case SPELLS -> "Spells / Divine Abilities";
+            case APPEARANCE -> "Appearance";
+            case NAME -> "Name";
+            case REVIEW -> "Review Character";
+        };
+    }
 
-            case RACE ->
-                "Race";
+    private boolean usesSkillsPage()
+    {
+        return pendingCharacter.getCharacterClass() == CharacterClass.THIEF;
+    }
 
-            case CLASS ->
-                "Class";
+    private boolean usesSpellsPage()
+    {
+        CharacterClass characterClass = pendingCharacter.getCharacterClass();
+        if (characterClass == null)
+        {
+            return false;
+        }
 
-            case ALIGNMENT ->
-                "Alignment";
-
-            case ABILITIES ->
-                "Ability Scores";
-
-            case SKILLS ->
-                "Skills / Class Abilities";
-
-            case PROFICIENCIES ->
-                "Weapon Proficiencies";
-
-            case SPELLS ->
-                "Spells / Divine Abilities";
-
-            case APPEARANCE ->
-                "Appearance";
-
-            case NAME ->
-                "Name";
-
-            case REVIEW ->
-                "Review Character";
+        return switch (characterClass)
+        {
+            case MAGE, CLERIC, DRUID, BARD -> true;
+            case FIGHTER, RANGER, PALADIN, THIEF -> false;
         };
     }
 
@@ -1410,361 +1194,12 @@ public class CharacterCreationScreen extends Screen
 
     private void returnToTitle()
     {
-        Minecraft.getInstance().setScreen(
-                new TitleScreen()
-        );
+        Minecraft.getInstance().setScreen(new TitleScreen());
     }
 
     private void continueToWorldCreation()
     {
-        CreateWorldScreen.openFresh(
-                Minecraft.getInstance(),
-                this
-        );
-    }
-    
-    private void buildSkillsPage()
-    {
-        int centerX = this.width / 2;
-        int startY = 105;
-
-        CharacterClass characterClass =
-                pendingCharacter.getCharacterClass();
-
-        CharacterRace race =
-                pendingCharacter.getRace();
-
-        AbilityScores abilityScores =
-                pendingCharacter.getAbilityScores();
-
-        CharacterSkills skills =
-                pendingCharacter.getSkills();
-
-        if (characterClass == null
-                || race == null
-                || !abilityScores.isRolled())
-        {
-            return;
-        }
-
-        if (!skills.isInitialized())
-        {
-            skills.initialize(
-                    race,
-                    characterClass,
-                    abilityScores
-            );
-        }
-
-        if (characterClass != CharacterClass.THIEF)
-        {
-            return;
-        }
-
-        addSkillButtons(
-                centerX,
-                startY,
-                skills::decreaseOpenLocks,
-                skills::increaseOpenLocks
-        );
-
-        addSkillButtons(
-                centerX,
-                startY + 22,
-                skills::decreaseFindTraps,
-                skills::increaseFindTraps
-        );
-
-        addSkillButtons(
-                centerX,
-                startY + 44,
-                skills::decreasePickPockets,
-                skills::increasePickPockets
-        );
-
-        addSkillButtons(
-                centerX,
-                startY + 66,
-                skills::decreaseMoveSilently,
-                skills::increaseMoveSilently
-        );
-
-        addSkillButtons(
-                centerX,
-                startY + 88,
-                skills::decreaseHideInShadows,
-                skills::increaseHideInShadows
-        );
-
-        addSkillButtons(
-                centerX,
-                startY + 110,
-                skills::decreaseDetectIllusion,
-                skills::increaseDetectIllusion
-        );
-
-        addSkillButtons(
-                centerX,
-                startY + 132,
-                skills::decreaseSetTraps,
-                skills::increaseSetTraps
-        );
-    }
-    
-    private void addSkillButtons(
-            int centerX,
-            int y,
-            Runnable decrease,
-            Runnable increase)
-    {
-        this.addRenderableWidget(
-                Button.builder(
-                        Component.literal("-"),
-                        button ->
-                        {
-                            decrease.run();
-                            buildCurrentPage();
-                        }
-                )
-                .bounds(
-                        centerX + 35,
-                        y,
-                        20,
-                        20
-                )
-                .build()
-        );
-
-        this.addRenderableWidget(
-                Button.builder(
-                        Component.literal("+"),
-                        button ->
-                        {
-                            increase.run();
-                            buildCurrentPage();
-                        }
-                )
-                .bounds(
-                        centerX + 60,
-                        y,
-                        20,
-                        20
-                )
-                .build()
-        );
-    }
-    
-    private void renderSkills(
-            GuiGraphics graphics)
-    {
-        CharacterClass characterClass =
-                pendingCharacter.getCharacterClass();
-
-        CharacterSkills skills =
-                pendingCharacter.getSkills();
-
-        if (characterClass == null)
-        {
-            return;
-        }
-
-        int centerX = this.width / 2;
-
-        if (characterClass != CharacterClass.THIEF)
-        {
-            renderClassAbilitySummary(
-                    graphics,
-                    characterClass
-            );
-
-            return;
-        }
-
-        if (!skills.isInitialized())
-        {
-            return;
-        }
-
-        int startY = 105;
-
-        drawSkill(
-                graphics,
-                "Open Locks",
-                skills.getOpenLocks(),
-                startY
-        );
-
-        drawSkill(
-                graphics,
-                "Find Traps",
-                skills.getFindTraps(),
-                startY + 22
-        );
-
-        drawSkill(
-                graphics,
-                "Pick Pockets",
-                skills.getPickPockets(),
-                startY + 44
-        );
-
-        drawSkill(
-                graphics,
-                "Move Silently",
-                skills.getMoveSilently(),
-                startY + 66
-        );
-
-        drawSkill(
-                graphics,
-                "Hide in Shadows",
-                skills.getHideInShadows(),
-                startY + 88
-        );
-
-        drawSkill(
-                graphics,
-                "Detect Illusion",
-                skills.getDetectIllusion(),
-                startY + 110
-        );
-
-        drawSkill(
-                graphics,
-                "Set Traps",
-                skills.getSetTraps(),
-                startY + 132
-        );
-
-        graphics.drawCenteredString(
-                this.font,
-                "Points Remaining: "
-                        + skills.getAvailablePoints(),
-                centerX,
-                startY + 165,
-                0xFFFFAA
-        );
-    }
-    
-    private void drawSkill(
-            GuiGraphics graphics,
-            String name,
-            int value,
-            int y)
-    {
-        int centerX = this.width / 2;
-
-        graphics.drawString(
-                this.font,
-                name,
-                centerX - 120,
-                y + 6,
-                0xFFFFFF
-        );
-
-        graphics.drawCenteredString(
-                this.font,
-                Integer.toString(value),
-                centerX + 5,
-                y + 6,
-                0xAAFFAA
-        );
-    }
-    
-    private void renderClassAbilitySummary(
-            GuiGraphics graphics,
-            CharacterClass characterClass)
-    {
-        int centerX = this.width / 2;
-        int startY = 115;
-
-        String title;
-        String description;
-
-        switch (characterClass)
-        {
-            case FIGHTER:
-                title = "Fighter Abilities";
-                description =
-                        "Fighters specialize in combat and gain superior "
-                        + "weapon proficiency progression. They have no "
-                        + "skill points to allocate on this page.";
-                break;
-
-            case RANGER:
-                title = "Ranger Abilities";
-                description =
-                        "Rangers are skilled wilderness warriors with "
-                        + "tracking, stealth, and specialized combat abilities. "
-                        + "Additional ranger choices will be added later.";
-                break;
-
-            case PALADIN:
-                title = "Paladin Abilities";
-                description =
-                        "Paladins possess holy abilities such as Lay on Hands, "
-                        + "divine protections, and eventually Turn Undead.";
-                break;
-
-            case CLERIC:
-                title = "Cleric Abilities";
-                description =
-                        "Clerics channel divine power, cast priest spells, "
-                        + "and can Turn Undead.";
-                break;
-
-            case DRUID:
-                title = "Druid Abilities";
-                description =
-                        "Druids wield nature magic and later gain abilities "
-                        + "such as shapeshifting.";
-                break;
-
-            case MAGE:
-                title = "Mage Abilities";
-                description =
-                        "Mages cast arcane spells using a spellbook and "
-                        + "memorization system. Spell selection occurs "
-                        + "on the Spells page.";
-                break;
-
-            case BARD:
-                title = "Bard Abilities";
-                description =
-                        "Bards combine combat, lore, music, thieving talents, "
-                        + "and arcane spellcasting. More bard-specific choices "
-                        + "will be added later.";
-                break;
-
-            case THIEF:
-                return;
-
-            default:
-                return;
-        }
-
-        graphics.drawCenteredString(
-                this.font,
-                title,
-                centerX,
-                startY,
-                0xAAFFAA
-        );
-
-        graphics.drawWordWrap(
-                this.font,
-                Component.literal(description),
-                centerX - 150,
-                startY + 25,
-                300,
-                0xCCCCCC
-        );
-    }
-    
-    private boolean usesSkillsPage()
-    {
-        return pendingCharacter.getCharacterClass()
-                == CharacterClass.THIEF;
+        CreateWorldScreen.openFresh(Minecraft.getInstance(), this);
     }
 
     @Override
