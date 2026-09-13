@@ -54,8 +54,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static final float HALF_ELF_EAR_BACK_ANGLE = 20.0F;
 
     private static final int DEFAULT_PREVIEW_SKIN_COLOR = 0xFFB47A60;
-    private static final int DEFAULT_DWARF_BEARD_COLOR = 0xFF3B261B;
-    private static final int DWARF_TUNIC_COLOR = 0xFF5B4636;
+    private static final int DEFAULT_DWARF_BEARD_COLOR = 0xFF5B3825;
+    private static final int DWARF_TUNIC_COLOR = 0xFF3E6F6A;
 
     private static ResourceLocation whiteTexture;
 
@@ -65,6 +65,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private final ModelPart halfElfEars;
     private final ModelPart dwarfBuild;
     private final ModelPart dwarfBeard;
+    private final ModelPart dwarfBeardHighlights;
+    private final ModelPart dwarfBeardShadows;
 
     private float previewRotationX = DEFAULT_ROTATION_X;
     private float previewRotationY = DEFAULT_ROTATION_Y;
@@ -94,6 +96,8 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         this.halfElfEars = createEars(true);
         this.dwarfBuild = createDwarfBuild();
         this.dwarfBeard = createDwarfBeard();
+        this.dwarfBeardHighlights = createDwarfBeardHighlights();
+        this.dwarfBeardShadows = createDwarfBeardShadows();
     }
 
     @Override
@@ -209,12 +213,37 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
             beardColor = 0xFF000000 | appearance.getHairColor().getRgb();
         }
 
+        int shadowColor = scaleRgb(beardColor, 0.58F);
+        int highlightColor = scaleRgb(beardColor, 1.35F);
+
+        dwarfBeardShadows.render(
+                pose,
+                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT,
+                OverlayTexture.NO_OVERLAY,
+                shadowColor);
+
         dwarfBeard.render(
                 pose,
                 graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
                 LightTexture.FULL_BRIGHT,
                 OverlayTexture.NO_OVERLAY,
                 beardColor);
+
+        dwarfBeardHighlights.render(
+                pose,
+                graphics.bufferSource().getBuffer(RenderType.entityCutoutNoCull(getWhiteTexture())),
+                LightTexture.FULL_BRIGHT,
+                OverlayTexture.NO_OVERLAY,
+                highlightColor);
+    }
+
+    private static int scaleRgb(int argb, float factor)
+    {
+        int r = Math.min(255, Math.round(((argb >> 16) & 0xFF) * factor));
+        int g = Math.min(255, Math.round(((argb >> 8) & 0xFF) * factor));
+        int b = Math.min(255, Math.round((argb & 0xFF) * factor));
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     private static ResourceLocation getWhiteTexture()
@@ -251,24 +280,48 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     {
         MeshDefinition mesh = new MeshDefinition();
 
-        /*
-         * Vanilla head bounds are x=-4..4, y=-8..0, z=-4..4. The beard sits
-         * just in front of the lower face and then steps inward as it reaches
-         * the upper chest. Keeping it blocky matches Minecraft's visual style.
-         */
         CubeListBuilder beard = CubeListBuilder.create()
-                // moustache / upper beard
                 .texOffs(0, 0).addBox(-3.35F, -2.55F, -4.65F, 6.70F, 1.20F, 0.85F)
-                // broad chin section
                 .texOffs(0, 0).addBox(-3.65F, -1.45F, -4.55F, 7.30F, 2.20F, 0.95F)
-                // upper hanging beard
                 .texOffs(0, 0).addBox(-3.20F, 0.60F, -3.90F, 6.40F, 2.35F, 1.25F)
-                // lower hanging beard
                 .texOffs(0, 0).addBox(-2.65F, 2.75F, -3.55F, 5.30F, 2.20F, 1.20F)
-                // tapered tip
                 .texOffs(0, 0).addBox(-1.80F, 4.75F, -3.25F, 3.60F, 1.45F, 1.05F);
 
         mesh.getRoot().addOrReplaceChild("dwarf_beard", beard, PartPose.ZERO);
+        return LayerDefinition.create(mesh, 16, 16).bakeRoot();
+    }
+
+    private static ModelPart createDwarfBeardHighlights()
+    {
+        MeshDefinition mesh = new MeshDefinition();
+
+        CubeListBuilder highlights = CubeListBuilder.create()
+                // Raised centre ridge on the moustache/chin.
+                .texOffs(0, 0).addBox(-1.45F, -2.45F, -4.78F, 2.90F, 0.55F, 0.24F)
+                .texOffs(0, 0).addBox(-1.65F, -1.15F, -4.68F, 3.30F, 0.85F, 0.24F)
+                // Two vertical locks create visible strand separation.
+                .texOffs(0, 0).addBox(-2.25F, 0.90F, -4.02F, 1.25F, 3.40F, 0.26F)
+                .texOffs(0, 0).addBox(1.00F, 0.90F, -4.02F, 1.25F, 3.40F, 0.26F)
+                // Small highlight on the central tip.
+                .texOffs(0, 0).addBox(-0.70F, 4.95F, -3.37F, 1.40F, 0.85F, 0.22F);
+
+        mesh.getRoot().addOrReplaceChild("dwarf_beard_highlights", highlights, PartPose.ZERO);
+        return LayerDefinition.create(mesh, 16, 16).bakeRoot();
+    }
+
+    private static ModelPart createDwarfBeardShadows()
+    {
+        MeshDefinition mesh = new MeshDefinition();
+
+        CubeListBuilder shadows = CubeListBuilder.create()
+                // Dark side locks and underside bands break up the solid silhouette.
+                .texOffs(0, 0).addBox(-3.58F, -1.20F, -4.67F, 0.70F, 2.05F, 0.28F)
+                .texOffs(0, 0).addBox(2.88F, -1.20F, -4.67F, 0.70F, 2.05F, 0.28F)
+                .texOffs(0, 0).addBox(-2.95F, 2.35F, -3.70F, 0.75F, 2.35F, 0.30F)
+                .texOffs(0, 0).addBox(2.20F, 2.35F, -3.70F, 0.75F, 2.35F, 0.30F)
+                .texOffs(0, 0).addBox(-1.65F, 5.75F, -3.37F, 3.30F, 0.38F, 0.24F);
+
+        mesh.getRoot().addOrReplaceChild("dwarf_beard_shadows", shadows, PartPose.ZERO);
         return LayerDefinition.create(mesh, 16, 16).bakeRoot();
     }
 
