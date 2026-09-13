@@ -62,6 +62,6 @@ public class RPGNetwork
 
     public static void sendCharacterData(ServerPlayer player, CharacterData data)
     {
-        CHANNEL.send(PacketDistributor.PLAYER.with(player), new SyncCharacterDataPacket(data));
+        CHANNEL.send(new SyncCharacterDataPacket(data), PacketDistributor.PLAYER.with(player));
     }
 }
