@@ -592,13 +592,20 @@ public class CharacterCreationScreen extends Screen
 
     private boolean useStackedAppearanceLayout()
     {
-        return this.width < 480;
+        return this.width < 360;
     }
 
     private int getAppearanceControlCenterX()
     {
         if (useStackedAppearanceLayout()) return this.width / 2;
-        return Math.max(115, this.width / 2 - (isCompactLayout() ? 120 : 155));
+        return Math.min(230, Math.max(100, this.width / 4));
+    }
+
+    private int getAppearanceRowHeight()
+    {
+        if (!isCompactLayout()) return 28;
+        int availableHeight = getNavigationY() - getContentTop() - 18;
+        return Math.max(19, Math.min(23, availableHeight / 6));
     }
 
     private void buildAppearancePage()
@@ -606,38 +613,37 @@ public class CharacterCreationScreen extends Screen
         CharacterAppearance appearance = pendingCharacter.getAppearance();
         boolean stacked = useStackedAppearanceLayout();
         int controlCenterX = getAppearanceControlCenterX();
-        int rowHeight = isCompactLayout() ? 24 : 28;
-        int startY = stacked
-                ? getContentTop() + (isCompactLayout() ? 116 : 150)
-                : getContentTop() + (isCompactLayout() ? 8 : 22);
+        int rowHeight = getAppearanceRowHeight();
+        int contentTop = getContentTop();
+        int availableHeight = Math.max(80, getNavigationY() - contentTop);
+
+        int previewWidth;
+        int previewHeight;
+        int previewX;
+        int previewY = contentTop;
+        int startY;
+
+        if (stacked)
+        {
+            previewWidth = Math.max(90, Math.min(140, this.width - 40));
+            previewHeight = Math.max(70, Math.min(105, availableHeight / 2 - 8));
+            previewX = this.width / 2 - previewWidth / 2;
+            startY = previewY + previewHeight + 15;
+        }
+        else
+        {
+            previewWidth = Math.max(105, Math.min(isCompactLayout() ? 145 : 210, this.width / 3));
+            previewHeight = Math.max(85, Math.min(isCompactLayout() ? 150 : 235, availableHeight - 28));
+            int previewCenterX = Math.min(this.width - previewWidth / 2 - 10, this.width * 3 / 4);
+            previewX = previewCenterX - previewWidth / 2;
+            startY = contentTop + (isCompactLayout() ? 7 : 22);
+        }
 
         addAppearanceButtons(controlCenterX, startY, appearance::previousSkinTone, appearance::nextSkinTone);
         addAppearanceButtons(controlCenterX, startY + rowHeight, appearance::previousHairStyle, appearance::nextHairStyle);
         addAppearanceButtons(controlCenterX, startY + rowHeight * 2, appearance::previousHairColor, appearance::nextHairColor);
         addAppearanceButtons(controlCenterX, startY + rowHeight * 3, appearance::previousEyeColor, appearance::nextEyeColor);
         addAppearanceButtons(controlCenterX, startY + rowHeight * 4, appearance::previousFacialHair, appearance::nextFacialHair);
-
-        int previewWidth;
-        int previewHeight;
-        int previewX;
-        int previewY;
-
-        if (stacked)
-        {
-            previewWidth = Math.min(150, this.width - 40);
-            previewHeight = isCompactLayout() ? 100 : 130;
-            previewX = this.width / 2 - previewWidth / 2;
-            previewY = getContentTop();
-        }
-        else
-        {
-            previewWidth = isCompactLayout() ? 150 : 210;
-            previewHeight = Math.max(125, Math.min(isCompactLayout() ? 165 : 235, getNavigationY() - getContentTop() - 34));
-            int previewCenterX = Math.min(this.width - previewWidth / 2 - 12,
-                    this.width / 2 + (isCompactLayout() ? 115 : 145));
-            previewX = previewCenterX - previewWidth / 2;
-            previewY = getContentTop();
-        }
 
         appearanceSkinWidget = new PlayerSkinWidget(
                 previewWidth,
@@ -651,8 +657,8 @@ public class CharacterCreationScreen extends Screen
     private void addAppearanceButtons(int centerX, int y, Runnable previous, Runnable next)
     {
         int buttonHeight = getButtonHeight();
-        int buttonWidth = isCompactLayout() ? 24 : 28;
-        int valueHalfWidth = isCompactLayout() ? 56 : 68;
+        int buttonWidth = isCompactLayout() ? 22 : 28;
+        int valueHalfWidth = isCompactLayout() ? 50 : 68;
 
         this.addRenderableWidget(Button.builder(Component.literal("<"), button -> previous.run())
                 .bounds(centerX - valueHalfWidth - buttonWidth - 5, y, buttonWidth, buttonHeight).build());
@@ -1207,11 +1213,11 @@ public class CharacterCreationScreen extends Screen
         CharacterAppearance appearance = pendingCharacter.getAppearance();
         boolean stacked = useStackedAppearanceLayout();
         int controlCenterX = getAppearanceControlCenterX();
-        int rowHeight = isCompactLayout() ? 24 : 28;
-        int startY = stacked
-                ? getContentTop() + (isCompactLayout() ? 116 : 150)
-                : getContentTop() + (isCompactLayout() ? 8 : 22);
-        int labelX = Math.max(10, controlCenterX - (isCompactLayout() ? 102 : 122));
+        int rowHeight = getAppearanceRowHeight();
+        int startY = stacked && appearanceSkinWidget != null
+                ? appearanceSkinWidget.getBottom() + 15
+                : getContentTop() + (isCompactLayout() ? 7 : 22);
+        int labelX = Math.max(8, controlCenterX - (isCompactLayout() ? 92 : 122));
 
         drawAppearanceRow(graphics, "Skin Tone", appearance.getSkinTone().getDisplayName(), labelX, controlCenterX, startY);
         drawAppearanceRow(graphics, "Hair Style", appearance.getHairStyle().getDisplayName(), labelX, controlCenterX, startY + rowHeight);
@@ -1219,16 +1225,16 @@ public class CharacterCreationScreen extends Screen
         drawAppearanceRow(graphics, "Eye Color", appearance.getEyeColor().getDisplayName(), labelX, controlCenterX, startY + rowHeight * 3);
         drawAppearanceRow(graphics, "Facial Hair", appearance.getFacialHair().getDisplayName(), labelX, controlCenterX, startY + rowHeight * 4);
 
-        int swatchX = Math.min(this.width - 22, controlCenterX + (isCompactLayout() ? 84 : 101));
+        int swatchX = Math.min(this.width - 22, controlCenterX + (isCompactLayout() ? 76 : 101));
         drawColorSwatch(graphics, swatchX, startY + 3, appearance.getSkinTone().getRgb());
         drawColorSwatch(graphics, swatchX, startY + rowHeight * 2 + 3, appearance.getHairColor().getRgb());
         drawColorSwatch(graphics, swatchX, startY + rowHeight * 3 + 3, appearance.getEyeColor().getRgb());
 
         if (appearanceSkinWidget != null)
         {
-            int hintY = Math.min(getNavigationY() - 18, appearanceSkinWidget.getBottom() + 5);
-            graphics.drawCenteredString(this.font, "Click and drag the model to rotate", appearanceSkinWidget.getX() + appearanceSkinWidget.getWidth() / 2,
-                    hintY, 0x888888);
+            int hintY = Math.min(getNavigationY() - 12, appearanceSkinWidget.getBottom() + 5);
+            graphics.drawCenteredString(this.font, "Click and drag the model to rotate",
+                    appearanceSkinWidget.getX() + appearanceSkinWidget.getWidth() / 2, hintY, 0x888888);
         }
     }
 
