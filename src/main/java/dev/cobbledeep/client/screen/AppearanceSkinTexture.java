@@ -72,6 +72,7 @@ public final class AppearanceSkinTexture
         paintLeftLeg(pixels, trousers);
         paintFace(pixels, skin, hair, eyes, appearance.getHairStyle());
         paintHair(pixels, hair, appearance.getHairStyle());
+        paintMaterialDetails(pixels, skin, shirt, trousers);
 
         texture.upload();
     }
@@ -170,15 +171,12 @@ public final class AppearanceSkinTexture
             int eyes,
             CharacterAppearance.HairStyle hairStyle)
     {
-        // Front of the base head is x=8..15, y=8..15.
         int eyeWhite = 0xE8E8E8;
         paintPixel(image, 9, 11, eyeWhite);
         paintPixel(image, 10, 11, eyes);
         paintPixel(image, 13, 11, eyes);
         paintPixel(image, 14, 11, eyeWhite);
 
-        // A tiny amount of facial shading keeps the generated face from
-        // looking like one perfectly flat block of colour.
         paintPixel(image, 11, 13, shade(skin, 0.88F));
         paintPixel(image, 12, 13, shade(skin, 0.88F));
         paintPixel(image, 11, 14, shade(skin, 0.78F));
@@ -186,11 +184,13 @@ public final class AppearanceSkinTexture
 
         if (hairStyle != CharacterAppearance.HairStyle.BALD)
         {
-            paintRect(image, 8, 8, 8, hairStyle == CharacterAppearance.HairStyle.CROPPED ? 2 : 3, hair);
+            int fringeHeight = hairStyle == CharacterAppearance.HairStyle.CROPPED ? 2 : 3;
+            paintRect(image, 8, 8, 8, fringeHeight, hair);
+            paintRect(image, 8, 8, 8, 1, shade(hair, 1.18F));
             if (hairStyle != CharacterAppearance.HairStyle.CROPPED)
             {
-                paintRect(image, 8, 10, 1, 3, shade(hair, 0.82F));
-                paintRect(image, 15, 10, 1, 3, shade(hair, 0.82F));
+                paintRect(image, 8, 10, 1, 3, shade(hair, 0.78F));
+                paintRect(image, 15, 10, 1, 3, shade(hair, 0.86F));
             }
         }
     }
@@ -199,24 +199,73 @@ public final class AppearanceSkinTexture
     {
         if (style == CharacterAppearance.HairStyle.BALD) return;
 
-        paintRect(image, 8, 0, 8, 8, shade(hair, 1.08F));
+        paintRect(image, 8, 0, 8, 8, shade(hair, 1.04F));
+        paintRect(image, 9, 0, 2, 8, shade(hair, 1.18F));
+        paintRect(image, 14, 0, 1, 8, shade(hair, 0.72F));
+
         int sideDepth = style == CharacterAppearance.HairStyle.CROPPED ? 2
                 : style == CharacterAppearance.HairStyle.SHORT ? 4 : 7;
-        paintRect(image, 0, 8, 8, sideDepth, shade(hair, 0.82F));
-        paintRect(image, 16, 8, 8, sideDepth, shade(hair, 0.90F));
-        paintRect(image, 24, 8, 8, Math.max(4, sideDepth), shade(hair, 0.76F));
+        paintRect(image, 0, 8, 8, sideDepth, shade(hair, 0.78F));
+        paintRect(image, 16, 8, 8, sideDepth, shade(hair, 0.88F));
+        paintRect(image, 24, 8, 8, Math.max(4, sideDepth), shade(hair, 0.70F));
+        paintRect(image, 26, 8, 2, Math.max(4, sideDepth), shade(hair, 0.84F));
+        paintRect(image, 30, 8, 1, Math.max(4, sideDepth), shade(hair, 0.58F));
 
         if (style == CharacterAppearance.HairStyle.SHOULDER_LENGTH
                 || style == CharacterAppearance.HairStyle.LONG
                 || style == CharacterAppearance.HairStyle.BRAIDED)
         {
-            int length = style == CharacterAppearance.HairStyle.SHOULDER_LENGTH ? 3 : 6;
-            paintRect(image, 34, 20, 4, length, shade(hair, 0.72F));
+            int length = style == CharacterAppearance.HairStyle.SHOULDER_LENGTH ? 4 : 7;
+
+            // Bridge the head and torso across the body's top face. This removes
+            // the visible bare-neck break when long hair continues onto the back.
+            paintRect(image, 22, 18, 4, 2, shade(hair, 0.74F));
+
+            paintRect(image, 33, 20, 6, length, shade(hair, 0.68F));
+            paintRect(image, 34, 20, 2, length, shade(hair, 0.84F));
+            paintRect(image, 38, 20, 1, length, shade(hair, 0.54F));
+
             if (style == CharacterAppearance.HairStyle.BRAIDED)
             {
-                paintRect(image, 35, 20, 2, 10, shade(hair, 0.68F));
+                paintRect(image, 35, 20, 2, 10, shade(hair, 0.62F));
+                for (int y = 21; y < 30; y += 2)
+                {
+                    paintPixel(image, 35, y, shade(hair, 0.88F));
+                    paintPixel(image, 36, y + 1, shade(hair, 0.48F));
+                }
             }
         }
+    }
+
+    private static void paintMaterialDetails(NativeImage image, int skin, int shirt, int trousers)
+    {
+        // Torso front/back: soft vertical shading and a lower seam keep large
+        // areas from reading as a single flat colour.
+        paintRect(image, 20, 20, 1, 12, shade(shirt, 0.76F));
+        paintRect(image, 21, 20, 1, 12, shade(shirt, 0.90F));
+        paintRect(image, 26, 20, 1, 12, shade(shirt, 1.10F));
+        paintRect(image, 27, 20, 1, 12, shade(shirt, 0.82F));
+        paintRect(image, 20, 30, 8, 2, shade(shirt, 0.72F));
+
+        paintRect(image, 32, 20, 1, 12, shade(shirt, 0.68F));
+        paintRect(image, 33, 20, 1, 12, shade(shirt, 0.84F));
+        paintRect(image, 38, 20, 1, 12, shade(shirt, 0.92F));
+        paintRect(image, 39, 20, 1, 12, shade(shirt, 0.62F));
+
+        // Legs: darker outer seams and subtle highlights down the front.
+        paintRect(image, 4, 20, 1, 12, shade(trousers, 0.72F));
+        paintRect(image, 5, 20, 1, 12, shade(trousers, 0.90F));
+        paintRect(image, 7, 20, 1, 12, shade(trousers, 1.08F));
+        paintRect(image, 20, 52, 1, 12, shade(trousers, 0.72F));
+        paintRect(image, 21, 52, 1, 12, shade(trousers, 0.90F));
+        paintRect(image, 23, 52, 1, 12, shade(trousers, 1.08F));
+
+        // Exposed forearms get a small side shadow/highlight so skin is not
+        // visually flatter than the clothing around it.
+        paintRect(image, 44, 24, 1, 8, shade(skin, 0.82F));
+        paintRect(image, 47, 24, 1, 8, shade(skin, 1.06F));
+        paintRect(image, 36, 56, 1, 8, shade(skin, 0.82F));
+        paintRect(image, 39, 56, 1, 8, shade(skin, 1.06F));
     }
 
     private static void paintBoxFaces(
