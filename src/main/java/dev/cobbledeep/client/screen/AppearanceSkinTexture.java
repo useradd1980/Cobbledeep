@@ -111,13 +111,8 @@ public final class AppearanceSkinTexture
         int d=style==CharacterAppearance.HairStyle.CROPPED?2:style==CharacterAppearance.HairStyle.SHORT?4:7;
         paintBlotchyRect(i,0,8,8,d,hair,.88F,101,.08F); paintBlotchyRect(i,16,8,8,d,hair,.92F,103,.08F);
         paintBlotchyRect(i,24,8,8,Math.max(4,d),hair,.82F,107,.09F);
-        if(style==CharacterAppearance.HairStyle.SHOULDER_LENGTH||style==CharacterAppearance.HairStyle.LONG||style==CharacterAppearance.HairStyle.BRAIDED)
-        {
-            int len=style==CharacterAppearance.HairStyle.SHOULDER_LENGTH?4:7;
-            paintBlotchyRect(i,32,20,8,len,hair,.82F,109,.09F);
-            if(style==CharacterAppearance.HairStyle.BRAIDED){ paintBlotchyRect(i,35,20,2,10,hair,.76F,113,.08F);
-                for(int y=21;y<30;y+=2){ pixel(i,35,y,shade(hair,.94F)); pixel(i,36,y+1,shade(hair,.62F)); } }
-        }
+        // Longer styles continue below the head as model geometry. Do not paint
+        // hair into the torso's skin atlas, or it reads as colour bleeding into clothing.
     }
 
     private static void paintBoxFaces(NativeImage i,int c,int tx,int ty,int tw,int th,int bx,int by,int bw,int bh,
