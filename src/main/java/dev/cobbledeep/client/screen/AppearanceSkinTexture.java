@@ -7,11 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 
-/**
- * Builds a simple 64x64 Minecraft skin from Cobbledeep's semantic appearance
- * choices. The texture is cached and only regenerated when one of the visible
- * appearance values changes.
- */
+/** Builds a generated 64x64 Minecraft skin from Cobbledeep appearance choices. */
 public final class AppearanceSkinTexture
 {
     private static DynamicTexture texture;
@@ -28,276 +24,121 @@ public final class AppearanceSkinTexture
             textureLocation = Minecraft.getInstance().getTextureManager()
                     .register("cobbledeep_appearance_preview", texture);
         }
-
         String key = buildKey(appearance);
         if (!key.equals(lastKey))
         {
             rebuild(appearance);
             lastKey = key;
         }
-
         return textureLocation;
     }
 
-    private static String buildKey(CharacterAppearance appearance)
+    private static String buildKey(CharacterAppearance a)
     {
-        if (appearance == null) return "default";
-        return appearance.getSkinTone() + "|"
-                + appearance.getHairStyle() + "|"
-                + appearance.getHairColor() + "|"
-                + appearance.getEyeColor() + "|"
-                + appearance.getFacialHair() + "|"
-                + appearance.getShirtColor() + "|"
-                + appearance.getTrouserColor();
+        if (a == null) return "default";
+        return a.getSkinTone()+"|"+a.getHairStyle()+"|"+a.getHairColor()+"|"+a.getEyeColor()+"|"
+                +a.getFacialHair()+"|"+a.getShirtColor()+"|"+a.getTrouserColor();
     }
 
-    private static void rebuild(CharacterAppearance appearance)
+    private static void rebuild(CharacterAppearance a)
     {
-        NativeImage pixels = texture.getPixels();
-        if (pixels == null || appearance == null) return;
-
-        clear(pixels);
-
-        int skin = appearance.getSkinTone().getRgb();
-        int shirt = appearance.getShirtColor().getRgb();
-        int trousers = appearance.getTrouserColor().getRgb();
-        int hair = appearance.getHairColor().getRgb();
-        int eyes = appearance.getEyeColor().getRgb();
-
-        paintHead(pixels, skin);
-        paintTorso(pixels, shirt);
-        paintRightArm(pixels, skin, shirt);
-        paintLeftArm(pixels, skin, shirt);
-        paintRightLeg(pixels, trousers);
-        paintLeftLeg(pixels, trousers);
-        paintFace(pixels, skin, hair, eyes, appearance.getHairStyle());
-        paintHair(pixels, hair, appearance.getHairStyle());
-
+        NativeImage p = texture.getPixels();
+        if (p == null || a == null) return;
+        clear(p);
+        int skin=a.getSkinTone().getRgb(), shirt=a.getShirtColor().getRgb(), trousers=a.getTrouserColor().getRgb();
+        int hair=a.getHairColor().getRgb(), eyes=a.getEyeColor().getRgb();
+        paintHead(p,skin); paintTorso(p,shirt); paintRightArm(p,skin,shirt); paintLeftArm(p,skin,shirt);
+        paintRightLeg(p,trousers); paintLeftLeg(p,trousers);
+        paintFace(p,skin,hair,eyes,a.getHairStyle());
+        paintFacialHair(p,hair,a.getFacialHair());
+        paintHair(p,hair,a.getHairStyle());
         texture.upload();
     }
 
-    private static void clear(NativeImage image)
+    private static void clear(NativeImage i){ for(int y=0;y<64;y++) for(int x=0;x<64;x++) i.setPixelRGBA(x,y,0); }
+
+    private static void paintHead(NativeImage i,int c){ paintBoxFaces(i,c,8,0,8,8,16,0,8,8,0,8,8,8,8,8,8,8,16,8,8,8,24,8,8,8,true); }
+    private static void paintTorso(NativeImage i,int c){ paintBoxFaces(i,c,20,16,8,4,28,16,8,4,16,20,4,12,20,20,8,12,28,20,4,12,32,20,8,12,false); }
+    private static void paintRightLeg(NativeImage i,int c){ paintBoxFaces(i,c,4,16,4,4,8,16,4,4,0,20,4,12,4,20,4,12,8,20,4,12,12,20,4,12,false); }
+    private static void paintLeftLeg(NativeImage i,int c){ paintBoxFaces(i,c,20,48,4,4,24,48,4,4,16,52,4,12,20,52,4,12,24,52,4,12,28,52,4,12,false); }
+
+    private static void paintRightArm(NativeImage i,int skin,int shirt)
     {
-        for (int y = 0; y < 64; y++)
-        {
-            for (int x = 0; x < 64; x++)
-            {
-                image.setPixelRGBA(x, y, 0x00000000);
-            }
+        paintBoxFaces(i,skin,44,16,4,4,48,16,4,4,40,20,4,12,44,20,4,12,48,20,4,12,52,20,4,12,true);
+        paintBlotchyRect(i,40,20,4,4,shirt,.92F,31,.08F); paintBlotchyRect(i,44,20,4,4,shirt,1F,37,.08F);
+        paintBlotchyRect(i,48,20,4,4,shirt,.86F,41,.08F); paintBlotchyRect(i,52,20,4,4,shirt,.82F,43,.08F);
+        paintBlotchyRect(i,44,16,4,4,shirt,1.05F,47,.08F);
+    }
+    private static void paintLeftArm(NativeImage i,int skin,int shirt)
+    {
+        paintBoxFaces(i,skin,36,48,4,4,40,48,4,4,32,52,4,12,36,52,4,12,40,52,4,12,44,52,4,12,true);
+        paintBlotchyRect(i,32,52,4,4,shirt,.92F,53,.08F); paintBlotchyRect(i,36,52,4,4,shirt,1F,59,.08F);
+        paintBlotchyRect(i,40,52,4,4,shirt,.86F,61,.08F); paintBlotchyRect(i,44,52,4,4,shirt,.82F,67,.08F);
+        paintBlotchyRect(i,36,48,4,4,shirt,1.05F,71,.08F);
+    }
+
+    private static void paintFace(NativeImage i,int skin,int hair,int eyes,CharacterAppearance.HairStyle style)
+    {
+        int white=0xE8E8E8;
+        pixel(i,9,11,white); pixel(i,10,11,eyes); pixel(i,13,11,eyes); pixel(i,14,11,white);
+        pixel(i,11,13,shade(skin,.92F)); pixel(i,12,13,shade(skin,.92F));
+        pixel(i,11,14,shade(skin,.86F)); pixel(i,12,14,shade(skin,.86F));
+        if(style!=CharacterAppearance.HairStyle.BALD){ int h=style==CharacterAppearance.HairStyle.CROPPED?2:3;
+            paintBlotchyRect(i,8,8,8,h,hair,1F,79,.08F);
+            if(style!=CharacterAppearance.HairStyle.CROPPED){ paintBlotchyRect(i,8,10,1,3,hair,.86F,83,.06F); paintBlotchyRect(i,15,10,1,3,hair,.90F,89,.06F); }
         }
     }
 
-    private static void paintHead(NativeImage image, int rgb)
+    private static void paintFacialHair(NativeImage i,int hair,CharacterAppearance.FacialHair style)
     {
-        paintBoxFaces(image, rgb,
-                8, 0, 8, 8,
-                16, 0, 8, 8,
-                0, 8, 8, 8,
-                8, 8, 8, 8,
-                16, 8, 8, 8,
-                24, 8, 8, 8);
-    }
-
-    private static void paintTorso(NativeImage image, int rgb)
-    {
-        paintBoxFaces(image, rgb,
-                20, 16, 8, 4,
-                28, 16, 8, 4,
-                16, 20, 4, 12,
-                20, 20, 8, 12,
-                28, 20, 4, 12,
-                32, 20, 8, 12);
-    }
-
-    private static void paintRightArm(NativeImage image, int skin, int shirt)
-    {
-        paintBoxFaces(image, skin,
-                44, 16, 4, 4,
-                48, 16, 4, 4,
-                40, 20, 4, 12,
-                44, 20, 4, 12,
-                48, 20, 4, 12,
-                52, 20, 4, 12);
-
-        paintBlotchyRect(image, 40, 20, 4, 4, shirt, 0.92F, 31);
-        paintBlotchyRect(image, 44, 20, 4, 4, shirt, 1.00F, 37);
-        paintBlotchyRect(image, 48, 20, 4, 4, shirt, 0.86F, 41);
-        paintBlotchyRect(image, 52, 20, 4, 4, shirt, 0.82F, 43);
-        paintBlotchyRect(image, 44, 16, 4, 4, shirt, 1.05F, 47);
-    }
-
-    private static void paintLeftArm(NativeImage image, int skin, int shirt)
-    {
-        paintBoxFaces(image, skin,
-                36, 48, 4, 4,
-                40, 48, 4, 4,
-                32, 52, 4, 12,
-                36, 52, 4, 12,
-                40, 52, 4, 12,
-                44, 52, 4, 12);
-
-        paintBlotchyRect(image, 32, 52, 4, 4, shirt, 0.92F, 53);
-        paintBlotchyRect(image, 36, 52, 4, 4, shirt, 1.00F, 59);
-        paintBlotchyRect(image, 40, 52, 4, 4, shirt, 0.86F, 61);
-        paintBlotchyRect(image, 44, 52, 4, 4, shirt, 0.82F, 67);
-        paintBlotchyRect(image, 36, 48, 4, 4, shirt, 1.05F, 71);
-    }
-
-    private static void paintRightLeg(NativeImage image, int rgb)
-    {
-        paintBoxFaces(image, rgb,
-                4, 16, 4, 4,
-                8, 16, 4, 4,
-                0, 20, 4, 12,
-                4, 20, 4, 12,
-                8, 20, 4, 12,
-                12, 20, 4, 12);
-    }
-
-    private static void paintLeftLeg(NativeImage image, int rgb)
-    {
-        paintBoxFaces(image, rgb,
-                20, 48, 4, 4,
-                24, 48, 4, 4,
-                16, 52, 4, 12,
-                20, 52, 4, 12,
-                24, 52, 4, 12,
-                28, 52, 4, 12);
-    }
-
-    private static void paintFace(
-            NativeImage image,
-            int skin,
-            int hair,
-            int eyes,
-            CharacterAppearance.HairStyle hairStyle)
-    {
-        int eyeWhite = 0xE8E8E8;
-        paintPixel(image, 9, 11, eyeWhite);
-        paintPixel(image, 10, 11, eyes);
-        paintPixel(image, 13, 11, eyes);
-        paintPixel(image, 14, 11, eyeWhite);
-
-        paintPixel(image, 11, 13, shade(skin, 0.88F));
-        paintPixel(image, 12, 13, shade(skin, 0.88F));
-        paintPixel(image, 11, 14, shade(skin, 0.78F));
-        paintPixel(image, 12, 14, shade(skin, 0.78F));
-
-        if (hairStyle != CharacterAppearance.HairStyle.BALD)
+        if(style==null || style==CharacterAppearance.FacialHair.NONE) return;
+        int dark=shade(hair,.78F), light=shade(hair,.94F);
+        switch(style)
         {
-            int fringeHeight = hairStyle == CharacterAppearance.HairStyle.CROPPED ? 2 : 3;
-            paintBlotchyRect(image, 8, 8, 8, fringeHeight, hair, 1.00F, 79);
-            if (hairStyle != CharacterAppearance.HairStyle.CROPPED)
-            {
-                paintBlotchyRect(image, 8, 10, 1, 3, hair, 0.82F, 83);
-                paintBlotchyRect(image, 15, 10, 1, 3, hair, 0.88F, 89);
-            }
+            case STUBBLE -> { pixel(i,9,14,dark); pixel(i,11,15,dark); pixel(i,13,14,dark); pixel(i,14,15,dark); }
+            case MOUSTACHE -> { paintRect(i,10,14,4,1,dark); pixel(i,11,14,light); pixel(i,12,14,light); }
+            case GOATEE -> { paintRect(i,10,14,4,1,dark); paintRect(i,11,15,2,1,hair); }
+            case SHORT_BEARD -> { paintRect(i,9,14,6,2,hair); pixel(i,9,14,dark); pixel(i,14,15,dark); pixel(i,11,14,light); }
+            case FULL_BEARD -> { paintRect(i,8,13,1,3,dark); paintRect(i,15,13,1,3,dark); paintRect(i,9,14,6,2,hair); paintRect(i,10,15,4,1,dark); pixel(i,11,14,light); }
+            default -> { }
         }
     }
 
-    private static void paintHair(NativeImage image, int hair, CharacterAppearance.HairStyle style)
+    private static void paintHair(NativeImage i,int hair,CharacterAppearance.HairStyle style)
     {
-        if (style == CharacterAppearance.HairStyle.BALD) return;
-
-        paintBlotchyRect(image, 8, 0, 8, 8, hair, 1.00F, 97);
-
-        int sideDepth = style == CharacterAppearance.HairStyle.CROPPED ? 2
-                : style == CharacterAppearance.HairStyle.SHORT ? 4 : 7;
-        paintBlotchyRect(image, 0, 8, 8, sideDepth, hair, 0.86F, 101);
-        paintBlotchyRect(image, 16, 8, 8, sideDepth, hair, 0.92F, 103);
-        paintBlotchyRect(image, 24, 8, 8, Math.max(4, sideDepth), hair, 0.78F, 107);
-
-        if (style == CharacterAppearance.HairStyle.SHOULDER_LENGTH
-                || style == CharacterAppearance.HairStyle.LONG
-                || style == CharacterAppearance.HairStyle.BRAIDED)
+        if(style==CharacterAppearance.HairStyle.BALD) return;
+        paintBlotchyRect(i,8,0,8,8,hair,1F,97,.09F);
+        int d=style==CharacterAppearance.HairStyle.CROPPED?2:style==CharacterAppearance.HairStyle.SHORT?4:7;
+        paintBlotchyRect(i,0,8,8,d,hair,.88F,101,.08F); paintBlotchyRect(i,16,8,8,d,hair,.92F,103,.08F);
+        paintBlotchyRect(i,24,8,8,Math.max(4,d),hair,.82F,107,.09F);
+        if(style==CharacterAppearance.HairStyle.SHOULDER_LENGTH||style==CharacterAppearance.HairStyle.LONG||style==CharacterAppearance.HairStyle.BRAIDED)
         {
-            int length = style == CharacterAppearance.HairStyle.SHOULDER_LENGTH ? 4 : 7;
-
-            // Texture the upper back from its very first row. A separate small
-            // model-space bridge in RacePlayerSkinWidget closes the physical
-            // head/body gap that the skin atlas alone cannot cover.
-            paintBlotchyRect(image, 33, 20, 6, length, hair, 0.78F, 109);
-
-            if (style == CharacterAppearance.HairStyle.BRAIDED)
-            {
-                paintBlotchyRect(image, 35, 20, 2, 10, hair, 0.72F, 113);
-                for (int y = 21; y < 30; y += 2)
-                {
-                    paintPixel(image, 35, y, shade(hair, 0.92F));
-                    paintPixel(image, 36, y + 1, shade(hair, 0.58F));
-                }
-            }
+            int len=style==CharacterAppearance.HairStyle.SHOULDER_LENGTH?4:7;
+            paintBlotchyRect(i,32,20,8,len,hair,.82F,109,.09F);
+            if(style==CharacterAppearance.HairStyle.BRAIDED){ paintBlotchyRect(i,35,20,2,10,hair,.76F,113,.08F);
+                for(int y=21;y<30;y+=2){ pixel(i,35,y,shade(hair,.94F)); pixel(i,36,y+1,shade(hair,.62F)); } }
         }
     }
 
-    private static void paintBoxFaces(
-            NativeImage image,
-            int rgb,
-            int topX, int topY, int topW, int topH,
-            int bottomX, int bottomY, int bottomW, int bottomH,
-            int rightX, int rightY, int rightW, int rightH,
-            int frontX, int frontY, int frontW, int frontH,
-            int leftX, int leftY, int leftW, int leftH,
-            int backX, int backY, int backW, int backH)
+    private static void paintBoxFaces(NativeImage i,int c,int tx,int ty,int tw,int th,int bx,int by,int bw,int bh,
+            int rx,int ry,int rw,int rh,int fx,int fy,int fw,int fh,int lx,int ly,int lw,int lh,int kx,int ky,int kw,int kh,boolean subtle)
     {
-        paintBlotchyRect(image, topX, topY, topW, topH, rgb, 1.05F, topX * 3 + topY);
-        paintBlotchyRect(image, bottomX, bottomY, bottomW, bottomH, rgb, 0.78F, bottomX * 3 + bottomY);
-        paintBlotchyRect(image, rightX, rightY, rightW, rightH, rgb, 0.94F, rightX * 3 + rightY);
-        paintBlotchyRect(image, frontX, frontY, frontW, frontH, rgb, 1.00F, frontX * 3 + frontY);
-        paintBlotchyRect(image, leftX, leftY, leftW, leftH, rgb, 0.88F, leftX * 3 + leftY);
-        paintBlotchyRect(image, backX, backY, backW, backH, rgb, 0.84F, backX * 3 + backY);
+        float v=subtle?.045F:.10F;
+        paintBlotchyRect(i,tx,ty,tw,th,c,1.04F,tx*3+ty,v); paintBlotchyRect(i,bx,by,bw,bh,c,.82F,bx*3+by,v);
+        paintBlotchyRect(i,rx,ry,rw,rh,c,.95F,rx*3+ry,v); paintBlotchyRect(i,fx,fy,fw,fh,c,1F,fx*3+fy,v);
+        paintBlotchyRect(i,lx,ly,lw,lh,c,.90F,lx*3+ly,v); paintBlotchyRect(i,kx,ky,kw,kh,c,.86F,kx*3+ky,v);
     }
 
-    private static void paintBlotchyRect(
-            NativeImage image,
-            int x,
-            int y,
-            int width,
-            int height,
-            int rgb,
-            float baseFactor,
-            int seed)
+    private static void paintBlotchyRect(NativeImage i,int x,int y,int w,int h,int c,float base,int seed,float amount)
     {
-        for (int py = y; py < y + height; py++)
-        {
-            for (int px = x; px < x + width; px++)
-            {
-                int hash = px * 73428767 ^ py * 912931 ^ seed * 19349663;
-                hash ^= hash >>> 13;
-                int bucket = Math.floorMod(hash, 11);
-
-                float variation = switch (bucket)
-                {
-                    case 0 -> -0.13F;
-                    case 1, 2 -> -0.07F;
-                    case 8, 9 -> 0.06F;
-                    case 10 -> 0.11F;
-                    default -> 0.0F;
-                };
-
-                paintPixel(image, px, py, shade(rgb, baseFactor + variation));
-            }
+        for(int py=y;py<y+h;py++) for(int px=x;px<x+w;px++){
+            int hash=px*73428767 ^ py*912931 ^ seed*19349663; hash^=hash>>>13; int b=Math.floorMod(hash,11);
+            float unit=switch(b){case 0->-1F; case 1,2->-.55F; case 8,9->.5F; case 10->.9F; default->0F;};
+            pixel(i,px,py,shade(c,base+unit*amount));
         }
     }
-
-    private static void paintPixel(NativeImage image, int x, int y, int rgb)
-    {
-        image.setPixelRGBA(x, y, toAbgr(rgb));
-    }
-
-    private static int shade(int rgb, float factor)
-    {
-        int r = Math.min(255, Math.max(0, Math.round(((rgb >> 16) & 0xFF) * factor)));
-        int g = Math.min(255, Math.max(0, Math.round(((rgb >> 8) & 0xFF) * factor)));
-        int b = Math.min(255, Math.max(0, Math.round((rgb & 0xFF) * factor)));
-        return (r << 16) | (g << 8) | b;
-    }
-
-    private static int toAbgr(int rgb)
-    {
-        int r = (rgb >> 16) & 0xFF;
-        int g = (rgb >> 8) & 0xFF;
-        int b = rgb & 0xFF;
-        return 0xFF000000 | (b << 16) | (g << 8) | r;
-    }
+    private static void paintRect(NativeImage i,int x,int y,int w,int h,int c){ for(int py=y;py<y+h;py++) for(int px=x;px<x+w;px++) pixel(i,px,py,c); }
+    private static void pixel(NativeImage i,int x,int y,int c){ i.setPixelRGBA(x,y,toAbgr(c)); }
+    private static int shade(int c,float f){ int r=Math.min(255,Math.max(0,Math.round(((c>>16)&255)*f))),g=Math.min(255,Math.max(0,Math.round(((c>>8)&255)*f))),b=Math.min(255,Math.max(0,Math.round((c&255)*f))); return r<<16|g<<8|b; }
+    private static int toAbgr(int c){ int r=c>>16&255,g=c>>8&255,b=c&255; return 0xFF000000|b<<16|g<<8|r; }
 }
