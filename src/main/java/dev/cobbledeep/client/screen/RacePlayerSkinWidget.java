@@ -40,7 +40,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
     private static final float DEFAULT_ROTATION_X = -5.0F;
     private static final float DEFAULT_ROTATION_Y = 30.0F;
 
-    // These mirror the vanilla 1.21.1 PlayerSkinWidget transform constants.
     private static final float MODEL_OFFSET = 0.0625F;
     private static final float MODEL_HEIGHT = 2.125F;
     private static final float Z_OFFSET = 100.0F;
@@ -56,6 +55,16 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
 
     private float previewRotationX = DEFAULT_ROTATION_X;
     private float previewRotationY = DEFAULT_ROTATION_Y;
+
+    public RacePlayerSkinWidget(
+            int width,
+            int height,
+            EntityModelSet modelSet,
+            Supplier<PlayerSkin> skinSupplier,
+            Supplier<CharacterRace> raceSupplier)
+    {
+        this(width, height, modelSet, skinSupplier, raceSupplier, CharacterAppearance::new);
+    }
 
     public RacePlayerSkinWidget(
             int width,
@@ -149,12 +158,6 @@ public class RacePlayerSkinWidget extends PlayerSkinWidget
         pose.popPose();
     }
 
-    /**
-     * The ears use a one-pixel white dynamic texture and the ModelPart tint
-     * colour supplies the selected skin tone. This prevents the ear cuboids
-     * from sampling Steve/Alex head pixels while still allowing skin tone to
-     * update with the appearance selector.
-     */
     private static ResourceLocation getEarWhiteTexture()
     {
         if (earWhiteTexture == null)
