@@ -135,16 +135,50 @@ public class CharacterAppearance
 
     public SkinTone getSkinTone() { return skinTone; }
     public void setSkinTone(SkinTone skinTone) { this.skinTone = skinTone; }
+    public void previousSkinTone() { skinTone = previous(SkinTone.values(), skinTone); }
+    public void nextSkinTone() { skinTone = next(SkinTone.values(), skinTone); }
 
     public HairStyle getHairStyle() { return hairStyle; }
     public void setHairStyle(HairStyle hairStyle) { this.hairStyle = hairStyle; }
+    public void previousHairStyle() { hairStyle = previous(HairStyle.values(), hairStyle); }
+    public void nextHairStyle() { hairStyle = next(HairStyle.values(), hairStyle); }
 
     public HairColor getHairColor() { return hairColor; }
     public void setHairColor(HairColor hairColor) { this.hairColor = hairColor; }
+    public void previousHairColor() { hairColor = previous(HairColor.values(), hairColor); }
+    public void nextHairColor() { hairColor = next(HairColor.values(), hairColor); }
 
     public EyeColor getEyeColor() { return eyeColor; }
     public void setEyeColor(EyeColor eyeColor) { this.eyeColor = eyeColor; }
+    public void previousEyeColor() { eyeColor = previous(EyeColor.values(), eyeColor); }
+    public void nextEyeColor() { eyeColor = next(EyeColor.values(), eyeColor); }
 
     public FacialHair getFacialHair() { return facialHair; }
     public void setFacialHair(FacialHair facialHair) { this.facialHair = facialHair; }
+    public void previousFacialHair() { facialHair = previous(FacialHair.values(), facialHair); }
+    public void nextFacialHair() { facialHair = next(FacialHair.values(), facialHair); }
+
+    private static <T> T previous(T[] values, T current)
+    {
+        int index = indexOf(values, current);
+        return values[(index - 1 + values.length) % values.length];
+    }
+
+    private static <T> T next(T[] values, T current)
+    {
+        int index = indexOf(values, current);
+        return values[(index + 1) % values.length];
+    }
+
+    private static <T> int indexOf(T[] values, T current)
+    {
+        for (int i = 0; i < values.length; i++)
+        {
+            if (values[i] == current)
+            {
+                return i;
+            }
+        }
+        return 0;
+    }
 }
