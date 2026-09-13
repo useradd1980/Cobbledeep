@@ -709,11 +709,12 @@ public class CharacterCreationScreen extends Screen
             addAppearanceButtonsForRow(appearance, columns, row, y);
         }
 
-        appearanceSkinWidget = new PlayerSkinWidget(
+        appearanceSkinWidget = new RacePlayerSkinWidget(
                 previewWidth,
                 previewHeight,
                 Minecraft.getInstance().getEntityModels(),
-                this::getAppearancePreviewSkin);
+                this::getAppearancePreviewSkin,
+                pendingCharacter::getRace);
         appearanceSkinWidget.setPosition(previewX, previewY);
         this.addRenderableWidget(appearanceSkinWidget);
     }
