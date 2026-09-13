@@ -1,5 +1,10 @@
 package dev.cobbledeep.character;
 
+/**
+ * Broad weapon proficiency groups used by the original Baldur's Gate
+ * proficiency system. Fighting styles are represented separately by
+ * {@link FightingStyle}.
+ */
 public enum WeaponProficiency
 {
     LARGE_SWORD("Large Sword"),
