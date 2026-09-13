@@ -80,6 +80,27 @@ public class CharacterCreationScreen extends Screen
         return Math.max(180, Math.min(360, this.width - 30));
     }
 
+    private int getAbilityActionY(int startY)
+    {
+        if (isCompactLayout())
+        {
+            return getNavigationY() - getButtonHeight() - 10;
+        }
+
+        return startY + 6 * getRowHeight() + 38;
+    }
+
+    private int getAbilityInfoY(int startY)
+    {
+        int naturalY = startY + getRowHeight() * 6 + (isCompactLayout() ? 1 : 7);
+        if (!isCompactLayout())
+        {
+            return naturalY;
+        }
+
+        return Math.min(naturalY, getAbilityActionY(startY) - 14);
+    }
+
     private void buildCurrentPage()
     {
         this.clearWidgets();
@@ -283,7 +304,7 @@ public class CharacterCreationScreen extends Screen
             return;
         }
 
-        int actionY = startY + 6 * rowHeight + (isCompactLayout() ? 3 : 38);
+        int actionY = getAbilityActionY(startY);
         int actionGap = 5;
         int actionWidth = Math.min(100, Math.max(62, (this.width - 30 - actionGap * 2) / 3));
 
@@ -873,7 +894,7 @@ public class CharacterCreationScreen extends Screen
         drawAbility(graphics, "CHA", scores.getCharisma(), CharacterAbilityRules.getCharismaModifier(race),
                 Integer.toString(scores.getFinalCharisma(race)), CharacterAbilityRules.getMinimumCharisma(race, characterClass), startY + rowHeight * 5);
 
-        int infoY = startY + rowHeight * 6 + (isCompactLayout() ? 1 : 7);
+        int infoY = getAbilityInfoY(startY);
         graphics.drawCenteredString(this.font, "Available Points: " + scores.getAvailablePoints(),
                 centerX, infoY, 0xFFFFAA);
 
