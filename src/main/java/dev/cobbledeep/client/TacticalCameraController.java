@@ -58,8 +58,9 @@ public final class TacticalCameraController
     private static Vec3 movementTarget;
     private static boolean clickMoveForwardHeld;
 
-    // Tactical camera focus is independent from the player's current position.
-    // This is what allows edge-panning to leave the player off-centre.
+    // Tactical camera focus is an absolute world-space point, independent from
+    // the player's current position. This is what allows edge-panning to leave
+    // the player off-centre while the character continues moving underneath it.
     private static Vec3 cameraFocus;
 
     private static boolean renderRotationOverridden;
@@ -387,20 +388,29 @@ public final class TacticalCameraController
             LocalPlayer player = Minecraft.getInstance().player;
             if (player == null) return;
 
-            // Camera.setup() has already placed the camera relative to the player.
-            // First shift its focal point from the player to the free tactical
-            // focus, then pull backward to the requested zoom distance.
             if (cameraFocus == null)
             {
                 cameraFocus = player.position();
             }
 
-            Vec3 desiredWorldShift = cameraFocus.subtract(player.position());
             Camera camera = event.getCamera();
-
             Vec3 forward = new Vec3(camera.getLookVector());
             Vec3 up = new Vec3(camera.getUpVector());
             Vec3 left = new Vec3(camera.getLeftVector());
+
+            // Camera.setup() has already built vanilla third-person view around
+            // the player's interpolated render position. Reconstruct that exact
+            // focal point from the camera itself instead of subtracting the
+            // player's tick position. Mixing those two coordinate times caused
+            // player movement to leak into the supposedly free camera and made
+            // edge-pan plus walking appear roughly twice as fast.
+            Vec3 vanillaFocus = camera.getPosition()
+                    .add(forward.scale(VANILLA_THIRD_PERSON_DISTANCE));
+            Vec3 desiredFocus = new Vec3(
+                    cameraFocus.x,
+                    cameraFocus.y + player.getEyeHeight(),
+                    cameraFocus.z);
+            Vec3 desiredWorldShift = desiredFocus.subtract(vanillaFocus);
 
             float localForward = (float)desiredWorldShift.dot(forward);
             float localUp = (float)desiredWorldShift.dot(up);
