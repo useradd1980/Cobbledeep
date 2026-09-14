@@ -20,7 +20,7 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 minecraft {
     mappings channel: 'official', version: '1.21.1'
-    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+    accessTransformer = true
 
     runs {
         configureEach {
