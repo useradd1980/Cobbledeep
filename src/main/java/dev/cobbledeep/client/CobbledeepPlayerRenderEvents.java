@@ -78,27 +78,6 @@ public final class CobbledeepPlayerRenderEvents
         });
     }
 
-    @SubscribeEvent
-    public static void onRenderPlayerPost(RenderPlayerEvent.Post event)
-    {
-        // Only the nested Cobbledeep renderer reaches this point. The original
-        // outer render was canceled in Pre, so this attaches the extra geometry
-        // exactly once and inside the same race-scaling pose.
-        if (!cobbledeepRenderPass) return;
-        if (!(event.getEntity() instanceof AbstractClientPlayer player)) return;
-
-        player.getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresent(data ->
-        {
-            if (!data.isCharacterCreated() || data.getRace() == null) return;
-            CobbledeepPlayerGeometry.render(
-                    data,
-                    event.getRenderer().getModel(),
-                    event.getPoseStack(),
-                    event.getMultiBufferSource(),
-                    event.getPackedLight());
-        });
-    }
-
     private static CobbledeepPlayerRenderer getRenderer(CharacterData data)
     {
         return data.getGender() == PendingCharacter.Gender.FEMALE
