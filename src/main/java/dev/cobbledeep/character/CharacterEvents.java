@@ -46,12 +46,27 @@ public class CharacterEvents
         serverPlayer.getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresent(data ->
         {
             Cobbledeep.LOGGER.info(
-                    "Cobbledeep character loaded: created={}, name={}, race={}, class={}",
+                    "Cobbledeep character loaded: created={}, name={}, race={}, class={}, STR={}, DEX={}, weaponRanks={}, mageSpells={}, openLocks={}",
                     data.isCharacterCreated(),
                     data.getName(),
                     data.getRace(),
-                    data.getCharacterClass());
+                    data.getCharacterClass(),
+                    data.getStrength(),
+                    data.getDexterity(),
+                    countWeaponRanks(data),
+                    data.getKnownMageSpells().size(),
+                    data.getOpenLocks());
             RPGNetwork.sendCharacterData(serverPlayer, data);
         });
+    }
+
+    private static int countWeaponRanks(CharacterData data)
+    {
+        int total = 0;
+        for (WeaponProficiency proficiency : WeaponProficiency.values())
+        {
+            total += data.getWeaponRank(proficiency);
+        }
+        return total;
     }
 }
