@@ -12,6 +12,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
+import net.minecraftforge.client.event.RenderHighlightEvent;
 import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -182,6 +183,18 @@ public final class TacticalCameraController
             stopClickMovement(minecraft);
             event.setCanceled(true);
             minecraft.mouseHandler.releaseMouse();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onBlockHighlight(RenderHighlightEvent.Block event)
+    {
+        if (enabled)
+        {
+            // Vanilla still computes its normal centered crosshair target even
+            // though tactical mode uses a free cursor and its own raycast. That
+            // produces a stray block-selection wireframe near the player.
+            event.setCanceled(true);
         }
     }
 
