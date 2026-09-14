@@ -19,6 +19,7 @@ public final class CobbledeepPlayerRenderer extends PlayerRenderer
     public CobbledeepPlayerRenderer(EntityRendererProvider.Context context, boolean slim)
     {
         super(context, slim);
+        addLayer(new CobbledeepAppearanceRenderLayer(this));
     }
 
     @Override
