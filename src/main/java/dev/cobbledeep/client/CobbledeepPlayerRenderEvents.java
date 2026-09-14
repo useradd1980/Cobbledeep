@@ -2,52 +2,87 @@ package dev.cobbledeep.client;
 
 import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.character.CharacterCapabilities;
+import dev.cobbledeep.character.CharacterData;
 import dev.cobbledeep.character.CharacterRace;
+import dev.cobbledeep.character.PendingCharacter;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderPlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * First in-game rendering bridge for Cobbledeep characters.
+ * In-game rendering bridge for completed Cobbledeep characters.
  *
- * The vanilla player renderer already uses a pose stack rooted at the player's
- * feet, so scaling here keeps the character planted on the ground while giving
- * each race the same broad silhouette used by the character-creation preview.
- * Hitboxes remain vanilla-sized for now; this is visual only.
+ * The outer vanilla player render is replaced with a normal PlayerRenderer that
+ * uses Cobbledeep's generated skin texture and the character's selected body
+ * model. A guarded nested render preserves vanilla animations, armor, held items
+ * and layers without recursively replacing itself.
+ *
+ * Race proportions remain visual only; player hitboxes are unchanged.
  */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class CobbledeepPlayerRenderEvents
 {
+    private static CobbledeepPlayerRenderer wideRenderer;
+    private static CobbledeepPlayerRenderer slimRenderer;
+    private static boolean cobbledeepRenderPass;
+
     private CobbledeepPlayerRenderEvents() { }
+
+    static void initializeRenderers(EntityRendererProvider.Context context)
+    {
+        wideRenderer = new CobbledeepPlayerRenderer(context, false);
+        slimRenderer = new CobbledeepPlayerRenderer(context, true);
+    }
 
     @SubscribeEvent
     public static void onRenderPlayerPre(RenderPlayerEvent.Pre event)
     {
-        event.getEntity().getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresent(data ->
+        // The custom renderer itself fires RenderPlayerEvent. Let that nested
+        // render continue normally instead of replacing it a second time.
+        if (cobbledeepRenderPass) return;
+        if (!(event.getEntity() instanceof AbstractClientPlayer player)) return;
+        if (wideRenderer == null || slimRenderer == null) return;
+
+        player.getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresent(data ->
         {
             if (!data.isCharacterCreated() || data.getRace() == null) return;
 
+            CobbledeepPlayerRenderer renderer = getRenderer(data);
             RaceScale scale = getRaceScale(data.getRace());
-            if (scale == RaceScale.HUMAN) return;
 
+            // Suppress the original vanilla renderer. We immediately replace it
+            // with our PlayerRenderer subclass using the same pose/buffer/light.
+            event.setCanceled(true);
             event.getPoseStack().pushPose();
             event.getPoseStack().scale(scale.widthScale(), scale.heightScale(), scale.widthScale());
+
+            cobbledeepRenderPass = true;
+            try
+            {
+                renderer.render(
+                        player,
+                        player.getYRot(),
+                        event.getPartialTick(),
+                        event.getPoseStack(),
+                        event.getMultiBufferSource(),
+                        event.getPackedLight());
+            }
+            finally
+            {
+                cobbledeepRenderPass = false;
+                event.getPoseStack().popPose();
+            }
         });
     }
 
-    @SubscribeEvent
-    public static void onRenderPlayerPost(RenderPlayerEvent.Post event)
+    private static CobbledeepPlayerRenderer getRenderer(CharacterData data)
     {
-        event.getEntity().getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresent(data ->
-        {
-            if (!data.isCharacterCreated() || data.getRace() == null) return;
-
-            RaceScale scale = getRaceScale(data.getRace());
-            if (scale == RaceScale.HUMAN) return;
-
-            event.getPoseStack().popPose();
-        });
+        return data.getGender() == PendingCharacter.Gender.FEMALE
+                ? slimRenderer
+                : wideRenderer;
     }
 
     private static RaceScale getRaceScale(CharacterRace race)
