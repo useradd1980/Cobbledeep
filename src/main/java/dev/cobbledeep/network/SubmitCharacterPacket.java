@@ -1,111 +1,31 @@
 package dev.cobbledeep.network;
 
 import dev.cobbledeep.Cobbledeep;
-import dev.cobbledeep.character.CharacterAlignment;
-import dev.cobbledeep.character.CharacterAppearance;
 import dev.cobbledeep.character.CharacterCapabilities;
-import dev.cobbledeep.character.CharacterClass;
-import dev.cobbledeep.character.CharacterRace;
+import dev.cobbledeep.character.CharacterData;
 import dev.cobbledeep.character.PendingCharacter;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.network.CustomPayloadEvent;
 
-/**
- * Transfers the completed character identity and appearance from the title-screen
- * creation wizard to the server once the player actually joins the new world.
- */
+/** Transfers the complete generated character to the server after world join. */
 public class SubmitCharacterPacket
 {
-    private final String name;
-    private final PendingCharacter.Gender gender;
-    private final CharacterRace race;
-    private final CharacterClass characterClass;
-    private final CharacterAlignment alignment;
-    private final CharacterAppearance.SkinTone skinTone;
-    private final CharacterAppearance.HairStyle hairStyle;
-    private final CharacterAppearance.HairColor hairColor;
-    private final CharacterAppearance.EyeColor eyeColor;
-    private final CharacterAppearance.FacialHair facialHair;
-    private final CharacterAppearance.ClothingColor shirtColor;
-    private final CharacterAppearance.ClothingColor trouserColor;
+    private final CharacterData submittedData = new CharacterData();
 
     public SubmitCharacterPacket(PendingCharacter pending)
     {
-        this(
-                pending.getName().trim(),
-                pending.getGender(),
-                pending.getRace(),
-                pending.getCharacterClass(),
-                pending.getAlignment(),
-                pending.getAppearance().getSkinTone(),
-                pending.getAppearance().getHairStyle(),
-                pending.getAppearance().getHairColor(),
-                pending.getAppearance().getEyeColor(),
-                pending.getAppearance().getFacialHair(),
-                pending.getAppearance().getShirtColor(),
-                pending.getAppearance().getTrouserColor());
+        submittedData.setFromPending(pending);
     }
 
     public SubmitCharacterPacket(FriendlyByteBuf buffer)
     {
-        this(
-                buffer.readUtf(32),
-                buffer.readEnum(PendingCharacter.Gender.class),
-                buffer.readEnum(CharacterRace.class),
-                buffer.readEnum(CharacterClass.class),
-                buffer.readEnum(CharacterAlignment.class),
-                buffer.readEnum(CharacterAppearance.SkinTone.class),
-                buffer.readEnum(CharacterAppearance.HairStyle.class),
-                buffer.readEnum(CharacterAppearance.HairColor.class),
-                buffer.readEnum(CharacterAppearance.EyeColor.class),
-                buffer.readEnum(CharacterAppearance.FacialHair.class),
-                buffer.readEnum(CharacterAppearance.ClothingColor.class),
-                buffer.readEnum(CharacterAppearance.ClothingColor.class));
-    }
-
-    private SubmitCharacterPacket(
-            String name,
-            PendingCharacter.Gender gender,
-            CharacterRace race,
-            CharacterClass characterClass,
-            CharacterAlignment alignment,
-            CharacterAppearance.SkinTone skinTone,
-            CharacterAppearance.HairStyle hairStyle,
-            CharacterAppearance.HairColor hairColor,
-            CharacterAppearance.EyeColor eyeColor,
-            CharacterAppearance.FacialHair facialHair,
-            CharacterAppearance.ClothingColor shirtColor,
-            CharacterAppearance.ClothingColor trouserColor)
-    {
-        this.name = name;
-        this.gender = gender;
-        this.race = race;
-        this.characterClass = characterClass;
-        this.alignment = alignment;
-        this.skinTone = skinTone;
-        this.hairStyle = hairStyle;
-        this.hairColor = hairColor;
-        this.eyeColor = eyeColor;
-        this.facialHair = facialHair;
-        this.shirtColor = shirtColor;
-        this.trouserColor = trouserColor;
+        submittedData.readNetwork(buffer);
     }
 
     public void encode(FriendlyByteBuf buffer)
     {
-        buffer.writeUtf(name, 32);
-        buffer.writeEnum(gender);
-        buffer.writeEnum(race);
-        buffer.writeEnum(characterClass);
-        buffer.writeEnum(alignment);
-        buffer.writeEnum(skinTone);
-        buffer.writeEnum(hairStyle);
-        buffer.writeEnum(hairColor);
-        buffer.writeEnum(eyeColor);
-        buffer.writeEnum(facialHair);
-        buffer.writeEnum(shirtColor);
-        buffer.writeEnum(trouserColor);
+        submittedData.writeNetwork(buffer);
     }
 
     public void handle(CustomPayloadEvent.Context context)
@@ -117,25 +37,30 @@ public class SubmitCharacterPacket
             return;
         }
 
-        CharacterAppearance appearance = new CharacterAppearance();
-        appearance.setSkinTone(skinTone);
-        appearance.setHairStyle(hairStyle);
-        appearance.setHairColor(hairColor);
-        appearance.setEyeColor(eyeColor);
-        appearance.setFacialHair(facialHair);
-        appearance.setShirtColor(shirtColor);
-        appearance.setTrouserColor(trouserColor);
-
         sender.getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresent(data ->
         {
-            data.setIdentity(name, gender, race, characterClass, alignment, appearance);
+            data.copyFrom(submittedData);
             Cobbledeep.LOGGER.info(
-                    "Stored submitted Cobbledeep character: created={}, name={}, race={}, class={}",
+                    "Stored submitted Cobbledeep character: created={}, name={}, race={}, class={}, STR={}, DEX={}, proficiencies={}, mageSpells={}",
                     data.isCharacterCreated(),
                     data.getName(),
                     data.getRace(),
-                    data.getCharacterClass());
+                    data.getCharacterClass(),
+                    data.getStrength(),
+                    data.getDexterity(),
+                    countWeaponRanks(data),
+                    data.getKnownMageSpells().size());
             RPGNetwork.sendCharacterData(sender, data);
         });
+    }
+
+    private static int countWeaponRanks(CharacterData data)
+    {
+        int total = 0;
+        for (var proficiency : dev.cobbledeep.character.WeaponProficiency.values())
+        {
+            total += data.getWeaponRank(proficiency);
+        }
+        return total;
     }
 }
