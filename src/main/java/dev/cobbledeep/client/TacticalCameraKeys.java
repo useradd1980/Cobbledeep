@@ -34,6 +34,12 @@ public final class TacticalCameraKeys
             GLFW.GLFW_KEY_PERIOD,
             CATEGORY);
 
+    public static final KeyMapping RECENTER = new KeyMapping(
+            "key.cobbledeep.tactical_camera.recenter",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_HOME,
+            CATEGORY);
+
     private TacticalCameraKeys() { }
 
     @SubscribeEvent
@@ -42,5 +48,6 @@ public final class TacticalCameraKeys
         event.register(TOGGLE);
         event.register(ROTATE_LEFT);
         event.register(ROTATE_RIGHT);
+        event.register(RECENTER);
     }
 }
