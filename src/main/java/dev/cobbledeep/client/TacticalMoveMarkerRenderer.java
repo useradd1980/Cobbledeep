@@ -1,77 +1,81 @@
 package dev.cobbledeep.client;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.cobbledeep.Cobbledeep;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
-/** Renders the animated tactical move destination marker. */
+/**
+ * Renders the tactical move destination marker.
+ *
+ * The earlier world-line implementation depended on Forge's 1.21.1 render-stage
+ * matrices and was not reliably visible with the tactical camera. This version
+ * deliberately uses client-side particles instead, which are rendered by
+ * Minecraft's normal particle pipeline and therefore remain visible regardless
+ * of the custom camera distance/angle.
+ */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class TacticalMoveMarkerRenderer
 {
-    private static final int SEGMENTS = 64;
+    private static final int PARTICLES = 24;
     private static final double BASE_RADIUS = 0.72;
-    private static final double PULSE_AMOUNT = 0.07;
-    private static final double HEIGHT_OFFSET = 0.08;
-    private static final RenderType MARKER_LINES = RenderType.debugLineStrip(3.0);
+    private static final double PULSE_AMOUNT = 0.06;
+    private static final double HEIGHT_OFFSET = 0.10;
+
+    private static final DustParticleOptions RING_PARTICLE =
+            new DustParticleOptions(new Vector3f(0.20F, 0.90F, 0.32F), 0.75F);
+    private static final DustParticleOptions CHASE_PARTICLE =
+            new DustParticleOptions(new Vector3f(0.65F, 1.00F, 0.72F), 1.05F);
+
+    private static int tickCounter;
 
     private TacticalMoveMarkerRenderer() { }
 
     @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent event)
+    public static void onClientTick(TickEvent.ClientTickEvent.Post event)
     {
-        // AFTER_ENTITIES is a reliable point for world-space debug-style lines in
-        // Forge 1.21.1. Rendering on the translucent-block stage can put the line
-        // buffer into the wrong render target and make the marker disappear.
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES) return;
         if (!TacticalCameraController.isEnabled()) return;
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || minecraft.player == null || minecraft.isPaused()) return;
 
         Vec3 target = TacticalCameraController.getMovementTarget();
         if (target == null) return;
 
-        Vec3 camera = event.getCamera().getPosition();
-        double time = System.nanoTime() * 1.0e-9;
-        double radius = BASE_RADIUS + Math.sin(time * 4.0) * PULSE_AMOUNT;
-        double phase = time * 2.8;
+        // Every other client tick is enough to keep the ring visually continuous
+        // without flooding the particle engine with redundant particles.
+        tickCounter++;
+        if ((tickCounter & 1) != 0) return;
 
-        // Forge 1.21.1 exposes the active world render transform as Matrix4f.
-        // Work on a copy and translate from world coordinates into camera-relative
-        // coordinates, matching the rest of the level renderer.
-        @SuppressWarnings("removal")
-        Matrix4f pose = new Matrix4f(event.getPoseStack());
-        pose.translate(
-                (float)(target.x - camera.x),
-                (float)(target.y - camera.y + HEIGHT_OFFSET),
-                (float)(target.z - camera.z));
+        double time = minecraft.level.getGameTime() + minecraft.getTimer().getGameTimeDeltaPartialTick(false);
+        double radius = BASE_RADIUS + Math.sin(time * 0.22) * PULSE_AMOUNT;
+        double phase = time * 0.12;
 
-        MultiBufferSource.BufferSource buffers = Minecraft.getInstance().renderBuffers().bufferSource();
-        VertexConsumer lines = buffers.getBuffer(MARKER_LINES);
+        int chaseIndex = Math.floorMod((int)Math.floor(phase * PARTICLES / (Math.PI * 2.0)), PARTICLES);
 
-        // debugLineStrip renders a single continuous polyline, so emit one extra
-        // vertex at 2π to close the circle cleanly.
-        for (int i = 0; i <= SEGMENTS; i++)
+        for (int i = 0; i < PARTICLES; i++)
         {
-            double angle = Math.PI * 2.0 * i / SEGMENTS;
-            float x = (float)(Math.cos(angle) * radius);
-            float z = (float)(Math.sin(angle) * radius);
+            double angle = Math.PI * 2.0 * i / PARTICLES + phase;
+            double x = target.x + Math.cos(angle) * radius;
+            double y = target.y + HEIGHT_OFFSET;
+            double z = target.z + Math.sin(angle) * radius;
 
-            double chase = 0.5 + 0.5 * Math.cos(angle - phase);
-            int green = (int)(135.0 + chase * 120.0);
-            int blue = (int)(90.0 + chase * 95.0);
-            int alpha = (int)(185.0 + chase * 70.0);
+            DustParticleOptions particle = distanceAroundRing(i, chaseIndex) <= 1
+                    ? CHASE_PARTICLE
+                    : RING_PARTICLE;
 
-            lines.addVertex(pose, x, 0.0F, z)
-                    .setColor(75, green, blue, alpha)
-                    .setNormal(0.0F, 1.0F, 0.0F);
+            minecraft.level.addParticle(particle, x, y, z, 0.0, 0.0, 0.0);
         }
+    }
 
-        buffers.endBatch(MARKER_LINES);
+    private static int distanceAroundRing(int a, int b)
+    {
+        int direct = Math.abs(a - b);
+        return Math.min(direct, PARTICLES - direct);
     }
 }
