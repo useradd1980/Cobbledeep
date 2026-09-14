@@ -24,8 +24,9 @@ import org.lwjgl.glfw.GLFW;
  *
  * V toggles tactical mode. The mouse is released so it can act as a CRPG-style
  * cursor rather than steering the player's view. Left-clicking terrain sets a
- * movement destination. Comma/period rotate the camera in 90-degree steps and
- * the mouse wheel changes real camera distance instead of changing FOV.
+ * movement destination. Comma/period rotate the camera in 90-degree steps, the
+ * mouse wheel changes real camera distance, and moving the cursor to a screen
+ * edge pans a free tactical camera focus point.
  *
  * Click-to-move is intentionally simple at this stage: it walks directly toward
  * the selected point using normal player movement/collision. Pathfinding around
@@ -46,12 +47,20 @@ public final class TacticalCameraController
     private static final double MOVE_STOP_DISTANCE = 0.45;
     private static final double CLICK_RAY_DISTANCE = 256.0;
 
+    private static final double EDGE_PAN_MARGIN = 28.0;
+    private static final double EDGE_PAN_MIN_SPEED = 0.08;
+    private static final double EDGE_PAN_MAX_SPEED = 0.42;
+
     private static boolean enabled;
     private static float yaw = 45.0F;
     private static float cameraDistance = 14.0F;
     private static CameraType previousCameraType = CameraType.FIRST_PERSON;
     private static Vec3 movementTarget;
     private static boolean clickMoveForwardHeld;
+
+    // Tactical camera focus is independent from the player's current position.
+    // This is what allows edge-panning to leave the player off-centre.
+    private static Vec3 cameraFocus;
 
     private static boolean renderRotationOverridden;
     private static boolean extraCameraDistanceApplied;
@@ -86,6 +95,7 @@ public final class TacticalCameraController
             {
                 previousCameraType = minecraft.options.getCameraType();
                 minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+                cameraFocus = minecraft.player.position();
                 if (minecraft.screen == null)
                 {
                     minecraft.mouseHandler.releaseMouse();
@@ -94,6 +104,7 @@ public final class TacticalCameraController
             else
             {
                 stopClickMovement(minecraft);
+                cameraFocus = null;
                 minecraft.options.setCameraType(previousCameraType);
                 if (minecraft.screen == null)
                 {
@@ -114,6 +125,14 @@ public final class TacticalCameraController
             yaw = Mth.wrapDegrees(yaw + ROTATION_STEP);
         }
 
+        while (TacticalCameraKeys.RECENTER.consumeClick())
+        {
+            if (minecraft.player != null)
+            {
+                cameraFocus = minecraft.player.position();
+            }
+        }
+
         if (minecraft.player != null && minecraft.options.getCameraType() != CameraType.THIRD_PERSON_BACK)
         {
             minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
@@ -126,7 +145,66 @@ public final class TacticalCameraController
             minecraft.mouseHandler.releaseMouse();
         }
 
+        updateEdgePan(minecraft);
         updateClickMovement(minecraft);
+    }
+
+    private static void updateEdgePan(Minecraft minecraft)
+    {
+        LocalPlayer player = minecraft.player;
+        if (player == null || minecraft.screen != null) return;
+
+        if (cameraFocus == null)
+        {
+            cameraFocus = player.position();
+        }
+
+        double width = minecraft.getWindow().getScreenWidth();
+        double height = minecraft.getWindow().getScreenHeight();
+        if (width <= 0.0 || height <= 0.0) return;
+
+        double mouseX = minecraft.mouseHandler.xpos();
+        double mouseY = minecraft.mouseHandler.ypos();
+
+        double horizontal = edgeStrength(mouseX, width);
+        double vertical = edgeStrength(mouseY, height);
+
+        if (horizontal == 0.0 && vertical == 0.0) return;
+
+        double magnitude = Math.min(1.0, Math.sqrt(horizontal * horizontal + vertical * vertical));
+        double speed = Mth.lerp(magnitude, EDGE_PAN_MIN_SPEED, EDGE_PAN_MAX_SPEED);
+
+        // Camera yaw defines screen-space directions on the X/Z plane.
+        double radians = Math.toRadians(yaw);
+        Vec3 forward = new Vec3(-Math.sin(radians), 0.0, Math.cos(radians));
+        Vec3 right = new Vec3(Math.cos(radians), 0.0, Math.sin(radians));
+
+        // Screen top means move the focus forward into the scene. Screen bottom
+        // moves backward; left/right map directly to their screen directions.
+        Vec3 pan = right.scale(horizontal)
+                .add(forward.scale(-vertical));
+
+        if (pan.lengthSqr() > 1.0e-8)
+        {
+            pan = pan.normalize().scale(speed);
+            cameraFocus = cameraFocus.add(pan);
+        }
+    }
+
+    private static double edgeStrength(double coordinate, double size)
+    {
+        if (coordinate < EDGE_PAN_MARGIN)
+        {
+            return -Mth.clamp((EDGE_PAN_MARGIN - coordinate) / EDGE_PAN_MARGIN, 0.0, 1.0);
+        }
+
+        double farEdge = size - EDGE_PAN_MARGIN;
+        if (coordinate > farEdge)
+        {
+            return Mth.clamp((coordinate - farEdge) / EDGE_PAN_MARGIN, 0.0, 1.0);
+        }
+
+        return 0.0;
     }
 
     private static void updateClickMovement(Minecraft minecraft)
@@ -304,14 +382,34 @@ public final class TacticalCameraController
 
         event.setFOV(TACTICAL_FOV);
 
-        // Camera.setup() has already applied vanilla's ~4 block detached-camera
-        // offset by the time FOV is computed. Move farther backward along the same
-        // fixed tactical view vector to get real pull-back zoom rather than a
-        // distorted wide-angle FOV trick.
         if (!extraCameraDistanceApplied)
         {
+            LocalPlayer player = Minecraft.getInstance().player;
+            if (player == null) return;
+
+            // Camera.setup() has already placed the camera relative to the player.
+            // First shift its focal point from the player to the free tactical
+            // focus, then pull backward to the requested zoom distance.
+            if (cameraFocus == null)
+            {
+                cameraFocus = player.position();
+            }
+
+            Vec3 desiredWorldShift = cameraFocus.subtract(player.position());
+            Camera camera = event.getCamera();
+
+            Vec3 forward = new Vec3(camera.getLookVector());
+            Vec3 up = new Vec3(camera.getUpVector());
+            Vec3 left = new Vec3(camera.getLeftVector());
+
+            float localForward = (float)desiredWorldShift.dot(forward);
+            float localUp = (float)desiredWorldShift.dot(up);
+            float localLeft = (float)desiredWorldShift.dot(left);
+
+            camera.move(localForward, localUp, localLeft);
+
             float extraDistance = Math.max(0.0F, cameraDistance - VANILLA_THIRD_PERSON_DISTANCE);
-            event.getCamera().move(-extraDistance, 0.0F, 0.0F);
+            camera.move(-extraDistance, 0.0F, 0.0F);
             extraCameraDistanceApplied = true;
         }
     }
