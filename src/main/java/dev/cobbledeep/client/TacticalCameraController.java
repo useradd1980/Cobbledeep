@@ -33,7 +33,7 @@ import org.lwjgl.glfw.GLFW;
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class TacticalCameraController
 {
-    private static final float TACTICAL_PITCH = 55.0F;
+    private static final float TACTICAL_PITCH = 45.0F;
     private static final float TACTICAL_FOV = 50.0F;
     private static final float ROTATION_STEP = 90.0F;
 
