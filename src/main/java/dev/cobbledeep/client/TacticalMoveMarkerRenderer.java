@@ -1,6 +1,5 @@
 package dev.cobbledeep.client;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.cobbledeep.Cobbledeep;
 import net.minecraft.client.Minecraft;
@@ -11,6 +10,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import org.joml.Matrix4f;
 
 /** Renders the animated tactical move destination marker. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
@@ -37,16 +37,18 @@ public final class TacticalMoveMarkerRenderer
         double radius = BASE_RADIUS + Math.sin(time * 4.0) * PULSE_AMOUNT;
         double phase = time * 2.6;
 
-        PoseStack poseStack = event.getPoseStack();
-        poseStack.pushPose();
-        poseStack.translate(
-                target.x - camera.x,
-                target.y - camera.y + HEIGHT_OFFSET,
-                target.z - camera.z);
+        // In Forge 1.21.1 RenderLevelStageEvent exposes the current render transform
+        // as a Matrix4f rather than a PoseStack. Work on a copy so the event's
+        // matrix is never mutated for other renderers.
+        @SuppressWarnings("removal")
+        Matrix4f pose = new Matrix4f(event.getPoseStack());
+        pose.translate(
+                (float)(target.x - camera.x),
+                (float)(target.y - camera.y + HEIGHT_OFFSET),
+                (float)(target.z - camera.z));
 
         MultiBufferSource.BufferSource buffers = Minecraft.getInstance().renderBuffers().bufferSource();
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
-        PoseStack.Pose pose = poseStack.last();
 
         for (int i = 0; i < SEGMENTS; i++)
         {
@@ -72,6 +74,5 @@ public final class TacticalMoveMarkerRenderer
         }
 
         buffers.endBatch(RenderType.lines());
-        poseStack.popPose();
     }
 }
