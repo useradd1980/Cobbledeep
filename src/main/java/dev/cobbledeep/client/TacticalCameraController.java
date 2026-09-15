@@ -70,6 +70,7 @@ public final class TacticalCameraController
     // the player's current position. This is what allows edge-panning to leave
     // the player off-centre while the character continues moving underneath it.
     private static Vec3 cameraFocus;
+    private static Vec3 previousCameraFocus;
     private static double terrainFocusY = Double.NaN;
     private static long terrainFrameNanos;
 
@@ -103,6 +104,7 @@ public final class TacticalCameraController
                 minecraft.options.bobView().set(false);
                 minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
                 cameraFocus = minecraft.player.position().add(0.0, minecraft.player.getEyeHeight(), 0.0);
+                previousCameraFocus = cameraFocus;
                 terrainFocusY = Double.NaN;
                 if (minecraft.screen == null)
                 {
@@ -113,6 +115,7 @@ public final class TacticalCameraController
             {
                 stopClickMovement(minecraft);
                 cameraFocus = null;
+                previousCameraFocus = cameraFocus;
                 terrainFocusY = Double.NaN;
                 minecraft.options.setCameraType(previousCameraType);
                 minecraft.options.bobView().set(previousViewBobbing);
@@ -140,6 +143,7 @@ public final class TacticalCameraController
             if (minecraft.player != null)
             {
                 cameraFocus = minecraft.player.position().add(0.0, minecraft.player.getEyeHeight(), 0.0);
+                previousCameraFocus = cameraFocus;
                 terrainFocusY = Double.NaN;
             }
         }
@@ -156,6 +160,9 @@ public final class TacticalCameraController
             minecraft.mouseHandler.releaseMouse();
         }
 
+        // Save the tick start even when no pan input is present, so stopping
+        // settles at the target instead of replaying the previous movement.
+        previousCameraFocus = cameraFocus;
         updateEdgePan(minecraft);
         updateClickMovement(minecraft);
     }
@@ -168,6 +175,7 @@ public final class TacticalCameraController
         if (cameraFocus == null)
         {
             cameraFocus = player.position().add(0.0, player.getEyeHeight(), 0.0);
+            previousCameraFocus = cameraFocus;
             terrainFocusY = Double.NaN;
         }
 
@@ -359,6 +367,7 @@ public final class TacticalCameraController
         if (cameraFocus == null)
         {
             cameraFocus = player.position().add(0.0, player.getEyeHeight(), 0.0);
+            previousCameraFocus = cameraFocus;
             terrainFocusY = Double.NaN;
         }
 
@@ -371,7 +380,12 @@ public final class TacticalCameraController
         // to undo vanilla's interpolated/collision-adjusted third-person offset.
         // Use our requested angles, not the camera's still-vanilla look vector.
         Vec3 forward = Vec3.directionFromRotation(TACTICAL_PITCH, yaw);
-        Vec3 position = terrainAdjustedFocus(Minecraft.getInstance(), forward)
+        // Render between tick positions instead of displaying 20 discrete
+        // movements per second. Terrain sampling must use this same position.
+        double partialTick = Mth.clamp(event.getPartialTick(), 0.0, 1.0);
+        Vec3 renderedFocus = previousCameraFocus == null ? cameraFocus
+                : previousCameraFocus.lerp(cameraFocus, partialTick);
+        Vec3 position = terrainAdjustedFocus(Minecraft.getInstance(), forward, renderedFocus)
                 .subtract(forward.scale(cameraDistance));
         event.getCamera().setPosition(position.x, position.y, position.z);
     }
@@ -380,12 +394,12 @@ public final class TacticalCameraController
      * Outdoor surface tracking. X/Z remain controlled only by pan/recenter.
      * Client heightmaps bound the leaf-filtering scan; missing chunks are skipped.
      */
-    private static Vec3 terrainAdjustedFocus(Minecraft minecraft, Vec3 forward)
+    private static Vec3 terrainAdjustedFocus(Minecraft minecraft, Vec3 forward, Vec3 renderedFocus)
     {
         long now = System.nanoTime();
         if (Double.isNaN(terrainFocusY))
         {
-            terrainFocusY = cameraFocus.y;
+            terrainFocusY = renderedFocus.y;
             terrainFrameNanos = now;
         }
         double elapsed = Math.min(0.1, Math.max(0.0, (now - terrainFrameNanos) / 1.0e9));
@@ -393,16 +407,16 @@ public final class TacticalCameraController
 
         if (minecraft.level == null || minecraft.isPaused())
         {
-            return new Vec3(cameraFocus.x, terrainFocusY, cameraFocus.z);
+            return new Vec3(renderedFocus.x, terrainFocusY, renderedFocus.z);
         }
 
-        double ground = interpolatedSurfaceHeight(minecraft, cameraFocus.x, cameraFocus.z);
+        double ground = interpolatedSurfaceHeight(minecraft, renderedFocus.x, renderedFocus.z);
         // Unknown/empty columns preserve altitude, rather than dropping toward
         // the world's minimum build height at the edge of loaded terrain.
         double target = Double.isNaN(ground) ? terrainFocusY : ground + TERRAIN_FOCUS_OFFSET;
 
-        double cameraX = cameraFocus.x - forward.x * cameraDistance;
-        double cameraZ = cameraFocus.z - forward.z * cameraDistance;
+        double cameraX = renderedFocus.x - forward.x * cameraDistance;
+        double cameraZ = renderedFocus.z - forward.z * cameraDistance;
         double cameraLift = -forward.y * cameraDistance;
         double minimumFocusY = Double.NEGATIVE_INFINITY;
         // Cover the camera's immediate footprint, including block boundaries.
@@ -424,7 +438,7 @@ public final class TacticalCameraController
         // At abrupt cliffs, rotation or zoom changes, clearance takes precedence
         // over smoothing. Descending still eases down instead of snapping.
         terrainFocusY = Math.max(terrainFocusY, minimumFocusY);
-        return new Vec3(cameraFocus.x, terrainFocusY, cameraFocus.z);
+        return new Vec3(renderedFocus.x, terrainFocusY, renderedFocus.z);
     }
 
     private static double interpolatedSurfaceHeight(Minecraft minecraft, double x, double z)
