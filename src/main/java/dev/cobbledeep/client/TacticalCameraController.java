@@ -39,7 +39,6 @@ public final class TacticalCameraController
     private static final float TACTICAL_FOV = 50.0F;
     private static final float ROTATION_STEP = 90.0F;
 
-    private static final float VANILLA_THIRD_PERSON_DISTANCE = 4.0F;
     private static final float MIN_CAMERA_DISTANCE = 6.0F;
     private static final float MAX_CAMERA_DISTANCE = 48.0F;
     private static final float CAMERA_DISTANCE_STEP = 2.0F;
@@ -55,20 +54,16 @@ public final class TacticalCameraController
     private static float yaw = 45.0F;
     private static float cameraDistance = 14.0F;
     private static CameraType previousCameraType = CameraType.FIRST_PERSON;
+    private static boolean previousViewBobbing;
     private static Vec3 movementTarget;
     private static boolean clickMoveForwardHeld;
 
-    // Tactical camera focus is an absolute world-space point, independent from
+    // Tactical camera focus includes eye height captured only on activation or
+    // explicit recenter. It is an absolute world-space point, independent from
     // the player's current position. This is what allows edge-panning to leave
     // the player off-centre while the character continues moving underneath it.
     private static Vec3 cameraFocus;
 
-    private static boolean renderRotationOverridden;
-    private static boolean extraCameraDistanceApplied;
-    private static float savedYaw;
-    private static float savedPitch;
-    private static float savedYawOld;
-    private static float savedPitchOld;
 
     private TacticalCameraController() { }
 
@@ -95,8 +90,10 @@ public final class TacticalCameraController
             if (enabled)
             {
                 previousCameraType = minecraft.options.getCameraType();
+                previousViewBobbing = minecraft.options.bobView().get();
+                minecraft.options.bobView().set(false);
                 minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-                cameraFocus = minecraft.player.position();
+                cameraFocus = minecraft.player.position().add(0.0, minecraft.player.getEyeHeight(), 0.0);
                 if (minecraft.screen == null)
                 {
                     minecraft.mouseHandler.releaseMouse();
@@ -107,6 +104,7 @@ public final class TacticalCameraController
                 stopClickMovement(minecraft);
                 cameraFocus = null;
                 minecraft.options.setCameraType(previousCameraType);
+                minecraft.options.bobView().set(previousViewBobbing);
                 if (minecraft.screen == null)
                 {
                     minecraft.mouseHandler.grabMouse();
@@ -130,7 +128,7 @@ public final class TacticalCameraController
         {
             if (minecraft.player != null)
             {
-                cameraFocus = minecraft.player.position();
+                cameraFocus = minecraft.player.position().add(0.0, minecraft.player.getEyeHeight(), 0.0);
             }
         }
 
@@ -157,7 +155,7 @@ public final class TacticalCameraController
 
         if (cameraFocus == null)
         {
-            cameraFocus = player.position();
+            cameraFocus = player.position().add(0.0, player.getEyeHeight(), 0.0);
         }
 
         double width = minecraft.getWindow().getScreenWidth();
@@ -330,97 +328,38 @@ public final class TacticalCameraController
     }
 
     @SubscribeEvent
-    public static void onRenderTickPre(TickEvent.RenderTickEvent.Pre event)
-    {
-        extraCameraDistanceApplied = false;
-        if (!enabled || renderRotationOverridden) return;
-
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) return;
-
-        savedYaw = player.getYRot();
-        savedPitch = player.getXRot();
-        savedYawOld = player.yRotO;
-        savedPitchOld = player.xRotO;
-
-        player.setYRot(yaw);
-        player.setXRot(TACTICAL_PITCH);
-        player.yRotO = yaw;
-        player.xRotO = TACTICAL_PITCH;
-        renderRotationOverridden = true;
-    }
-
-    @SubscribeEvent
-    public static void onRenderTickPost(TickEvent.RenderTickEvent.Post event)
-    {
-        if (!renderRotationOverridden) return;
-
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player != null)
-        {
-            player.setYRot(savedYaw);
-            player.setXRot(savedPitch);
-            player.yRotO = savedYawOld;
-            player.xRotO = savedPitchOld;
-        }
-
-        renderRotationOverridden = false;
-    }
-
-    @SubscribeEvent
     public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event)
     {
         if (!enabled) return;
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) return;
+
+        if (cameraFocus == null)
+        {
+            cameraFocus = player.position().add(0.0, player.getEyeHeight(), 0.0);
+        }
+
         event.setYaw(yaw);
         event.setPitch(TACTICAL_PITCH);
         event.setRoll(0.0F);
+
+        // This hook runs after vanilla Camera.setup(), before frustum/world
+        // rendering. Replace its player-relative position outright; never try
+        // to undo vanilla's interpolated/collision-adjusted third-person offset.
+        // Use our requested angles, not the camera's still-vanilla look vector.
+        Vec3 forward = Vec3.directionFromRotation(TACTICAL_PITCH, yaw);
+        Vec3 position = cameraFocus.subtract(forward.scale(cameraDistance));
+        event.getCamera().setPosition(position.x, position.y, position.z);
     }
 
     @SubscribeEvent
     public static void onComputeFov(ViewportEvent.ComputeFov event)
     {
-        if (!enabled) return;
-
-        event.setFOV(TACTICAL_FOV);
-
-        if (!extraCameraDistanceApplied)
+        if (enabled)
         {
-            LocalPlayer player = Minecraft.getInstance().player;
-            if (player == null) return;
-
-            if (cameraFocus == null)
-            {
-                cameraFocus = player.position();
-            }
-
-            Camera camera = event.getCamera();
-            Vec3 forward = new Vec3(camera.getLookVector());
-            Vec3 up = new Vec3(camera.getUpVector());
-            Vec3 left = new Vec3(camera.getLeftVector());
-
-            // Camera.setup() has already built vanilla third-person view around
-            // the player's interpolated render position. Reconstruct that exact
-            // focal point from the camera itself instead of subtracting the
-            // player's tick position. Mixing those two coordinate times caused
-            // player movement to leak into the supposedly free camera and made
-            // edge-pan plus walking appear roughly twice as fast.
-            Vec3 vanillaFocus = camera.getPosition()
-                    .add(forward.scale(VANILLA_THIRD_PERSON_DISTANCE));
-            Vec3 desiredFocus = new Vec3(
-                    cameraFocus.x,
-                    cameraFocus.y + player.getEyeHeight(),
-                    cameraFocus.z);
-            Vec3 desiredWorldShift = desiredFocus.subtract(vanillaFocus);
-
-            float localForward = (float)desiredWorldShift.dot(forward);
-            float localUp = (float)desiredWorldShift.dot(up);
-            float localLeft = (float)desiredWorldShift.dot(left);
-
-            camera.move(localForward, localUp, localLeft);
-
-            float extraDistance = Math.max(0.0F, cameraDistance - VANILLA_THIRD_PERSON_DISTANCE);
-            camera.move(-extraDistance, 0.0F, 0.0F);
-            extraCameraDistanceApplied = true;
+            // FOV can be computed multiple times per frame. It must not move
+            // the camera or depend on whether another FOV query already ran.
+            event.setFOV(TACTICAL_FOV);
         }
     }
 
