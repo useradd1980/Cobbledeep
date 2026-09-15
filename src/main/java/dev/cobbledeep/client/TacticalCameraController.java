@@ -41,6 +41,7 @@ public final class TacticalCameraController
 
     private static final float MIN_CAMERA_DISTANCE = 6.0F;
     private static final float MAX_CAMERA_DISTANCE = 48.0F;
+    private static final float DEFAULT_CAMERA_DISTANCE = 14.0F;
     private static final float CAMERA_DISTANCE_STEP = 2.0F;
 
     private static final double MOVE_STOP_DISTANCE = 0.45;
@@ -51,7 +52,7 @@ public final class TacticalCameraController
 
     private static boolean enabled;
     private static float yaw = 45.0F;
-    private static float cameraDistance = 14.0F;
+    private static float cameraDistance = DEFAULT_CAMERA_DISTANCE;
     private static CameraType previousCameraType = CameraType.FIRST_PERSON;
     private static boolean previousViewBobbing;
     private static Vec3 movementTarget;
@@ -186,7 +187,11 @@ public final class TacticalCameraController
         {
             pan = pan.normalize();
         }
-        cameraFocus = cameraFocus.add(pan.scale(EDGE_PAN_MAX_SPEED));
+        // Scale world-space movement with camera distance so the apparent
+        // screen-space panning speed stays useful as more terrain becomes visible.
+        // Keep the original speed at the default distance and at closer zooms.
+        double zoomSpeedMultiplier = Math.max(1.0, cameraDistance / DEFAULT_CAMERA_DISTANCE);
+        cameraFocus = cameraFocus.add(pan.scale(EDGE_PAN_MAX_SPEED * zoomSpeedMultiplier));
     }
 
     private static double edgeStrength(double coordinate, double size)
