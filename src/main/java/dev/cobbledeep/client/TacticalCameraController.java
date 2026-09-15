@@ -6,6 +6,7 @@ import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ClipContext;
@@ -377,7 +378,7 @@ public final class TacticalCameraController
 
     /**
      * Outdoor surface tracking. X/Z remain controlled only by pan/recenter.
-     * Heightmaps avoid scanning blocks and never request missing chunks.
+     * Client heightmaps bound the leaf-filtering scan; missing chunks are skipped.
      */
     private static Vec3 terrainAdjustedFocus(Minecraft minecraft, Vec3 forward)
     {
@@ -451,10 +452,25 @@ public final class TacticalCameraController
         {
             return Double.NaN;
         }
-        // Includes water surfaces, excludes leaf canopies. Buildings and solid
-        // overhangs count as surface; underground camera behaviour is separate.
-        int height = minecraft.level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-        return height <= minecraft.level.getMinBuildHeight() ? Double.NaN : height;
+        // MOTION_BLOCKING is synchronized to clients. NO_LEAVES is server-only:
+        // its pre-created client heightmap can remain empty after chunk loading.
+        // Start at the synchronized surface and skip leaves locally instead.
+        int top = minecraft.level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
+        int bottom = minecraft.level.getMinBuildHeight();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int y = top - 1; y >= bottom; y--)
+        {
+            cursor.set(x, y, z);
+            var state = minecraft.level.getBlockState(cursor);
+            if (!state.is(BlockTags.LEAVES)
+                    && (state.blocksMotion() || !state.getFluidState().isEmpty()))
+            {
+                // Heightmaps use the first free Y above the surface block.
+                return y + 1.0;
+            }
+        }
+        // Empty columns retain the existing altitude.
+        return Double.NaN;
     }
 
     @SubscribeEvent
