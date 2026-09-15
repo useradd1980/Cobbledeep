@@ -5,6 +5,8 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
@@ -50,6 +52,10 @@ public final class TacticalCameraController
     private static final double EDGE_PAN_ZONE_FRACTION = 1.0 / 8.0;
     private static final double EDGE_PAN_MAX_SPEED = 0.42;
 
+    private static final double TERRAIN_FOCUS_OFFSET = 1.6;
+    private static final double TERRAIN_CAMERA_CLEARANCE = 1.0;
+    private static final double TERRAIN_HEIGHT_RESPONSE = 6.0;
+
     private static boolean enabled;
     private static float yaw = 45.0F;
     private static float cameraDistance = DEFAULT_CAMERA_DISTANCE;
@@ -63,6 +69,8 @@ public final class TacticalCameraController
     // the player's current position. This is what allows edge-panning to leave
     // the player off-centre while the character continues moving underneath it.
     private static Vec3 cameraFocus;
+    private static double terrainFocusY = Double.NaN;
+    private static long terrainFrameNanos;
 
 
     private TacticalCameraController() { }
@@ -94,6 +102,7 @@ public final class TacticalCameraController
                 minecraft.options.bobView().set(false);
                 minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
                 cameraFocus = minecraft.player.position().add(0.0, minecraft.player.getEyeHeight(), 0.0);
+                terrainFocusY = Double.NaN;
                 if (minecraft.screen == null)
                 {
                     minecraft.mouseHandler.releaseMouse();
@@ -103,6 +112,7 @@ public final class TacticalCameraController
             {
                 stopClickMovement(minecraft);
                 cameraFocus = null;
+                terrainFocusY = Double.NaN;
                 minecraft.options.setCameraType(previousCameraType);
                 minecraft.options.bobView().set(previousViewBobbing);
                 if (minecraft.screen == null)
@@ -129,6 +139,7 @@ public final class TacticalCameraController
             if (minecraft.player != null)
             {
                 cameraFocus = minecraft.player.position().add(0.0, minecraft.player.getEyeHeight(), 0.0);
+                terrainFocusY = Double.NaN;
             }
         }
 
@@ -156,6 +167,7 @@ public final class TacticalCameraController
         if (cameraFocus == null)
         {
             cameraFocus = player.position().add(0.0, player.getEyeHeight(), 0.0);
+            terrainFocusY = Double.NaN;
         }
 
         double width = minecraft.getWindow().getScreenWidth();
@@ -346,6 +358,7 @@ public final class TacticalCameraController
         if (cameraFocus == null)
         {
             cameraFocus = player.position().add(0.0, player.getEyeHeight(), 0.0);
+            terrainFocusY = Double.NaN;
         }
 
         event.setYaw(yaw);
@@ -357,8 +370,91 @@ public final class TacticalCameraController
         // to undo vanilla's interpolated/collision-adjusted third-person offset.
         // Use our requested angles, not the camera's still-vanilla look vector.
         Vec3 forward = Vec3.directionFromRotation(TACTICAL_PITCH, yaw);
-        Vec3 position = cameraFocus.subtract(forward.scale(cameraDistance));
+        Vec3 position = terrainAdjustedFocus(Minecraft.getInstance(), forward)
+                .subtract(forward.scale(cameraDistance));
         event.getCamera().setPosition(position.x, position.y, position.z);
+    }
+
+    /**
+     * Outdoor surface tracking. X/Z remain controlled only by pan/recenter.
+     * Heightmaps avoid scanning blocks and never request missing chunks.
+     */
+    private static Vec3 terrainAdjustedFocus(Minecraft minecraft, Vec3 forward)
+    {
+        long now = System.nanoTime();
+        if (Double.isNaN(terrainFocusY))
+        {
+            terrainFocusY = cameraFocus.y;
+            terrainFrameNanos = now;
+        }
+        double elapsed = Math.min(0.1, Math.max(0.0, (now - terrainFrameNanos) / 1.0e9));
+        terrainFrameNanos = now;
+
+        if (minecraft.level == null || minecraft.isPaused())
+        {
+            return new Vec3(cameraFocus.x, terrainFocusY, cameraFocus.z);
+        }
+
+        double ground = interpolatedSurfaceHeight(minecraft, cameraFocus.x, cameraFocus.z);
+        // Unknown/empty columns preserve altitude, rather than dropping toward
+        // the world's minimum build height at the edge of loaded terrain.
+        double target = Double.isNaN(ground) ? terrainFocusY : ground + TERRAIN_FOCUS_OFFSET;
+
+        double cameraX = cameraFocus.x - forward.x * cameraDistance;
+        double cameraZ = cameraFocus.z - forward.z * cameraDistance;
+        double cameraLift = -forward.y * cameraDistance;
+        double minimumFocusY = Double.NEGATIVE_INFINITY;
+        // Cover the camera's immediate footprint, including block boundaries.
+        for (int ix = -1; ix <= 1; ix += 2)
+        {
+            for (int iz = -1; iz <= 1; iz += 2)
+            {
+                double surface = surfaceHeight(minecraft, Mth.floor(cameraX + ix * 0.5), Mth.floor(cameraZ + iz * 0.5));
+                if (!Double.isNaN(surface))
+                {
+                    minimumFocusY = Math.max(minimumFocusY,
+                            surface + TERRAIN_CAMERA_CLEARANCE - cameraLift);
+                }
+            }
+        }
+        target = Math.max(target, minimumFocusY);
+        // Exponential smoothing gives the same response at different frame rates.
+        terrainFocusY += (target - terrainFocusY) * (1.0 - Math.exp(-TERRAIN_HEIGHT_RESPONSE * elapsed));
+        // At abrupt cliffs, rotation or zoom changes, clearance takes precedence
+        // over smoothing. Descending still eases down instead of snapping.
+        terrainFocusY = Math.max(terrainFocusY, minimumFocusY);
+        return new Vec3(cameraFocus.x, terrainFocusY, cameraFocus.z);
+    }
+
+    private static double interpolatedSurfaceHeight(Minecraft minecraft, double x, double z)
+    {
+        // Treat column heights as samples at block centres to avoid stepwise
+        // height targets when crossing from one block to the next.
+        int x0 = Mth.floor(x - 0.5);
+        int z0 = Mth.floor(z - 0.5);
+        double tx = x - 0.5 - x0;
+        double tz = z - 0.5 - z0;
+        double h00 = surfaceHeight(minecraft, x0, z0);
+        double h10 = surfaceHeight(minecraft, x0 + 1, z0);
+        double h01 = surfaceHeight(minecraft, x0, z0 + 1);
+        double h11 = surfaceHeight(minecraft, x0 + 1, z0 + 1);
+        if (Double.isNaN(h00) || Double.isNaN(h10) || Double.isNaN(h01) || Double.isNaN(h11))
+        {
+            return Double.NaN;
+        }
+        return Mth.lerp(tz, Mth.lerp(tx, h00, h10), Mth.lerp(tx, h01, h11));
+    }
+
+    private static double surfaceHeight(Minecraft minecraft, int x, int z)
+    {
+        if (minecraft.level == null || !minecraft.level.hasChunkAt(new BlockPos(x, 0, z)))
+        {
+            return Double.NaN;
+        }
+        // Includes water surfaces, excludes leaf canopies. Buildings and solid
+        // overhangs count as surface; underground camera behaviour is separate.
+        int height = minecraft.level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        return height <= minecraft.level.getMinBuildHeight() ? Double.NaN : height;
     }
 
     @SubscribeEvent
