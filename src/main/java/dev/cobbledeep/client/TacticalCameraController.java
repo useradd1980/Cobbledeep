@@ -46,8 +46,7 @@ public final class TacticalCameraController
     private static final double MOVE_STOP_DISTANCE = 0.45;
     private static final double CLICK_RAY_DISTANCE = 256.0;
 
-    private static final double EDGE_PAN_MARGIN = 28.0;
-    private static final double EDGE_PAN_MIN_SPEED = 0.08;
+    private static final double EDGE_PAN_ZONE_FRACTION = 1.0 / 8.0;
     private static final double EDGE_PAN_MAX_SPEED = 0.42;
 
     private static boolean enabled;
@@ -170,9 +169,6 @@ public final class TacticalCameraController
 
         if (horizontal == 0.0 && vertical == 0.0) return;
 
-        double magnitude = Math.min(1.0, Math.sqrt(horizontal * horizontal + vertical * vertical));
-        double speed = Mth.lerp(magnitude, EDGE_PAN_MIN_SPEED, EDGE_PAN_MAX_SPEED);
-
         // Camera yaw defines screen-space directions on the X/Z plane.
         double radians = Math.toRadians(yaw);
         Vec3 forward = new Vec3(-Math.sin(radians), 0.0, Math.cos(radians));
@@ -184,24 +180,31 @@ public final class TacticalCameraController
         Vec3 pan = right.scale(horizontal)
                 .add(forward.scale(-vertical));
 
-        if (pan.lengthSqr() > 1.0e-8)
+        // Preserve each axis's gradual ramp from zero, including when entering
+        // a corner zone. Cap the combined vector so diagonals are not faster.
+        if (pan.lengthSqr() > 1.0)
         {
-            pan = pan.normalize().scale(speed);
-            cameraFocus = cameraFocus.add(pan);
+            pan = pan.normalize();
         }
+        cameraFocus = cameraFocus.add(pan.scale(EDGE_PAN_MAX_SPEED));
     }
 
     private static double edgeStrength(double coordinate, double size)
     {
-        if (coordinate < EDGE_PAN_MARGIN)
+        if (size <= 0.0) return 0.0;
+
+        // Use the width for horizontal edges and height for vertical edges.
+        // Their overlap creates generous diagonal zones at all four corners.
+        double margin = size * EDGE_PAN_ZONE_FRACTION;
+        if (coordinate < margin)
         {
-            return -Mth.clamp((EDGE_PAN_MARGIN - coordinate) / EDGE_PAN_MARGIN, 0.0, 1.0);
+            return -Mth.clamp((margin - coordinate) / margin, 0.0, 1.0);
         }
 
-        double farEdge = size - EDGE_PAN_MARGIN;
+        double farEdge = size - margin;
         if (coordinate > farEdge)
         {
-            return Mth.clamp((coordinate - farEdge) / EDGE_PAN_MARGIN, 0.0, 1.0);
+            return Mth.clamp((coordinate - farEdge) / margin, 0.0, 1.0);
         }
 
         return 0.0;
