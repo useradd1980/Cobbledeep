@@ -29,7 +29,8 @@ import org.lwjgl.glfw.GLFW;
  * cursor rather than steering the player's view. Left-clicking terrain sets a
  * movement destination. Comma/period rotate the camera in 90-degree steps, the
  * mouse wheel changes real camera distance, and moving the cursor to a screen
- * edge pans a free tactical camera focus point.
+ * edge pans a free tactical camera focus point. Hold right mouse and drag
+ * horizontally to orbit that point; a right-click without dragging cancels movement.
  *
  * Click-to-move is intentionally simple at this stage: it walks directly toward
  * the selected point using normal player movement/collision. Pathfinding around
@@ -41,6 +42,8 @@ public final class TacticalCameraController
     private static final float TACTICAL_PITCH = 45.0F;
     private static final float TACTICAL_FOV = 50.0F;
     private static final float ROTATION_STEP = 90.0F;
+    private static final double DRAG_ROTATION_SENSITIVITY = 0.25;
+    private static final double DRAG_ROTATION_THRESHOLD = 4.0;
 
     private static final float MIN_CAMERA_DISTANCE = 6.0F;
     private static final float MAX_CAMERA_DISTANCE = 48.0F;
@@ -64,6 +67,10 @@ public final class TacticalCameraController
     private static boolean previousViewBobbing;
     private static Vec3 movementTarget;
     private static boolean clickMoveForwardHeld;
+    private static boolean rightMouseHeld;
+    private static boolean rightMouseDragged;
+    private static double rightMouseLastX;
+    private static double rightMousePendingDelta;
 
     // Tactical camera focus includes eye height captured only on activation or
     // explicit recenter. It is an absolute world-space point, independent from
@@ -96,6 +103,7 @@ public final class TacticalCameraController
         {
             if (minecraft.player == null) return;
 
+            resetCameraDrag();
             enabled = !enabled;
             if (enabled)
             {
@@ -127,6 +135,10 @@ public final class TacticalCameraController
         }
 
         if (!enabled) return;
+        if (minecraft.screen != null || minecraft.player == null || !minecraft.isWindowActive())
+        {
+            resetCameraDrag();
+        }
 
         while (TacticalCameraKeys.ROTATE_LEFT.consumeClick())
         {
@@ -170,7 +182,7 @@ public final class TacticalCameraController
     private static void updateEdgePan(Minecraft minecraft)
     {
         LocalPlayer player = minecraft.player;
-        if (player == null || minecraft.screen != null) return;
+        if (player == null || minecraft.screen != null || rightMouseHeld || !minecraft.isWindowActive()) return;
 
         if (cameraFocus == null)
         {
@@ -276,31 +288,80 @@ public final class TacticalCameraController
     @SubscribeEvent
     public static void onMouseButton(InputEvent.MouseButton.Pre event)
     {
-        if (!enabled || event.getAction() != GLFW.GLFW_PRESS) return;
-
+        if (!enabled) return;
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null || minecraft.level == null || minecraft.screen != null) return;
+
+        // Always clear the gesture on release, including releases over a menu.
+        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT
+                && event.getAction() == GLFW.GLFW_RELEASE && rightMouseHeld)
+        {
+            boolean worldInput = minecraft.player != null && minecraft.level != null
+                    && minecraft.screen == null && minecraft.isWindowActive();
+            if (worldInput)
+            {
+                updateCameraDrag(minecraft);
+                if (!rightMouseDragged) stopClickMovement(minecraft);
+                event.setCanceled(true);
+            }
+            resetCameraDrag();
+            return;
+        }
+
+        if (event.getAction() != GLFW.GLFW_PRESS || minecraft.player == null
+                || minecraft.level == null || minecraft.screen != null || !minecraft.isWindowActive()) return;
 
         if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
         {
-            Vec3 target = raycastCursorToWorld(minecraft);
-            if (target != null)
+            if (!rightMouseHeld)
             {
-                movementTarget = target;
+                Vec3 target = raycastCursorToWorld(minecraft);
+                if (target != null) movementTarget = target;
             }
-
-            // Left-click is movement in tactical mode, not attack/break-block.
             event.setCanceled(true);
             minecraft.mouseHandler.releaseMouse();
         }
         else if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
         {
-            // Reserve right-click for the later CRPG context action system. For
-            // now it simply cancels an active movement order.
-            stopClickMovement(minecraft);
+            rightMouseHeld = true;
+            rightMouseDragged = false;
+            rightMousePendingDelta = 0.0;
+            rightMouseLastX = minecraft.mouseHandler.xpos();
             event.setCanceled(true);
             minecraft.mouseHandler.releaseMouse();
         }
+    }
+
+    private static void resetCameraDrag()
+    {
+        rightMouseHeld = false;
+        rightMouseDragged = false;
+        rightMousePendingDelta = 0.0;
+    }
+
+    private static void updateCameraDrag(Minecraft minecraft)
+    {
+        if (!rightMouseHeld) return;
+        if (minecraft.player == null || minecraft.level == null
+                || minecraft.screen != null || !minecraft.isWindowActive())
+        {
+            resetCameraDrag();
+            return;
+        }
+
+        double mouseX = minecraft.mouseHandler.xpos();
+        double delta = mouseX - rightMouseLastX;
+        rightMouseLastX = mouseX;
+        if (!rightMouseDragged)
+        {
+            rightMousePendingDelta += delta;
+            if (Math.abs(rightMousePendingDelta) <= DRAG_ROTATION_THRESHOLD) return;
+            rightMouseDragged = true;
+            // Discard only the click dead zone, avoiding a jump at drag onset.
+            delta = rightMousePendingDelta
+                    - Math.copySign(DRAG_ROTATION_THRESHOLD, rightMousePendingDelta);
+            rightMousePendingDelta = 0.0;
+        }
+        yaw = Mth.wrapDegrees(yaw + (float)(delta * DRAG_ROTATION_SENSITIVITY));
     }
 
     @SubscribeEvent
@@ -371,6 +432,8 @@ public final class TacticalCameraController
             terrainFocusY = Double.NaN;
         }
 
+        // Sample mouse motion each rendered frame, not at the 20 Hz game tick.
+        updateCameraDrag(Minecraft.getInstance());
         event.setYaw(yaw);
         event.setPitch(TACTICAL_PITCH);
         event.setRoll(0.0F);
