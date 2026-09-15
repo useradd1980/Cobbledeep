@@ -176,7 +176,8 @@ public final class TacticalCameraController
         // Camera yaw defines screen-space directions on the X/Z plane.
         double radians = Math.toRadians(yaw);
         Vec3 forward = new Vec3(-Math.sin(radians), 0.0, Math.cos(radians));
-        Vec3 right = new Vec3(Math.cos(radians), 0.0, Math.sin(radians));
+        // Screen-right is forward cross world-up; the opposite points left.
+        Vec3 right = new Vec3(-Math.cos(radians), 0.0, -Math.sin(radians));
 
         // Screen top means move the focus forward into the scene. Screen bottom
         // moves backward; left/right map directly to their screen directions.
