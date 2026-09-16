@@ -17,6 +17,7 @@ import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 
 /** Renders a clean, full-bright tactical destination ring. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
@@ -33,9 +34,8 @@ public final class TacticalMoveMarkerRenderer
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onRenderLevel(RenderLevelStageEvent event)
     {
-        // Draw after the tactical fog composite. Debug lines drawn at earlier
-        // stages were dimmed or lost; this textured quad remains crisp while
-        // still using the world's depth buffer for natural terrain occlusion.
+        // Draw after the tactical fog composite, retaining world depth for
+        // terrain occlusion.
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL) return;
         if (!TacticalCameraController.isEnabled()) return;
 
@@ -50,8 +50,11 @@ public final class TacticalMoveMarkerRenderer
         float alpha = (float)(0.82 + (Math.sin(time * 0.18) + 1.0) * 0.07);
         Vec3 camera = event.getCamera().getPosition();
 
-        @SuppressWarnings("removal")
-        Matrix4f pose = new Matrix4f(event.getPoseStack());
+        // AFTER_LEVEL receives GameRenderer's effect pose, not the view matrix
+        // supplied to LevelRenderer. Reconstruct that view from the camera;
+        // never mutate the camera's quaternion while taking its inverse.
+        Matrix4f pose = new Matrix4f().rotation(
+                new Quaternionf(event.getCamera().rotation()).conjugate());
         pose.translate(
                 (float)(target.x - camera.x),
                 (float)(target.y - camera.y + HEIGHT_OFFSET),
