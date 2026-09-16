@@ -14,6 +14,7 @@ import java.util.List;
 /** Follows collision-checked waypoints using ordinary player input, never teleportation. */
 final class TacticalPathMovement
 {
+    private static final int POST_CLIMB_GRACE_TICKS = 6;
     private static TacticalWalkWorld world;
     private static GridPathfinder.Search search;
     private static boolean searchWhileMoving;
@@ -21,7 +22,7 @@ final class TacticalPathMovement
     private static Vec3 target;
     private static Vec3 pathStart;
     private static double previousWaitY = Double.NaN;
-    private static int waypoint, stalled, blockedTicks;
+    private static int waypoint, stalled, blockedTicks, postClimbGraceTicks;
     private static final RouteRecovery recovery = new RouteRecovery();
     private static final MovementProgress movement = new MovementProgress();
     private static boolean forwardHeld, jumpHeld;
@@ -49,7 +50,7 @@ final class TacticalPathMovement
         route = List.of(); waypoint = stalled = 0;
         movement.reset();
         previousWaitY = Double.NaN;
-        blockedTicks = 0;
+        blockedTicks = postClimbGraceTicks = 0;
         beginSearch(mc, false);
     }
 
@@ -118,7 +119,7 @@ final class TacticalPathMovement
                     pathStart = mc.player.position();
                     waypoint = 0;
                     movement.reset();
-                    stalled = blockedTicks = 0;
+                    stalled = blockedTicks = postClimbGraceTicks = 0;
                     previousWaitY = Double.NaN;
                     message(mc, "");
                 }
@@ -179,6 +180,8 @@ final class TacticalPathMovement
             }
             if (progress == WaypointProgress.State.REACHED && waypoint > 0)
                 recovery.reachedWaypoint(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+            if (progress == WaypointProgress.State.REACHED && point.y - from.y > 0.35)
+                postClimbGraceTicks = POST_CLIMB_GRACE_TICKS;
             if (++waypoint >= route.size()) { stop(mc); return; }
             node = route.get(waypoint); point = TacticalWalkWorld.point(node);
             movement.reset();
@@ -188,7 +191,16 @@ final class TacticalPathMovement
         previousWaitY = Double.NaN;
         double distance = Math.hypot(point.x - mc.player.getX(), point.z - mc.player.getZ());
         int stationaryTicks = movement.update(mc.player.getX(), mc.player.getY(), mc.player.getZ());
-        if (mc.player.onGround() && !world.canTravel(mc.player.position(), node))
+        boolean nextEdgeClear = world.canTravel(mc.player.position(), node);
+        if (!nextEdgeClear && postClimbGraceTicks > 0 && mc.player.onGround())
+        {
+            // Immediately after landing, the live body can still touch the
+            // ledge behind it. Recheck the planned edge from its graph origin;
+            // this still catches a door/block placed into the route itself.
+            Vec3 edgeOrigin = waypoint == 0 ? pathStart : TacticalWalkWorld.point(route.get(waypoint - 1));
+            nextEdgeClear = world.canTravel(edgeOrigin, node);
+        }
+        if (mc.player.onGround() && !nextEdgeClear)
         {
             // Recheck a brief contact before spending a route recovery. Keep
             // movement released throughout: this never drives through a wall.
@@ -197,6 +209,9 @@ final class TacticalPathMovement
             return;
         }
         blockedTicks = 0;
+        // The climb may be marked reached near the jump apex. Preserve the
+        // full grace interval until the player actually touches down.
+        if (postClimbGraceTicks > 0 && mc.player.onGround()) postClimbGraceTicks--;
         if (mc.player.onGround() && stationaryTicks >= 30 && search == null)
         {
             // The next edge is still safe, so keep following it while A*
@@ -220,7 +235,7 @@ final class TacticalPathMovement
         searchWhileMoving = false;
         movement.reset();
         previousWaitY = Double.NaN;
-        waypoint = stalled = blockedTicks = 0;
+        waypoint = stalled = blockedTicks = postClimbGraceTicks = 0;
         recovery.clear();
     }
 
@@ -237,7 +252,7 @@ final class TacticalPathMovement
             fail(mc, "Unable to continue from here. Choose another destination.");
         else
         {
-            stalled = blockedTicks = 0;
+            stalled = blockedTicks = postClimbGraceTicks = 0;
             beginSearch(mc, whileMoving);
         }
     }

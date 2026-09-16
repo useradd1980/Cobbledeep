@@ -69,6 +69,12 @@ the player's feet reach the higher surface. This applies to final uphill steps
 and uphill corners as well as straight stair runs. Descents retain the separate
 landing wait above.
 
+For the first six grounded ticks after completing a climb, a transient
+collision from the live post-jump body is checked again from the next edge's
+canonical graph origin.
+This keeps movement held while the body settles against the ledge. The planned
+edge is still collision-checked, so a newly placed block or closed door stops it.
+
 ## Verification
 
 Compile `src/main/java/dev/cobbledeep/pathfinding/GridPathfinder.java` and
