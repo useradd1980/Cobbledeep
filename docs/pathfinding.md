@@ -7,7 +7,9 @@ It stays centred beneath the player with frame-smoothed movement and does not
 pulse. While a destination is active, a matching two-band ring pulses over the
 destination and remains there for half a second after arrival. Both are rendered
 after tactical fog as anti-aliased world-space decals that remain readable at
-maximum zoom.
+maximum zoom. Inside the final arrival area, the markers share the player's
+centre: its fixed inner ring and the destination's pulsing outer ring form one
+combined marker.
 Right-click without dragging cancels. Dragging right-click still rotates the
 camera. Pressing a movement/jump/sneak key cancels the route and returns control
 to the keyboard. Opening a menu, losing window focus, dying, changing world or

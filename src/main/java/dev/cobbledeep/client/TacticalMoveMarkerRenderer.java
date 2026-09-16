@@ -27,10 +27,12 @@ public final class TacticalMoveMarkerRenderer
     private static final int TEXTURE_SIZE = 128;
     private static final float RADIUS = 0.92F;
     private static final float DESTINATION_PULSE = 0.09F;
+    private static final double MERGE_DISTANCE_SQR = 0.75 * 0.75;
     private static final double HEIGHT_OFFSET = 0.10;
     private static final double FOLLOW_RESPONSE = 24.0;
     private static ResourceLocation selectionRingTexture;
     private static ResourceLocation destinationRingTexture;
+    private static ResourceLocation mergedDestinationRingTexture;
     private static LocalPlayer followedPlayer;
     private static Vec3 smoothedTarget;
     private static long previousFrameNanos;
@@ -58,17 +60,21 @@ public final class TacticalMoveMarkerRenderer
         {
             double time = minecraft.level.getGameTime() + event.getPartialTick();
             float pulse = (float)Math.sin(time * 0.18);
-            renderRing(buffers, event, camera, destination,
+            double dx = destination.x - playerTarget.x;
+            double dz = destination.z - playerTarget.z;
+            boolean merged = dx * dx + dz * dz <= MERGE_DISTANCE_SQR
+                    && Math.abs(destination.y - playerTarget.y) <= 1.25;
+            renderRing(buffers, event, camera, merged ? playerTarget : destination,
                     RADIUS + pulse * DESTINATION_PULSE,
-                    (float)(0.84 + (pulse + 1.0) * 0.06), true);
+                    (float)(0.84 + (pulse + 1.0) * 0.06), merged ? 2 : 1);
         }
 
-        renderRing(buffers, event, camera, playerTarget, RADIUS, 0.92F, false);
+        renderRing(buffers, event, camera, playerTarget, RADIUS, 0.92F, 0);
     }
 
     private static void renderRing(MultiBufferSource.BufferSource buffers,
                                    RenderLevelStageEvent event, Vec3 camera, Vec3 target,
-                                   float radius, float alpha, boolean destination)
+                                   float radius, float alpha, int style)
     {
         // AFTER_LEVEL receives GameRenderer's effect pose, not the view matrix
         // supplied to LevelRenderer. Reconstruct that view from the camera;
@@ -80,7 +86,7 @@ public final class TacticalMoveMarkerRenderer
                 (float)(target.y - camera.y + HEIGHT_OFFSET),
                 (float)(target.z - camera.z));
 
-        RenderType renderType = RenderType.entityTranslucentEmissive(getRingTexture(destination));
+        RenderType renderType = RenderType.entityTranslucentEmissive(getRingTexture(style));
         VertexConsumer vertices = buffers.getBuffer(renderType);
         ring(vertices, pose, radius, 0.0F, alpha);
         buffers.endBatch(renderType);
@@ -105,9 +111,10 @@ public final class TacticalMoveMarkerRenderer
                 .setNormal(0.0F, 1.0F, 0.0F);
     }
 
-    private static ResourceLocation getRingTexture(boolean destination)
+    private static ResourceLocation getRingTexture(int style)
     {
-        ResourceLocation existing = destination ? destinationRingTexture : selectionRingTexture;
+        ResourceLocation existing = style == 0 ? selectionRingTexture
+                : style == 1 ? destinationRingTexture : mergedDestinationRingTexture;
         if (existing != null) return existing;
 
         DynamicTexture texture = new DynamicTexture(TEXTURE_SIZE, TEXTURE_SIZE, false);
@@ -118,20 +125,23 @@ public final class TacticalMoveMarkerRenderer
             for (int x = 0; x < TEXTURE_SIZE; x++)
             {
                 double distance = Math.hypot(x - centre, y - centre) / centre;
-                // The player uses the inner band. Destinations add the outer
-                // band while retaining exactly the same width and colour.
+                // Selection uses the inner band, a distant destination uses
+                // both, and a merged destination uses only its outer band.
                 double innerRing = band(0.67, 0.685, 0.710, 0.725, distance);
                 double outerRing = band(0.84, 0.855, 0.880, 0.895, distance);
-                double coverage = destination ? Math.max(innerRing, outerRing) : innerRing;
+                double coverage = style == 0 ? innerRing
+                        : style == 1 ? Math.max(innerRing, outerRing) : outerRing;
                 int alpha = (int)Math.round(255.0 * coverage);
                 pixels.setPixelRGBA(x, y, (alpha << 24) | 0x00FFFFFF);
             }
         texture.upload();
         ResourceLocation registered = Minecraft.getInstance().getTextureManager().register(
-                destination ? "cobbledeep_tactical_destination_ring"
-                        : "cobbledeep_tactical_selection_ring", texture);
-        if (destination) destinationRingTexture = registered;
-        else selectionRingTexture = registered;
+                style == 0 ? "cobbledeep_tactical_selection_ring"
+                        : style == 1 ? "cobbledeep_tactical_destination_ring"
+                        : "cobbledeep_tactical_merged_destination_ring", texture);
+        if (style == 0) selectionRingTexture = registered;
+        else if (style == 1) destinationRingTexture = registered;
+        else mergedDestinationRingTexture = registered;
         return registered;
     }
 
