@@ -3,6 +3,7 @@ package dev.cobbledeep.client;
 import dev.cobbledeep.pathfinding.GridPathfinder;
 import dev.cobbledeep.pathfinding.GridPathfinder.Node;
 import dev.cobbledeep.pathfinding.WaypointProgress;
+import dev.cobbledeep.pathfinding.WalkStepRules;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
@@ -136,7 +137,7 @@ final class TacticalPathMovement
         { fail(mc, "Movement interrupted. Choose another destination."); return; }
         double dx = point.x - mc.player.getX(), dz = point.z - mc.player.getZ();
         mc.player.setYRot((float)Math.toDegrees(Math.atan2(-dx, dz)));
-        boolean jump = point.y - mc.player.getY() > 0.6 && distance < 1.35 && mc.player.onGround();
+        boolean jump = WalkStepRules.shouldJump(point.y - mc.player.getY(), distance, mc.player.onGround());
         input(mc, true, jump);
     }
 

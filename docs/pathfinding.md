@@ -10,8 +10,12 @@ leaving tactical mode also stops movement and releases automated inputs.
 Routes use A* over block-centred positions, with feet height stored in sixteenths
 of a block. Actual collision shapes and a standing player-sized body determine
 clearance. Open doors, ordinary stairs/slabs, one-block jumps and drops of at
-most one block are supported. Diagonals require both adjoining cardinal cells
-to be walkable at the same height, preventing corner cutting. Jumping requires
+most one block are supported. Level and uphill diagonals require both adjoining
+cardinal cells to be safely reachable, with heights between the source and
+destination. The full diagonal still needs swept-body collision clearance,
+preventing corner cutting. Downhill changes continue to use cardinal steps.
+Diagonal jumps start upon entering the validated edge, accounting for the longer
+distance between diagonal block centres. Jumping requires
 additional headroom. Creative flying, swimming, ladders, parkour, crouch-only
 passages, automatic door opening and moving platforms are outside this pass.
 
@@ -50,6 +54,9 @@ These tests exercise the search engine, not Minecraft collision or input APIs.
 Compile `WaypointProgress.java` with `tests/WaypointProgressTest.java` and run
 `WaypointProgressTest` for jump/drop overshoot, cardinal/diagonal movement,
 negative coordinates, corners, switchbacks and final-destination tolerance.
+Compile `WalkStepRules.java`, `GridPathfinder.java` and `tests/WalkStepRulesTest.java`
+and run `WalkStepRulesTest` for supported diagonal climbs, side gaps/walls,
+jump timing and an A* route up a synthetic terraced hill.
 
 In Minecraft, check:
 
@@ -63,3 +70,5 @@ In Minecraft, check:
    momentum behaviour require an in-game run on the installed Forge version.
 7. Walk up and down consecutive one-block ledges, including a corner immediately
    after a ledge. Check for backtracking, missed landings and cancellation mid-jump.
+8. Climb consecutive ledges diagonally in all four directions. Check narrow
+   uphill corners and low ceilings too: these must still block unsafe diagonals.

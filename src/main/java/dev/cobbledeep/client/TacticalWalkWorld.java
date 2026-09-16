@@ -2,6 +2,7 @@ package dev.cobbledeep.client;
 
 import dev.cobbledeep.pathfinding.GridPathfinder;
 import dev.cobbledeep.pathfinding.GridPathfinder.Node;
+import dev.cobbledeep.pathfinding.WalkStepRules;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -51,17 +52,15 @@ final class TacticalWalkWorld implements GridPathfinder.World
         for (int[] d : cardinal)
             for (Node to : surfaces(from.x() + d[0], from.z() + d[1], from.y() - 1.0, from.y() + 1.0))
                 if (canTravel(point(from), to)) result.add(to);
-        // Both adjoining cardinal cells must be walkable at the same height:
-        // no diagonally cutting through a wall corner or across a pit.
+        // Level and uphill diagonals may use different side heights, but both
+        // adjoining columns still need safe ground and clear cardinal edges.
         List<Node> sides = List.copyOf(result);
         for (int dx : new int[] {-1, 1})
             for (int dz : new int[] {-1, 1})
             {
-                Node sideX = new Node(from.x() + dx, from.y16(), from.z());
-                Node sideZ = new Node(from.x(), from.y16(), from.z() + dz);
-                Node to = new Node(from.x() + dx, from.y16(), from.z() + dz);
-                if (sides.contains(sideX) && sides.contains(sideZ) && standable(to)
-                        && canTravel(point(from), to)) result.add(to);
+                for (Node to : surfaces(from.x() + dx, from.z() + dz, from.y(), from.y() + 1.0))
+                    if (WalkStepRules.supportedDiagonal(from, to, sides)
+                            && canTravel(point(from), to)) result.add(to);
             }
         return result;
     }
@@ -125,7 +124,7 @@ final class TacticalWalkWorld implements GridPathfinder.World
     {
         Vec3 end = point(to);
         double rise = end.y - from.y;
-        if (Math.hypot(end.x - from.x, end.z - from.z) > 1.65
+        if (Math.hypot(end.x - from.x, end.z - from.z) > WalkStepRules.MAX_EDGE_DISTANCE
                 || rise > 1.05 || rise < -1.05 || !standable(to)) return false;
         double lift = Math.max(0, rise);
         // A jump needs extra headroom above the one-block ledge. Slabs/stairs
