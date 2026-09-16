@@ -5,6 +5,8 @@ uniform mat4 InverseProjection;
 uniform mat4 InverseView;
 uniform vec3 CameraPosition;
 uniform vec3 GridOrigin;
+uniform vec3 PlayerPosition;
+uniform float TerrainRange;
 in vec2 texCoord;
 out vec4 fragColor;
 
@@ -20,6 +22,13 @@ void main() {
     // Bias into the surface so integer block boundaries don't sample air on
     // the camera side of an unexplored wall.
     vec3 world = CameraPosition + relative + normalize(relative) * 0.02;
+    // Terrain uses a horizontal circle at every elevation. Check before the
+    // discovery atlas so newly visible ground never waits for a sync packet.
+    vec2 fromPlayer = world.xz - PlayerPosition.xz;
+    if (dot(fromPlayer, fromPlayer) <= TerrainRange * TerrainRange) {
+        fragColor = vec4(0.0);
+        return;
+    }
     ivec3 cell = ivec3(floor(world / 2.0) - GridOrigin);
     if (any(lessThan(cell, ivec3(0))) || any(greaterThanEqual(cell, ivec3(128)))) {
         fragColor = vec4(0.035, 0.045, 0.06, 1.0);

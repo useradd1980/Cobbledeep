@@ -155,4 +155,21 @@ pixels = bytearray(128**3)
 pixels[5 + 128 * (14 + 128 * 10)] = 2
 fog(pixels)
 draw((.8,.6,.4))
-print("GLSL compile/link, resource uniforms, depth copying and 6 framebuffer checks passed.")
+# A radius clears unknown ground immediately, independent of memory and height.
+set1 = fn(G, "glUniform1f", None, I, F)
+set1(uniform(program, b"TerrainRange"), 24)
+fog(bytes(128**3))
+for height in [-200, 20, 300]:
+    set3(uniform(program, b"PlayerPosition"), 10, height, 30)
+    draw((.8,.6,.4))
+set3(uniform(program, b"PlayerPosition"), 33.5, 20, 29.5)
+draw((.8,.6,.4))
+set3(uniform(program, b"PlayerPosition"), 34.5, 20, 29.5)
+draw((.035,.045,.06))
+# Move the character away without moving the camera: unknown returns opaque,
+# remembered ground dims. Camera position alone never grants visibility.
+set3(uniform(program, b"PlayerPosition"), 100, 20, 100)
+draw((.035,.045,.06))
+fog(bytes([1]) * (128**3))
+draw((.32,.24,.16))
+print("GLSL compile/link, resource uniforms, depth copying and 13 framebuffer checks passed.")

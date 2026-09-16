@@ -7,7 +7,7 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.cobbledeep.Cobbledeep;
-import dev.cobbledeep.exploration.CharacterSight;
+import dev.cobbledeep.exploration.TerrainRadius;
 import dev.cobbledeep.exploration.FogVolume;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
@@ -77,8 +77,8 @@ public final class TacticalFogRenderer
         {
             boolean relocated = fogTexture == -1 || lastLevel != mc.level
                     || ox != originX || oy != originY || oz != originZ;
-            // Bound expensive LOS refreshes to five per second; camera movement
-            // only changes the texture window, never the exploration record.
+            // Refresh exploration memory five times per second. Current terrain
+            // visibility follows the interpolated player position every frame.
             if (relocated || tick < lastTick || tick - lastTick >= 4)
             {
                 originX = ox; originY = oy; originZ = oz;
@@ -106,6 +106,9 @@ public final class TacticalFogRenderer
             shader.safeGetUniform("InverseView").set(new Matrix4f().rotation(event.getCamera().rotation()));
             shader.safeGetUniform("CameraPosition").set((float) camera.x, (float) camera.y, (float) camera.z);
             shader.safeGetUniform("GridOrigin").set((float) originX, (float) originY, (float) originZ);
+            Vec3 player = mc.player.getPosition(event.getPartialTick());
+            shader.safeGetUniform("PlayerPosition").set((float) player.x, (float) player.y, (float) player.z);
+            shader.safeGetUniform("TerrainRange").set((float) TerrainRadius.RANGE);
 
             RenderSystem.disableDepthTest();
             RenderSystem.disableScissor();
@@ -141,9 +144,8 @@ public final class TacticalFogRenderer
 
     private static void uploadFog(Minecraft mc)
     {
-        Vec3 eye = mc.player.getEyePosition();
         FogVolume.fill(PIXELS, ClientExploration.grid(mc.level.dimension().location()),
-                originX, originY, originZ, (x, y, z) -> CharacterSight.seesCell(mc.player, eye, x, y, z));
+                originX, originY, originZ, (x, y, z) -> false);
         if (upload == null) upload = MemoryUtil.memAlloc(FogVolume.LENGTH);
         upload.clear(); upload.put(PIXELS); upload.flip();
         boolean created = fogTexture == -1;

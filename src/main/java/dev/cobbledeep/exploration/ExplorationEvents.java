@@ -7,9 +7,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -17,86 +14,39 @@ import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID)
 public final class ExplorationEvents
 {
-    private static final int CELLS_PER_TICK = 96;
-    private static final List<BlockPos> OFFSETS = offsets();
-    private static final Map<ServerPlayer, Integer> CURSORS = new WeakHashMap<>();
+    private record Scan(int x, int z, long tick) { }
+    private static final Map<ServerPlayer, Scan> CURSORS = new WeakHashMap<>();
 
     private ExplorationEvents() { }
-
-    private static List<BlockPos> offsets()
-    {
-        List<BlockPos> result = new ArrayList<>();
-        int radius = (int) CharacterSight.RANGE / ExplorationGrid.CELL_SIZE;
-        for (int x = -radius; x <= radius; x++)
-            for (int y = -radius; y <= radius; y++)
-                for (int z = -radius; z <= radius; z++)
-                    if (x * x + y * y + z * z <= radius * radius)
-                        result.add(new BlockPos(x, y, z));
-        result.sort(Comparator.comparingDouble(p -> p.getX() * p.getX()
-                + p.getY() * p.getY() + p.getZ() * p.getZ()));
-        return List.copyOf(result);
-    }
 
     @SubscribeEvent
     public static void onPlayerTick(TickEvent.PlayerTickEvent.Post event)
     {
         if (!(event.player instanceof ServerPlayer player) || !player.isAlive() || player.isSpectator()) return;
         ExplorationData data = ExplorationData.get(player);
-        Vec3 eye = player.getEyePosition();
-        int size = ExplorationGrid.CELL_SIZE;
-        int baseX = Math.floorDiv(Mth.floor(eye.x), size) * size;
-        int baseY = Math.floorDiv(Mth.floor(eye.y), size) * size;
-        int baseZ = Math.floorDiv(Mth.floor(eye.z), size) * size;
-        int cursor = CURSORS.getOrDefault(player, 0);
-        // The bounded scan continues even while stationary, so opening a door
-        // reveals newly exposed cells. No player/camera movement is required.
-        for (int i = 0; i < CELLS_PER_TICK; i++)
+        int x = Mth.floor(player.getX()), z = Mth.floor(player.getZ());
+        long tick = player.level().getGameTime();
+        Scan previous = CURSORS.get(player);
+        // Scan on block movement and once per second while still, so newly
+        // received chunks join the record without forcing any chunk loads.
+        if (previous == null || previous.x() != x || previous.z() != z
+                || tick < previous.tick() || tick - previous.tick() >= 20)
         {
-            BlockPos offset = OFFSETS.get(cursor);
-            cursor = (cursor + 1) % OFFSETS.size();
-            int x = baseX + offset.getX() * size;
-            int y = baseY + offset.getY() * size;
-            int z = baseZ + offset.getZ() * size;
-            if (y < player.level().getMinBuildHeight() || y >= player.level().getMaxBuildHeight()) continue;
-            CellSight.visible(eye.x, eye.y, eye.z, x, y, z, CharacterSight.RANGE, (px, py, pz) ->
+            TerrainRadius.visit(player.getX(), player.getZ(), (bx, bz) ->
             {
-                BlockHitResult hit = CharacterSight.trace(player, eye, new Vec3(px, py, pz));
-                if (hit != null) revealSegment(data, eye, hit);
-                // Keep the first ray even for remembered cells: newly opened
-                // passages along that ray must still be discovered. Additional
-                // samples are needed only while the target cell remains unknown.
-                return data.grid().isExplored(x, y, z);
+                if (player.level().hasChunkAt(new BlockPos(bx, player.getBlockY(), bz)))
+                    data.discoverColumn(bx, bz, player.level().getMinBuildHeight(),
+                            player.level().getMaxBuildHeight());
             });
+            CURSORS.put(player, new Scan(x, z, tick));
         }
-        CURSORS.put(player, cursor);
         ExplorationSync.tick(player, data);
-    }
-
-    private static void revealSegment(ExplorationData data, Vec3 eye, BlockHitResult hit)
-    {
-        Vec3 visibleEnd = hit.getLocation();
-        // Mark only the unobstructed segment. Never continue through a wall
-        // or use the terrain heightmap to infer discovery underground.
-        int steps = Math.max(1, (int) Math.ceil(eye.distanceTo(visibleEnd) / 0.75));
-        for (int step = 0; step <= steps; step++)
-        {
-            Vec3 point = eye.lerp(visibleEnd, (double) step / steps);
-            data.discover(Mth.floor(point.x), Mth.floor(point.y), Mth.floor(point.z));
-        }
-        if (hit.getType() == HitResult.Type.BLOCK)
-        {
-            BlockPos surface = hit.getBlockPos();
-            data.discover(surface.getX(), surface.getY(), surface.getZ());
-        }
     }
 
     @SubscribeEvent
@@ -129,7 +79,7 @@ public final class ExplorationEvents
                             context.getSource().sendSuccess(() -> Component.literal(
                                     "Explored " + grid.discoveredCount() + " cells in " + grid.sections().size()
                                             + " sections of " + player.serverLevel().dimension().location()
-                                            + ". Cell size: 2x2x2 blocks; sight range: 24 blocks."), false);
+                                            + ". Cell size: 2x2x2 blocks; terrain radius: 24 horizontal blocks."), false);
                             return 1;
                         }))
                         .then(Commands.literal("check")

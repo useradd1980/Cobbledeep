@@ -43,6 +43,16 @@ public final class ExplorationData extends SavedData
         return result;
     }
 
+    public void discoverColumn(int x, int z, int minY, int maxY)
+    {
+        for (int sy = Math.floorDiv(minY, 16); sy <= Math.floorDiv(maxY - 1, 16); sy++)
+            if (grid.discoverSectionColumn(x, sy, z))
+            {
+                setDirty();
+                pendingSync.add(new ExplorationGrid.Section(Math.floorDiv(x, 16), sy, Math.floorDiv(z, 16)));
+            }
+    }
+
     private static ExplorationData load(CompoundTag tag)
     {
         if (tag.getInt("Version") != VERSION)

@@ -32,6 +32,26 @@ public final class ExplorationGrid
         return bits != null && bits.get(index(x, y, z));
     }
 
+    /** Discover one two-block-wide column within a 16-block-tall section. */
+    public boolean discoverSectionColumn(int x, int sectionY, int z)
+    {
+        Section key = new Section(Math.floorDiv(x, 16), sectionY, Math.floorDiv(z, 16));
+        BitSet bits = sections.computeIfAbsent(key, ignored -> new BitSet());
+        int base = index(x, 0, z);
+        boolean changed = false;
+        for (int y = 0; y < 8; y++)
+        {
+            int bit = base + y * 64;
+            if (!bits.get(bit))
+            {
+                bits.set(bit);
+                discoveredCount++;
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
     public long discoveredCount() { return discoveredCount; }
     public Set<Section> sections() { return Collections.unmodifiableSet(sections.keySet()); }
 
