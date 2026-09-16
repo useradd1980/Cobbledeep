@@ -15,11 +15,14 @@ import java.util.List;
 final class TacticalPathMovement
 {
     private static final int POST_CLIMB_GRACE_TICKS = 6;
+    private static final long ARRIVAL_MARKER_NANOS = 500_000_000L;
     private static TacticalWalkWorld world;
     private static GridPathfinder.Search search;
     private static boolean searchWhileMoving;
     private static List<Node> route = List.of();
     private static Vec3 target;
+    private static Vec3 arrivedTarget;
+    private static long arrivalMarkerUntil;
     private static Vec3 pathStart;
     private static double previousWaitY = Double.NaN;
     private static int waypoint, stalled, blockedTicks, postClimbGraceTicks;
@@ -28,6 +31,14 @@ final class TacticalPathMovement
     private static boolean forwardHeld, jumpHeld;
 
     static Vec3 target() { return target; }
+
+    static Vec3 markerTarget()
+    {
+        if (target != null) return target;
+        if (arrivedTarget != null && System.nanoTime() < arrivalMarkerUntil) return arrivedTarget;
+        arrivedTarget = null;
+        return null;
+    }
 
     static void start(Minecraft mc, Vec3 clicked)
     {
@@ -199,7 +210,7 @@ final class TacticalPathMovement
             // climb and needs the same post-landing transition as REACHED.
             if (WaypointProgress.completedClimb(progress, point.y - from.y))
                 postClimbGraceTicks = POST_CLIMB_GRACE_TICKS;
-            if (++waypoint >= route.size()) { stop(mc); return; }
+            if (++waypoint >= route.size()) { arrive(mc); return; }
             node = route.get(waypoint); point = TacticalWalkWorld.point(node);
             movement.reset();
             stalled = 0;
@@ -250,11 +261,20 @@ final class TacticalPathMovement
     {
         input(mc, false, false);
         target = null; pathStart = null; world = null; search = null; route = List.of();
+        arrivedTarget = null; arrivalMarkerUntil = 0L;
         searchWhileMoving = false;
         movement.reset();
         previousWaitY = Double.NaN;
         waypoint = stalled = blockedTicks = postClimbGraceTicks = 0;
         recovery.clear();
+    }
+
+    private static void arrive(Minecraft mc)
+    {
+        Vec3 reached = target;
+        stop(mc);
+        arrivedTarget = reached;
+        arrivalMarkerUntil = System.nanoTime() + ARRIVAL_MARKER_NANOS;
     }
 
     private static void input(Minecraft mc, boolean forward, boolean jump)

@@ -87,7 +87,7 @@ public final class TacticalCameraController
 
     static Vec3 getMovementTarget()
     {
-        return TacticalPathMovement.target();
+        return TacticalPathMovement.markerTarget();
     }
 
     @SubscribeEvent

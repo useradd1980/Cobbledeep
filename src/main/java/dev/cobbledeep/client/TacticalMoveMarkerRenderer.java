@@ -98,7 +98,7 @@ public final class TacticalMoveMarkerRenderer
                                float x, float y, float z, float u, float v, float alpha)
     {
         vertices.addVertex(pose, x, y, z)
-                .setColor(0.55F, 1.0F, 0.68F, alpha)
+                .setColor(0.32F, 0.82F, 0.45F, alpha)
                 .setUv(u, v)
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(LightTexture.FULL_BRIGHT)
