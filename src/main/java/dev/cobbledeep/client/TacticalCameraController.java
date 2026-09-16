@@ -85,6 +85,11 @@ public final class TacticalCameraController
         return enabled;
     }
 
+    static Vec3 getMovementTarget()
+    {
+        return TacticalPathMovement.target();
+    }
+
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent.Post event)
     {
