@@ -90,6 +90,11 @@ public final class TacticalCameraController
         return TacticalPathMovement.markerTarget();
     }
 
+    static boolean isShowingArrivalMarker()
+    {
+        return TacticalPathMovement.showingArrivalMarker();
+    }
+
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent.Post event)
     {

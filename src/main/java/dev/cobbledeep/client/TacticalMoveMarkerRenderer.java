@@ -27,7 +27,6 @@ public final class TacticalMoveMarkerRenderer
     private static final int TEXTURE_SIZE = 128;
     private static final float RADIUS = 0.92F;
     private static final float DESTINATION_PULSE = 0.09F;
-    private static final double MERGE_DISTANCE_SQR = 0.75 * 0.75;
     private static final double HEIGHT_OFFSET = 0.10;
     private static final double FOLLOW_RESPONSE = 24.0;
     private static ResourceLocation selectionRingTexture;
@@ -60,10 +59,7 @@ public final class TacticalMoveMarkerRenderer
         {
             double time = minecraft.level.getGameTime() + event.getPartialTick();
             float pulse = (float)Math.sin(time * 0.18);
-            double dx = destination.x - playerTarget.x;
-            double dz = destination.z - playerTarget.z;
-            boolean merged = dx * dx + dz * dz <= MERGE_DISTANCE_SQR
-                    && Math.abs(destination.y - playerTarget.y) <= 1.25;
+            boolean merged = TacticalCameraController.isShowingArrivalMarker();
             renderRing(buffers, event, camera, merged ? playerTarget : destination,
                     RADIUS + pulse * DESTINATION_PULSE,
                     (float)(0.84 + (pulse + 1.0) * 0.06), merged ? 2 : 1);

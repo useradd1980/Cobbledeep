@@ -40,6 +40,11 @@ final class TacticalPathMovement
         return null;
     }
 
+    static boolean showingArrivalMarker()
+    {
+        return target == null && arrivedTarget != null && System.nanoTime() < arrivalMarkerUntil;
+    }
+
     static void start(Minecraft mc, Vec3 clicked)
     {
         stop(mc);
