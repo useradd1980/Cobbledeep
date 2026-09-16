@@ -32,9 +32,8 @@ import org.lwjgl.glfw.GLFW;
  * edge pans a free tactical camera focus point. Hold right mouse and drag
  * horizontally to orbit that point; a right-click without dragging cancels movement.
  *
- * Click-to-move is intentionally simple at this stage: it walks directly toward
- * the selected point using normal player movement/collision. Pathfinding around
- * obstacles will be layered on later.
+ * Click-to-move follows a bounded, collision-checked route using normal player
+ * movement. Open doorways, slabs and one-block steps are supported.
  */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class TacticalCameraController
@@ -50,7 +49,6 @@ public final class TacticalCameraController
     private static final float DEFAULT_CAMERA_DISTANCE = 14.0F;
     private static final float CAMERA_DISTANCE_STEP = 2.0F;
 
-    private static final double MOVE_STOP_DISTANCE = 0.45;
     private static final double CLICK_RAY_DISTANCE = 256.0;
 
     private static final double EDGE_PAN_ZONE_FRACTION = 1.0 / 8.0;
@@ -65,8 +63,6 @@ public final class TacticalCameraController
     private static float cameraDistance = DEFAULT_CAMERA_DISTANCE;
     private static CameraType previousCameraType = CameraType.FIRST_PERSON;
     private static boolean previousViewBobbing;
-    private static Vec3 movementTarget;
-    private static boolean clickMoveForwardHeld;
     private static boolean rightMouseHeld;
     private static boolean rightMouseDragged;
     private static double rightMouseLastX;
@@ -91,7 +87,7 @@ public final class TacticalCameraController
 
     static Vec3 getMovementTarget()
     {
-        return movementTarget;
+        return TacticalPathMovement.target();
     }
 
     @SubscribeEvent
@@ -134,7 +130,7 @@ public final class TacticalCameraController
             }
         }
 
-        if (!enabled) return;
+        if (!enabled) { stopClickMovement(minecraft); return; }
         if (minecraft.screen != null || minecraft.player == null || !minecraft.isWindowActive())
         {
             resetCameraDrag();
@@ -250,39 +246,28 @@ public final class TacticalCameraController
 
     private static void updateClickMovement(Minecraft minecraft)
     {
-        LocalPlayer player = minecraft.player;
-        if (player == null || movementTarget == null)
-        {
-            setClickMoveForward(minecraft, false);
-            return;
-        }
-
-        double dx = movementTarget.x - player.getX();
-        double dz = movementTarget.z - player.getZ();
-        double horizontalDistance = Math.sqrt(dx * dx + dz * dz);
-
-        if (horizontalDistance <= MOVE_STOP_DISTANCE)
-        {
-            stopClickMovement(minecraft);
-            return;
-        }
-
-        float movementYaw = (float)Math.toDegrees(Math.atan2(-dx, dz));
-        player.setYRot(movementYaw);
-        setClickMoveForward(minecraft, true);
-    }
-
-    private static void setClickMoveForward(Minecraft minecraft, boolean down)
-    {
-        if (clickMoveForwardHeld == down) return;
-        minecraft.options.keyUp.setDown(down);
-        clickMoveForwardHeld = down;
+        TacticalPathMovement.tick(minecraft);
     }
 
     private static void stopClickMovement(Minecraft minecraft)
     {
-        movementTarget = null;
-        setClickMoveForward(minecraft, false);
+        TacticalPathMovement.stop(minecraft);
+    }
+
+    @SubscribeEvent
+    public static void onMovementKey(InputEvent.Key event)
+    {
+        if (!enabled || event.getAction() != GLFW.GLFW_PRESS) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (TacticalPathMovement.target() == null) return;
+        for (var key : new net.minecraft.client.KeyMapping[] {mc.options.keyUp, mc.options.keyDown,
+                mc.options.keyLeft, mc.options.keyRight, mc.options.keyJump, mc.options.keyShift})
+            if (key.matches(event.getKey(), event.getScanCode()))
+            {
+                stopClickMovement(mc);
+                key.setDown(true);
+                break;
+            }
     }
 
     @SubscribeEvent
@@ -315,7 +300,7 @@ public final class TacticalCameraController
             if (!rightMouseHeld)
             {
                 Vec3 target = raycastCursorToWorld(minecraft);
-                if (target != null) movementTarget = target;
+                if (target != null) TacticalPathMovement.start(minecraft, target);
             }
             event.setCanceled(true);
             minecraft.mouseHandler.releaseMouse();
