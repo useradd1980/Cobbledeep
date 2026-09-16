@@ -161,12 +161,16 @@ final class TacticalPathMovement
                 // At corners or blocked edges, let gravity finish the step
                 // without turning back toward the waypoint we just passed.
                 boolean continueAhead = false;
+                String landingWaitCause = "route end";
                 if (waypoint + 1 < route.size())
                 {
                     Node next = route.get(waypoint + 1);
                     Vec3 nextPoint = TacticalWalkWorld.point(next);
-                    continueAhead = WaypointProgress.straight(from.x, from.z, point.x, point.z, nextPoint.x, nextPoint.z)
-                            && world.canTravel(mc.player.position(), next);
+                    boolean straight = WaypointProgress.straight(from.x, from.z,
+                            point.x, point.z, nextPoint.x, nextPoint.z);
+                    boolean travelClear = world.canTravel(mc.player.position(), next);
+                    continueAhead = WaypointProgress.canLookAhead(mc.player.onGround(), straight, travelClear);
+                    landingWaitCause = !travelClear ? "next edge rejected" : "airborne turn";
                 }
                 if (!continueAhead)
                 {
@@ -175,7 +179,7 @@ final class TacticalPathMovement
                     previousWaitY = mc.player.getY();
                     input(mc, false, false);
                     if (stalled >= 30 && mc.player.onGround() && search == null)
-                        replan(mc, false, "Finding route (landing height wait)...");
+                        replan(mc, false, "Finding route (landing height wait: " + landingWaitCause + ")...");
                     else if (stalled >= 80) fail(mc, "Movement interrupted. Choose another destination.");
                     return;
                 }

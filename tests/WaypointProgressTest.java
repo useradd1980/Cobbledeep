@@ -49,6 +49,10 @@ public final class WaypointProgressTest
         check(WaypointProgress.completedClimb(WAIT_FOR_HEIGHT,1), "airborne uphill lookahead starts landing transition");
         check(!WaypointProgress.completedClimb(APPROACH,1), "an unarrived uphill node is not complete");
         check(!WaypointProgress.completedClimb(REACHED,-1), "a completed descent is not an uphill landing");
+        check(WaypointProgress.canLookAhead(true,false,true), "grounded safe corner can advance");
+        check(WaypointProgress.canLookAhead(false,true,true), "airborne straight run can advance");
+        check(!WaypointProgress.canLookAhead(false,false,true), "airborne corner cannot be cut");
+        check(!WaypointProgress.canLookAhead(true,true,false), "collision blocks grounded lookahead");
         System.out.println("Passed " + checks + " waypoint progression checks.");
     }
 }

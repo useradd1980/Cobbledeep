@@ -38,4 +38,11 @@ public final class WaypointProgress
     {
         return state != State.APPROACH && rise > 0.35;
     }
+
+    public static boolean canLookAhead(boolean grounded, boolean straight, boolean travelClear)
+    {
+        // Airborne turns can cut unsupported corners. Once grounded, the
+        // collision-checked path from the actual body is the stronger test.
+        return travelClear && (grounded || straight);
+    }
 }

@@ -63,6 +63,11 @@ reversing their heading. Corners are not skipped during that height wait. A
 route's initial graph node is skipped only when the next edge is already safe,
 avoiding unnecessary recentering after a replan.
 
+Height-wait lookahead requires a straight segment only while airborne. After
+landing, a turn may advance when the normal collision checks approve travel
+from the player's actual body to the next node. This prevents a safe uphill
+corner from waiting thirty ticks and launching a `landing height wait` replan.
+
 When the horizontal plane is reached before an ascent is complete, the follower
 preserves the validated edge's heading and continues forward/jump input until
 the player's feet reach the higher surface. This applies to final uphill steps
