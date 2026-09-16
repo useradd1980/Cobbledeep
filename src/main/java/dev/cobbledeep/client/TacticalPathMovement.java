@@ -51,10 +51,10 @@ final class TacticalPathMovement
         movement.reset();
         previousWaitY = Double.NaN;
         blockedTicks = postClimbGraceTicks = 0;
-        beginSearch(mc, false);
+        beginSearch(mc, false, "Finding route...");
     }
 
-    private static void beginSearch(Minecraft mc, boolean whileMoving)
+    private static void beginSearch(Minecraft mc, boolean whileMoving, String status)
     {
         if (!whileMoving) input(mc, false, false);
         world = new TacticalWalkWorld(mc.player);
@@ -67,7 +67,7 @@ final class TacticalPathMovement
         }
         search = new GridPathfinder.Search(world, start, goal, 4096, 64);
         searchWhileMoving = whileMoving && !route.isEmpty();
-        message(mc, searchWhileMoving ? "Updating route..." : "Finding route...");
+        message(mc, status);
     }
 
     static void tick(Minecraft mc)
@@ -111,7 +111,7 @@ final class TacticalPathMovement
                 {
                     // The player outran this search along the old route. Start
                     // another rolling search instead of walking backward.
-                    beginSearch(mc, true);
+                    beginSearch(mc, true, "Updating route (refreshing search)...");
                 }
                 else
                 {
@@ -151,7 +151,8 @@ final class TacticalPathMovement
                     boolean jump = WalkStepRules.shouldJump(point.y - mc.player.getY(),
                             Math.hypot(point.x - mc.player.getX(), point.z - mc.player.getZ()), mc.player.onGround());
                     input(mc, true, jump);
-                    if (stalled >= 30 && mc.player.onGround() && search == null) replan(mc, false);
+                    if (stalled >= 30 && mc.player.onGround() && search == null)
+                        replan(mc, false, "Finding route (uphill height wait)...");
                     else if (stalled >= 80) fail(mc, "Movement interrupted. Choose another destination.");
                     return;
                 }
@@ -173,14 +174,18 @@ final class TacticalPathMovement
                     else stalled++;
                     previousWaitY = mc.player.getY();
                     input(mc, false, false);
-                    if (stalled >= 30 && mc.player.onGround() && search == null) replan(mc, false);
+                    if (stalled >= 30 && mc.player.onGround() && search == null)
+                        replan(mc, false, "Finding route (landing height wait)...");
                     else if (stalled >= 80) fail(mc, "Movement interrupted. Choose another destination.");
                     return;
                 }
             }
             if (progress == WaypointProgress.State.REACHED && waypoint > 0)
                 recovery.reachedWaypoint(mc.player.getX(), mc.player.getY(), mc.player.getZ());
-            if (progress == WaypointProgress.State.REACHED && point.y - from.y > 0.35)
+            // Straight uphill runs can advance from WAIT_FOR_HEIGHT while the
+            // player is above the landing plane. That is still a completed
+            // climb and needs the same post-landing transition as REACHED.
+            if (WaypointProgress.completedClimb(progress, point.y - from.y))
                 postClimbGraceTicks = POST_CLIMB_GRACE_TICKS;
             if (++waypoint >= route.size()) { stop(mc); return; }
             node = route.get(waypoint); point = TacticalWalkWorld.point(node);
@@ -205,7 +210,8 @@ final class TacticalPathMovement
             // Recheck a brief contact before spending a route recovery. Keep
             // movement released throughout: this never drives through a wall.
             input(mc, false, false);
-            if (++blockedTicks >= 3 && search == null) replan(mc, false);
+            if (++blockedTicks >= 3 && search == null)
+                replan(mc, false, "Finding route (edge clearance)...");
             return;
         }
         blockedTicks = 0;
@@ -216,7 +222,7 @@ final class TacticalPathMovement
         {
             // The next edge is still safe, so keep following it while A*
             // prepares a fresher route from the player's current position.
-            replan(mc, true);
+            replan(mc, true, "Updating route (no movement)...");
             return;
         }
         // Also stop if a fall or displacement prevents progress while airborne.
@@ -246,14 +252,14 @@ final class TacticalPathMovement
     }
 
     private static void fail(Minecraft mc, String text) { stop(mc); message(mc, text); }
-    private static void replan(Minecraft mc, boolean whileMoving)
+    private static void replan(Minecraft mc, boolean whileMoving, String status)
     {
         if (!recovery.retry(mc.player.getX(), mc.player.getY(), mc.player.getZ()))
             fail(mc, "Unable to continue from here. Choose another destination.");
         else
         {
             stalled = blockedTicks = postClimbGraceTicks = 0;
-            beginSearch(mc, whileMoving);
+            beginSearch(mc, whileMoving, status);
         }
     }
     private static void message(Minecraft mc, String text)

@@ -74,6 +74,9 @@ collision from the live post-jump body is checked again from the next edge's
 canonical graph origin.
 This keeps movement held while the body settles against the ledge. The planned
 edge is still collision-checked, so a newly placed block or closed door stops it.
+Straight uphill lookahead can complete a waypoint while the player is above its
+landing plane; that handoff now starts the same grounded transition. Replan
+messages include their trigger while this movement behaviour is being verified.
 
 ## Verification
 

@@ -33,4 +33,9 @@ public final class WaypointProgress
     {
         return targetY - y > 0.35;
     }
+
+    public static boolean completedClimb(State state, double rise)
+    {
+        return state != State.APPROACH && rise > 0.35;
+    }
 }

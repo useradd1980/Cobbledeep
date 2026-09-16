@@ -45,6 +45,10 @@ public final class WaypointProgressTest
         check(WaypointProgress.waitingForClimb(64.5,64), "Half block ascent continues forward");
         check(!WaypointProgress.waitingForClimb(64.35,64), "Arrival tolerance completes a climb");
         check(!WaypointProgress.waitingForClimb(63,64), "A descent never uses uphill drive");
+        check(WaypointProgress.completedClimb(REACHED,1), "normal uphill arrival starts landing transition");
+        check(WaypointProgress.completedClimb(WAIT_FOR_HEIGHT,1), "airborne uphill lookahead starts landing transition");
+        check(!WaypointProgress.completedClimb(APPROACH,1), "an unarrived uphill node is not complete");
+        check(!WaypointProgress.completedClimb(REACHED,-1), "a completed descent is not an uphill landing");
         System.out.println("Passed " + checks + " waypoint progression checks.");
     }
 }
