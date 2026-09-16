@@ -1,0 +1,13 @@
+{
+  "blend": { "func": "add", "srcrgb": "srcalpha", "dstrgb": "1-srcalpha" },
+  "vertex": "cobbledeep:tactical_fog",
+  "fragment": "cobbledeep:tactical_fog",
+  "attributes": ["Position", "UV0"],
+  "samplers": [{"name": "DepthSampler"}, {"name": "FogSampler"}],
+  "uniforms": [
+    {"name": "InverseProjection", "type": "matrix4x4", "count": 16, "values": [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
+    {"name": "InverseView", "type": "matrix4x4", "count": 16, "values": [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
+    {"name": "CameraPosition", "type": "float", "count": 3, "values": [0,0,0]},
+    {"name": "GridOrigin", "type": "float", "count": 3, "values": [0,0,0]}
+  ]
+}

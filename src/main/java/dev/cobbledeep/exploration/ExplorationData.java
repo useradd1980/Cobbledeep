@@ -6,6 +6,8 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.saveddata.SavedData;
+import java.util.HashSet;
+import java.util.Set;
 
 /** One vanilla SavedData file per player UUID in each dimension's data folder. */
 public final class ExplorationData extends SavedData
@@ -14,6 +16,7 @@ public final class ExplorationData extends SavedData
     private static final Factory<ExplorationData> FACTORY = new Factory<>(
             ExplorationData::new, (tag, lookup) -> load(tag), null);
     private final ExplorationGrid grid = new ExplorationGrid();
+    private final Set<ExplorationGrid.Section> pendingSync = new HashSet<>();
 
     public static ExplorationData get(ServerPlayer player)
     {
@@ -25,7 +28,19 @@ public final class ExplorationData extends SavedData
 
     public void discover(int x, int y, int z)
     {
-        if (grid.discover(x, y, z)) setDirty();
+        if (grid.discover(x, y, z))
+        {
+            setDirty();
+            pendingSync.add(new ExplorationGrid.Section(Math.floorDiv(x, 16),
+                    Math.floorDiv(y, 16), Math.floorDiv(z, 16)));
+        }
+    }
+
+    public Set<ExplorationGrid.Section> drainSync()
+    {
+        Set<ExplorationGrid.Section> result = Set.copyOf(pendingSync);
+        pendingSync.clear();
+        return result;
     }
 
     private static ExplorationData load(CompoundTag tag)

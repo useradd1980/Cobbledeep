@@ -85,6 +85,7 @@ public final class ExplorationEvents
             }
         }
         CURSORS.put(player, cursor);
+        ExplorationSync.tick(player, data);
     }
 
     @SubscribeEvent

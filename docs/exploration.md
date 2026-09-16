@@ -35,12 +35,38 @@ one of seven body samples is visible from the player's interpolated eyes within
 Changing camera angle, panning or prior discovery does not bypass walls. Leaving
 tactical mode restores normal Minecraft rendering. Spectators are exempt.
 
-This is the visibility/storage foundation, not a complete fog renderer. Terrain
-is not yet blacked out or dimmed. Independent particles, sounds, dispatcher
-shadows/fire effects, non-living entities and debug overlays are not concealed
-by the living-render hooks. It is not an anti-cheat boundary; Minecraft still
-sends tracked entities to the client. Enemy AI and its future vision cones are
-unchanged. Roof cutaways and party sharing are also separate features.
+## Visual terrain fog
+
+In tactical mode, a depth-aware render pass now conceals unknown world surfaces
+with opaque dark fog, dims remembered surfaces to 40% brightness when out of
+sight, and leaves currently visible surfaces at normal brightness. It runs
+before the HUD, so menus and controls remain legible. The distant sky is also
+concealed to avoid revealing unexplored terrain silhouettes against it.
+
+The client receives only its own server discovery record, in batches of at most
+128 sections. Joining, respawning or changing dimension starts a fresh snapshot;
+later packets update changed sections. Disconnecting clears the client cache and
+GPU textures. Existing version-1 exploration save files are unchanged. Network
+protocol 2 requires matching updated mod versions on server and client.
+
+Current terrain visibility is recalculated from the character's eyes five times
+per second, independently of permanent discovery. The rendered fog samples the
+same 2-block 3D cells as storage: partially seen cells can expose a small area at
+a doorway, but creature visibility still uses its separate multi-point checks.
+Discovery can take roughly four seconds to fill in after entering a new area.
+Camera panning and rotation never add discovery. The first snapshot must arrive
+before any terrain is revealed.
+
+The GPU uses a 256-block-wide cube that follows the camera; known surfaces outside
+that window also remain concealed until panning brings them into it. Its byte
+atlas is 2 MiB. Current sight checks are restricted to the 24-block player radius.
+This is an initial performance budget to test on the ThinkPad, not a benchmark.
+
+The pass covers final world pixels using scene depth. Translucent surfaces,
+depth-independent nameplates/particles, and third-party shader pipelines can have
+different depth behaviour and need in-game testing. Sounds and debug overlays
+are not hidden. This is not an anti-cheat boundary; Minecraft still sends tracked
+entities to the client. Enemy AI, roof cutaways and party sharing are unchanged.
 
 ## In-game checks
 
@@ -58,6 +84,12 @@ unchanged. Roof cutaways and party sharing are also separate features.
    it should disappear again. Try opening/closing the door while stationary.
 5. Check the same X/Z at cave height and at the surface, and test another player,
    dimension and world. Records must remain independent. Death must retain them.
+6. Enable tactical mode with V and wait for initial discovery. Pan well beyond the
+   character: unknown terrain should be opaque. Walk into an area, then move away:
+   it should remain dimly visible. Turning the camera alone must not clear fog.
+7. Rotate/zoom over a slope and resize the window: fog should stay attached to
+   world surfaces. Save and rejoin away from the explored area, then pan back to
+   it: remembered terrain should be dim. Check water and Fast/Fancy/Fabulous modes.
 
 For a deterministic room test, use a closed roof as well as walls. Open tops and
 windows genuinely allow eye-level rays through. Keep test points at least two
@@ -76,3 +108,11 @@ java -cp build/exploration-tests ExplorationGridTest
 These compile and test the actual storage index, signed coordinates, unique cell
 indices, independent records and section-payload round trips. They do not replace
 a Forge build or the in-game NBT save/load and doorway checks above.
+
+The fog atlas can also be tested without Minecraft by compiling `FogVolume.java`
+and `tests/FogVolumeTest.java` alongside the grid and running `FogVolumeTest`.
+`python tests/fog_shader_test.py` uses headless Mesa EGL/OpenGL to compile the actual
+GLSL resources and verify opaque/dim/clear pixels, depth copying, out-of-window
+masking and rotated/translated world-position reconstruction. It requires Mesa
+EGL/OpenGL libraries but no Python packages. These tests do not exercise Forge's
+live rendering hooks or network lifecycle.

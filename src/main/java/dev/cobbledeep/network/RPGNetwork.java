@@ -25,9 +25,7 @@ public class RPGNetwork
                             "main"
                     )
             )
-            .clientAcceptedVersions((status, version) -> true)
-            .serverAcceptedVersions((status, version) -> true)
-            .networkProtocolVersion(1)
+            .networkProtocolVersion(2)
             .simpleChannel();
 
     public static void register()
@@ -57,6 +55,12 @@ public class RPGNetwork
                 .decoder(SyncCharacterDataPacket::new)
                 .encoder(SyncCharacterDataPacket::encode)
                 .consumerMainThread(SyncCharacterDataPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(SyncExplorationPacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(SyncExplorationPacket::new)
+                .encoder(SyncExplorationPacket::encode)
+                .consumerMainThread(SyncExplorationPacket::handle)
                 .add();
     }
 
