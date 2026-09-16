@@ -19,6 +19,24 @@ public final class FogVolume
         return x + SIZE * (z + SIZE * y);
     }
 
+    /** Current sight is independent of the server's persistent snapshot. */
+    public static void applySight(byte[] pixels, int ox, int oy, int oz,
+                                  double eyeX, double eyeY, double eyeZ, double radius, Sight sight)
+    {
+        if (pixels.length != LENGTH) throw new IllegalArgumentException("Wrong fog texture size");
+        int minX = Math.max(0, (int) Math.floor((eyeX - radius) / 2.0) - ox);
+        int minY = Math.max(0, (int) Math.floor((eyeY - radius) / 2.0) - oy);
+        int minZ = Math.max(0, (int) Math.floor((eyeZ - radius) / 2.0) - oz);
+        int maxX = Math.min(SIZE - 1, (int) Math.floor((eyeX + radius) / 2.0) - ox);
+        int maxY = Math.min(SIZE - 1, (int) Math.floor((eyeY + radius) / 2.0) - oy);
+        int maxZ = Math.min(SIZE - 1, (int) Math.floor((eyeZ + radius) / 2.0) - oz);
+        for (int y = minY; y <= maxY; y++)
+            for (int z = minZ; z <= maxZ; z++)
+                for (int x = minX; x <= maxX; x++)
+                    if (sight.visible((ox + x) * 2, (oy + y) * 2, (oz + z) * 2))
+                        pixels[index(x, y, z)] = 2;
+    }
+
     /** Origin is in two-block cells, not blocks. 0 = unknown, 1 = memory, 2 = visible. */
     public static void fill(byte[] pixels, ExplorationGrid grid, int ox, int oy, int oz, Sight sight)
     {

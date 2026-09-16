@@ -8,6 +8,7 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.exploration.TerrainRadius;
+import dev.cobbledeep.exploration.CharacterSight;
 import dev.cobbledeep.exploration.FogVolume;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
@@ -77,8 +78,8 @@ public final class TacticalFogRenderer
         {
             boolean relocated = fogTexture == -1 || lastLevel != mc.level
                     || ox != originX || oy != originY || oz != originZ;
-            // Refresh exploration memory five times per second. Current terrain
-            // visibility follows the interpolated player position every frame.
+            // Refresh memory and bounded sight checks five times per second.
+            // The circular reveal boundary follows the player every frame.
             if (relocated || tick < lastTick || tick - lastTick >= 4)
             {
                 originX = ox; originY = oy; originZ = oz;
@@ -146,6 +147,10 @@ public final class TacticalFogRenderer
     {
         FogVolume.fill(PIXELS, ClientExploration.grid(mc.level.dimension().location()),
                 originX, originY, originZ, (x, y, z) -> false);
+        Vec3 eye = mc.player.getEyePosition();
+        FogVolume.applySight(PIXELS, originX, originY, originZ,
+                eye.x, eye.y, eye.z, CharacterSight.RANGE,
+                (x, y, z) -> CharacterSight.seesCell(mc.player, eye, x, y, z));
         if (upload == null) upload = MemoryUtil.memAlloc(FogVolume.LENGTH);
         upload.clear(); upload.put(PIXELS); upload.flip();
         boolean created = fogTexture == -1;

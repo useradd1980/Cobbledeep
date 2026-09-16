@@ -22,21 +22,17 @@ void main() {
     // Bias into the surface so integer block boundaries don't sample air on
     // the camera side of an unexplored wall.
     vec3 world = CameraPosition + relative + normalize(relative) * 0.02;
-    // Terrain uses a horizontal circle at every elevation. Check before the
-    // discovery atlas so newly visible ground never waits for a sync packet.
+    // The circle guarantees terrain is at least remembered, not necessarily
+    // in sight. Occlusion must dim nearby ground, never turn it opaque black.
     vec2 fromPlayer = world.xz - PlayerPosition.xz;
-    if (dot(fromPlayer, fromPlayer) <= TerrainRange * TerrainRange) {
-        fragColor = vec4(0.0);
-        return;
-    }
+    bool nearby = dot(fromPlayer, fromPlayer) <= TerrainRange * TerrainRange;
     ivec3 cell = ivec3(floor(world / 2.0) - GridOrigin);
-    if (any(lessThan(cell, ivec3(0))) || any(greaterThanEqual(cell, ivec3(128)))) {
-        fragColor = vec4(0.035, 0.045, 0.06, 1.0);
-        return;
+    int state = 0;
+    if (all(greaterThanEqual(cell, ivec3(0))) && all(lessThan(cell, ivec3(128)))) {
+        int index = cell.x + 128 * (cell.z + 128 * cell.y);
+        state = int(round(texelFetch(FogSampler, ivec2(index % 2048, index / 2048), 0).r * 255.0));
     }
-    int index = cell.x + 128 * (cell.z + 128 * cell.y);
-    int state = int(round(texelFetch(FogSampler, ivec2(index % 2048, index / 2048), 0).r * 255.0));
-    if (state == 0) fragColor = vec4(0.035, 0.045, 0.06, 1.0);
-    else if (state == 1) fragColor = vec4(0.0, 0.0, 0.0, 0.60);
-    else fragColor = vec4(0.0);
+    if (nearby && state == 2) fragColor = vec4(0.0);
+    else if (nearby || state != 0) fragColor = vec4(0.0, 0.0, 0.0, 0.60);
+    else fragColor = vec4(0.035, 0.045, 0.06, 1.0);
 }

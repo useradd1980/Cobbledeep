@@ -27,6 +27,16 @@ public final class FogVolumeTest
         FogVolume.fill(pixels, grid, 10000, 10000, 10000, (x, y, z) -> { throw new AssertionError("Off-window sight query"); });
         for (byte pixel : pixels) check(pixel == 0, "Panning into unknown space must be opaque");
         check(grid.discoveredCount() == count, "Camera movement never writes discovery");
+        // Current LOS may brighten a cell before its server snapshot arrives.
+        FogVolume.fill(pixels, null, -64, 0, -64, (x, y, z) -> false);
+        FogVolume.applySight(pixels, -64, 0, -64, 0, 65, 0, 24,
+                (x, y, z) -> x == 0 && y == 64 && z == 0);
+        check(pixels[FogVolume.index(64, 32, 64)] == 2, "Sight does not wait for persistent memory");
+        check(pixels[FogVolume.index(65, 32, 64)] == 0, "Sight does not fabricate neighbouring memory");
+        FogVolume.fill(pixels, grid, -64, 0, -64, (x, y, z) -> false);
+        FogVolume.applySight(pixels, -64, 0, -64, 0, 65, 0, 24, (x, y, z) -> false);
+        check(pixels[FogVolume.index(64, 32, 64)] == 1, "Blocked known room returns to dim state");
+        check(grid.discoveredCount() == count, "Current sight never changes saved exploration");
         FogVolume.fill(pixels, null, -64, 0, -64, (x, y, z) -> true);
         for (byte pixel : pixels) check(pixel == 0, "Missing/reset snapshot fails closed");
 

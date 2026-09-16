@@ -1,14 +1,21 @@
 # Terrain exploration and creature sight
 
 Terrain uses a complete 24-block horizontal circle centred on the character.
-Ground above and below the character is visible regardless of hills or walls.
+Ground above and below the character is at least dimly visible inside it.
 The circle follows the interpolated character position every rendered frame;
-newly visible terrain does not wait for an exploration packet. Camera movement
+Nearby terrain never turns opaque while waiting for an exploration packet. Camera movement
 never moves the reveal circle or writes exploration.
 
 Outside the circle, previously explored terrain is dimmed to 40% brightness;
 unknown terrain is opaque. Normal Minecraft lighting still applies inside the
-circle. Terrain discovery covers entire vertical columns, so surface and cave
+circle. Within the circle, current character line of sight removes the dimming;
+walls, closed doors and intervening terrain leave blocked areas dim. A clear
+view through an opening brightens the visible cells beyond it. Current sight
+uses centre and inset-corner samples from the character's eyes, within 24 blocks
+in three dimensions. A partly visible two-block cell is brightened as a whole;
+this remains a coarse boundary at doorways, not per-pixel ray tracing.
+
+Terrain discovery covers entire vertical columns, so surface and cave
 terrain at the same X/Z share discovery. This is intentional for the full-height
 radius rule. It does not remove roofs, ground or other geometry.
 
@@ -19,7 +26,8 @@ stationary. It never loads missing chunks for discovery. Discovery also runs
 outside tactical mode, but not for dead players or spectators. Columns that
 intersect the radius are stored at two-block horizontal resolution, so memory
 at the outer boundary can extend by up to one cell beyond the exact circle.
-Current visibility itself is evaluated per pixel, not per cell.
+The circular discovery boundary is evaluated per pixel. LOS brightness uses
+two-block cells, independently of the persistent exploration snapshot.
 
 Each player UUID has separate vanilla SavedData in each dimension:
 `cobbledeep_exploration_<UUID>.dat`. Existing version-1 saves remain compatible;
@@ -46,8 +54,10 @@ not. Enemy AI, sneaking cones and party sharing are unchanged.
 Fog runs before the HUD and only in tactical mode; spectators are exempt. A
 2 MiB atlas holds remembered cells in a 256-block cube around the camera.
 Known terrain outside that window is concealed until the window reaches it;
-the local visibility circle is evaluated before the atlas and remains clear.
-Memory refreshes five times per second, with no terrain raycasting. Distant sky
+Terrain inside the local circle remains at least dim even outside the atlas.
+Memory and current sight refresh five times per second. Sight scans only the
+bounded volume around the character; it can brighten visible terrain before
+the server snapshot arrives and never writes to the exploration record. Distant sky
 is concealed. Translucency, particles and third-party shaders need in-game checks
 because they can use different depth behaviour. Sounds and debug overlays are
 unchanged. This is a visual gameplay feature, not an anti-cheat boundary.
@@ -55,12 +65,17 @@ unchanged. This is a visual gameplay feature, not an anti-cheat boundary.
 ## In-game checks
 
 1. On an existing world, enable tactical mode and walk across stepped terrain.
-   Nearby top faces, sides, plants and lower ground should all be free of fog.
+   Nearby ground should never have opaque black fog holes. Exposed cells should
+   be clear and genuinely blocked cells should be dim.
 2. Move uphill/downhill and rotate/zoom/pan: the 24-block horizontal circle
    must stay centred on the character, including on much higher/lower ground.
 3. Move away: visited ground should dim, while distant unknown terrain remains
    opaque. Save, quit and reload; remembered terrain should remain remembered.
-4. Put a creature behind a wall or closed door within the clear terrain circle:
+4. Look at a room behind a wall or closed door within the terrain circle:
+   its blocked terrain should be dim, never opaque. Open the door and move until
+   the character has sight into the room: exposed cells brighten. Close the door
+   or retreat behind the wall: they dim again, without erasing discovery.
+   Put a creature in that room:
    it must stay hidden until an opening gives actual character line of sight.
 5. Test another player and dimension: records must remain separate. Check water,
    window resizing and Fast/Fancy/Fabulous graphics modes.
@@ -77,7 +92,8 @@ storage, atlas addressing, full-height disk coverage, negative coordinates,
 world bounds, repeated discovery and save-payload restoration.
 
 `python tests/fog_shader_test.py` uses headless Mesa EGL/OpenGL to compile the
-actual GLSL resources and check depth copying, world reconstruction, clear
-terrain at different elevations, opaque unknown terrain and dim memory after
+actual GLSL resources and check depth copying, world reconstruction, dim
+terrain at different elevations, dim/clear/dim state transitions, missing-atlas
+fallback, opaque unknown terrain and dim memory after
 the character moves away. It requires no Python packages. These checks do not
 exercise the live Forge renderer or network lifecycle.

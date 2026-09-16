@@ -124,7 +124,9 @@ fn(G, "glDisable", None, U)(0x0B71)
 fn(G, "glEnable", None, U)(0x0BE2)
 fn(G, "glBlendFunc", None, U, U)(0x0302, 0x0303)
 
+checks = 0
 def draw(expected):
+    global checks
     fn(G, "glClearColor", None, F, F, F, F)(0.8, 0.6, 0.4, 1)
     fn(G, "glClear", None, U)(0x4000)
     fn(G, "glDrawArrays", None, U, I, I)(0x0006, 0, 4)
@@ -132,9 +134,10 @@ def draw(expected):
     fn(G, "glReadPixels", None, I, I, I, I, U, U, P)(2, 2, 1, 1, 0x1908, 0x1401, pixel)
     assert all(abs(pixel[i] / 255 - expected[i]) < 0.025 for i in range(3)), (list(pixel), expected)
     assert fn(G, "glGetError", U)() == 0, "OpenGL error"
+    checks += 1
 
 depth(0.5)
-for state, expected in [(0, (.035,.045,.06)), (1, (.32,.24,.16)), (2, (.8,.6,.4))]:
+for state, expected in [(0, (.035,.045,.06)), (1, (.32,.24,.16)), (2, (.32,.24,.16))]:
     fog(bytes([state]) * (128**3))
     draw(expected)
 depth(1)
@@ -151,19 +154,20 @@ matrix(uniform(program, b"InverseView"), 1, 0,
        (F * 16)(0,0,-1,0, 0,1,0,0, 1,0,0,0, 0,0,0,1))
 set3(uniform(program, b"CameraPosition"), 10, 20, 30)
 set3(uniform(program, b"GridOrigin"), 0, 0, 0)
+set1 = fn(G, "glUniform1f", None, I, F)
+set1(uniform(program, b"TerrainRange"), 24)
+set3(uniform(program, b"PlayerPosition"), 10, 20, 30)
 pixels = bytearray(128**3)
 pixels[5 + 128 * (14 + 128 * 10)] = 2
 fog(pixels)
 draw((.8,.6,.4))
-# A radius clears unknown ground immediately, independent of memory and height.
-set1 = fn(G, "glUniform1f", None, I, F)
-set1(uniform(program, b"TerrainRange"), 24)
+# Nearby terrain is never black, even before memory arrives or at other heights.
 fog(bytes(128**3))
 for height in [-200, 20, 300]:
     set3(uniform(program, b"PlayerPosition"), 10, height, 30)
-    draw((.8,.6,.4))
+    draw((.32,.24,.16))
 set3(uniform(program, b"PlayerPosition"), 33.5, 20, 29.5)
-draw((.8,.6,.4))
+draw((.32,.24,.16))
 set3(uniform(program, b"PlayerPosition"), 34.5, 20, 29.5)
 draw((.035,.045,.06))
 # Move the character away without moving the camera: unknown returns opaque,
@@ -172,4 +176,13 @@ set3(uniform(program, b"PlayerPosition"), 100, 20, 100)
 draw((.035,.045,.06))
 fog(bytes([1]) * (128**3))
 draw((.32,.24,.16))
-print("GLSL compile/link, resource uniforms, depth copying and 13 framebuffer checks passed.")
+# A room in range dims when blocked, clears with sight through the doorway,
+# and dims again when sight is lost. Neither case can erase its discovery.
+set3(uniform(program, b"PlayerPosition"), 10, 20, 30)
+for state, expected in [(1, (.32,.24,.16)), (2, (.8,.6,.4)), (1, (.32,.24,.16))]:
+    fog(bytes([state]) * (128**3))
+    draw(expected)
+# Missing atlas coverage is also dim (not black) inside the radius.
+set3(uniform(program, b"GridOrigin"), 1000, 1000, 1000)
+draw((.32,.24,.16))
+print(f"GLSL compile/link, resource uniforms, depth copying and {checks} framebuffer checks passed.")
