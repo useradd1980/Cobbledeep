@@ -289,9 +289,18 @@ public final class TacticalCameraController
     @SubscribeEvent
     public static void onMovementKey(InputEvent.Key event)
     {
-        if (!enabled || event.getAction() != GLFW.GLFW_PRESS) return;
-        if (TacticalCameraKeys.PLAY_PAUSE.matches(event.getKey(), event.getScanCode())) return;
+        if (!enabled) return;
         Minecraft mc = Minecraft.getInstance();
+        if (TacticalCameraKeys.PLAY_PAUSE.matches(event.getKey(), event.getScanCode()))
+        {
+            // Forge's keyboard event is posted after vanilla updates matching
+            // key bindings, but before the next movement tick. Remove Space's
+            // simultaneous jump state immediately; PLAY_PAUSE's click remains
+            // queued for the tactical controller to consume.
+            mc.options.keyJump.setDown(false);
+            return;
+        }
+        if (event.getAction() != GLFW.GLFW_PRESS) return;
         if (TacticalPathMovement.markerTarget(mc) == null) return;
         for (var key : new net.minecraft.client.KeyMapping[] {mc.options.keyUp, mc.options.keyDown,
                 mc.options.keyLeft, mc.options.keyRight, mc.options.keyJump, mc.options.keyShift})
