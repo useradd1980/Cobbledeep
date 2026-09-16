@@ -3,6 +3,7 @@ package dev.cobbledeep.client;
 import dev.cobbledeep.Cobbledeep;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.TickEvent;
@@ -22,15 +23,19 @@ import org.joml.Vector3f;
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class TacticalMoveMarkerRenderer
 {
-    private static final int PARTICLES = 24;
+    private static final int OUTER_PARTICLES = 24;
+    private static final int INNER_PARTICLES = 12;
     private static final double BASE_RADIUS = 0.72;
-    private static final double PULSE_AMOUNT = 0.06;
-    private static final double HEIGHT_OFFSET = 0.10;
+    private static final double PULSE_AMOUNT = 0.13;
+    private static final double HEIGHT_OFFSET = 0.13;
+    private static final double HEIGHT_PULSE = 0.045;
 
     private static final DustParticleOptions RING_PARTICLE =
-            new DustParticleOptions(new Vector3f(0.20F, 0.90F, 0.32F), 0.75F);
+            new DustParticleOptions(new Vector3f(0.12F, 1.00F, 0.38F), 1.05F);
+    private static final DustParticleOptions INNER_PARTICLE =
+            new DustParticleOptions(new Vector3f(0.38F, 1.00F, 0.62F), 0.72F);
     private static final DustParticleOptions CHASE_PARTICLE =
-            new DustParticleOptions(new Vector3f(0.65F, 1.00F, 0.72F), 1.05F);
+            new DustParticleOptions(new Vector3f(0.82F, 1.00F, 0.88F), 1.45F);
 
     private static int tickCounter;
 
@@ -53,16 +58,17 @@ public final class TacticalMoveMarkerRenderer
         if ((tickCounter & 1) != 0) return;
 
         double time = minecraft.level.getGameTime() + minecraft.getTimer().getGameTimeDeltaPartialTick(false);
-        double radius = BASE_RADIUS + Math.sin(time * 0.22) * PULSE_AMOUNT;
-        double phase = time * 0.12;
+        double pulse = Math.sin(time * 0.22);
+        double radius = BASE_RADIUS + pulse * PULSE_AMOUNT;
+        double y = target.y + HEIGHT_OFFSET + (pulse + 1.0) * HEIGHT_PULSE;
+        double phase = time * 0.10;
 
-        int chaseIndex = Math.floorMod((int)Math.floor(phase * PARTICLES / (Math.PI * 2.0)), PARTICLES);
+        int chaseIndex = Math.floorMod((int)Math.floor(phase * OUTER_PARTICLES / (Math.PI * 2.0)), OUTER_PARTICLES);
 
-        for (int i = 0; i < PARTICLES; i++)
+        for (int i = 0; i < OUTER_PARTICLES; i++)
         {
-            double angle = Math.PI * 2.0 * i / PARTICLES + phase;
+            double angle = Math.PI * 2.0 * i / OUTER_PARTICLES + phase;
             double x = target.x + Math.cos(angle) * radius;
-            double y = target.y + HEIGHT_OFFSET;
             double z = target.z + Math.sin(angle) * radius;
 
             DustParticleOptions particle = distanceAroundRing(i, chaseIndex) <= 1
@@ -71,11 +77,36 @@ public final class TacticalMoveMarkerRenderer
 
             minecraft.level.addParticle(particle, x, y, z, 0.0, 0.0, 0.0);
         }
+
+        // A counter-rotating inner halo makes the destination readable from
+        // high zoom levels without filling the centre or hiding the terrain.
+        double innerRadius = radius * 0.58;
+        for (int i = 0; i < INNER_PARTICLES; i++)
+        {
+            double angle = Math.PI * 2.0 * i / INNER_PARTICLES - phase * 0.65;
+            minecraft.level.addParticle(INNER_PARTICLE,
+                    target.x + Math.cos(angle) * innerRadius,
+                    y + 0.025,
+                    target.z + Math.sin(angle) * innerRadius,
+                    0.0, 0.0, 0.0);
+        }
+
+        // Three sparse emissive sparks give the ring a true glow while the
+        // dust layers retain a clean circular silhouette.
+        for (int offset = -1; offset <= 1; offset++)
+        {
+            double angle = Math.PI * 2.0 * (chaseIndex + offset) / OUTER_PARTICLES + phase;
+            minecraft.level.addParticle(ParticleTypes.END_ROD,
+                    target.x + Math.cos(angle) * radius,
+                    y + 0.035,
+                    target.z + Math.sin(angle) * radius,
+                    0.0, 0.002, 0.0);
+        }
     }
 
     private static int distanceAroundRing(int a, int b)
     {
         int direct = Math.abs(a - b);
-        return Math.min(direct, PARTICLES - direct);
+        return Math.min(direct, OUTER_PARTICLES - direct);
     }
 }

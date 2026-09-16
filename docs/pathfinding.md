@@ -2,6 +2,10 @@
 
 Left-click a walkable surface to plan a route. The action bar briefly shows
 "Finding route..."; the character then follows the route with normal movement.
+While a destination is active, a bright green double ring pulses just above its
+surface. A rotating highlight and sparse emissive sparks keep it readable when
+the tactical camera is zoomed out. The marker disappears when movement finishes
+or is cancelled.
 Right-click without dragging cancels. Dragging right-click still rotates the
 camera. Pressing a movement/jump/sneak key cancels the route and returns control
 to the keyboard. Opening a menu, losing window focus, dying, changing world or
