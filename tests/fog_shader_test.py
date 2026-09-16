@@ -125,9 +125,9 @@ fn(G, "glEnable", None, U)(0x0BE2)
 fn(G, "glBlendFunc", None, U, U)(0x0302, 0x0303)
 
 checks = 0
-def draw(expected):
+def draw(expected, background=(0.8, 0.6, 0.4)):
     global checks
-    fn(G, "glClearColor", None, F, F, F, F)(0.8, 0.6, 0.4, 1)
+    fn(G, "glClearColor", None, F, F, F, F)(*background, 1)
     fn(G, "glClear", None, U)(0x4000)
     fn(G, "glDrawArrays", None, U, I, I)(0x0006, 0, 4)
     pixel = (C.c_ubyte * 4)()
@@ -137,7 +137,7 @@ def draw(expected):
     checks += 1
 
 depth(0.5)
-for state, expected in [(0, (.035,.045,.06)), (1, (.32,.24,.16)), (2, (.32,.24,.16))]:
+for state, expected in [(0, (.035,.045,.06)), (1, (.52,.39,.26)), (2, (.52,.39,.26))]:
     fog(bytes([state]) * (128**3))
     draw(expected)
 depth(1)
@@ -158,16 +158,19 @@ set1 = fn(G, "glUniform1f", None, I, F)
 set1(uniform(program, b"TerrainRange"), 24)
 set3(uniform(program, b"PlayerPosition"), 10, 20, 30)
 pixels = bytearray(128**3)
-pixels[5 + 128 * (14 + 128 * 10)] = 2
+for x in (4, 5):
+    for y in (9, 10):
+        for z in (14, 15):
+            pixels[x + 128 * (z + 128 * y)] = 2
 fog(pixels)
 draw((.8,.6,.4))
 # Nearby terrain is never black, even before memory arrives or at other heights.
 fog(bytes(128**3))
 for height in [-200, 20, 300]:
     set3(uniform(program, b"PlayerPosition"), 10, height, 30)
-    draw((.32,.24,.16))
+    draw((.52,.39,.26))
 set3(uniform(program, b"PlayerPosition"), 33.5, 20, 29.5)
-draw((.32,.24,.16))
+draw((.52,.39,.26))
 set3(uniform(program, b"PlayerPosition"), 34.5, 20, 29.5)
 draw((.035,.045,.06))
 # Move the character away without moving the camera: unknown returns opaque,
@@ -175,14 +178,38 @@ draw((.035,.045,.06))
 set3(uniform(program, b"PlayerPosition"), 100, 20, 100)
 draw((.035,.045,.06))
 fog(bytes([1]) * (128**3))
-draw((.32,.24,.16))
+draw((.52,.39,.26))
 # A room in range dims when blocked, clears with sight through the doorway,
 # and dims again when sight is lost. Neither case can erase its discovery.
 set3(uniform(program, b"PlayerPosition"), 10, 20, 30)
-for state, expected in [(1, (.32,.24,.16)), (2, (.8,.6,.4)), (1, (.32,.24,.16))]:
+for state, expected in [(1, (.52,.39,.26)), (2, (.8,.6,.4)), (1, (.52,.39,.26))]:
     fog(bytes([state]) * (128**3))
     draw(expected)
 # Missing atlas coverage is also dim (not black) inside the radius.
 set3(uniform(program, b"GridOrigin"), 1000, 1000, 1000)
-draw((.32,.24,.16))
+draw((.52,.39,.26))
+
+# Reconstruct known points across a dim/clear cell boundary. Test the midpoint
+# and both sides of the old discontinuity, not just uniform atlas colours.
+matrix(uniform(program, b"InverseProjection"), 1, 0, ident)
+matrix(uniform(program, b"InverseView"), 1, 0, ident)
+set3(uniform(program, b"GridOrigin"), -64, -64, -64)
+set3(uniform(program, b"PlayerPosition"), 0, 0, 0)
+fog(bytes([1] * 65 + [2] * 63) * (128 * 128))
+offset = .25 + .02 / (2 ** .5)
+for x in (1, 1.5, 1.99, 2.01, 2.5, 3):
+    set3(uniform(program, b"CameraPosition"), x - offset, 1 - offset, 1)
+    fraction = (x - 1) / 2
+    brightness = .65 + .35 * fraction * fraction * (3 - 2 * fraction)
+    draw(tuple(c * brightness for c in (.8, .6, .4)))
+
+# Smoothing cannot expose an unknown cell outside the character's circle.
+fog(bytes([0] * 65 + [2] * 63) * (128 * 128))
+set3(uniform(program, b"CameraPosition"), 1.99 - offset, 1 - offset, 1)
+set3(uniform(program, b"PlayerPosition"), 100, 0, 100)
+draw((.035,.045,.06))
+
+# Already-dark grass retains 65% of its texture brightness, rather than 40%.
+fog(bytes([1]) * (128**3))
+draw((.091,.117,.0715), background=(.14,.18,.11))
 print(f"GLSL compile/link, resource uniforms, depth copying and {checks} framebuffer checks passed.")

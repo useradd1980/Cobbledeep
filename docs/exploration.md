@@ -6,14 +6,19 @@ The circle follows the interpolated character position every rendered frame;
 Nearby terrain never turns opaque while waiting for an exploration packet. Camera movement
 never moves the reveal circle or writes exploration.
 
-Outside the circle, previously explored terrain is dimmed to 40% brightness;
+Outside the circle, previously explored terrain is dimmed to 65% brightness;
 unknown terrain is opaque. Normal Minecraft lighting still applies inside the
 circle. Within the circle, current character line of sight removes the dimming;
 walls, closed doors and intervening terrain leave blocked areas dim. A clear
 view through an opening brightens the visible cells beyond it. Current sight
 uses centre and inset-corner samples from the character's eyes, within 24 blocks
 in three dimensions. A partly visible two-block cell is brightened as a whole;
-this remains a coarse boundary at doorways, not per-pixel ray tracing.
+this remains a coarse boundary at doorways, not per-pixel ray tracing. Lighting
+is smoothly interpolated between cell centres, avoiding abrupt two-block strips
+on slopes. The soft edge spans the interval between neighbouring centres and
+can slightly brighten the terrain immediately beside a doorway or wall edge.
+This never reveals a creature or adds exploration. Unknown terrain outside the
+circle still uses a hard opaque mask; that mask is not blurred into visibility.
 
 Terrain discovery covers entire vertical columns, so surface and cave
 terrain at the same X/Z share discovery. This is intentional for the full-height
