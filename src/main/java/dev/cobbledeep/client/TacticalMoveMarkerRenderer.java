@@ -1,112 +1,119 @@
 package dev.cobbledeep.client;
 
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.cobbledeep.Cobbledeep;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.particles.DustParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import org.joml.Vector3f;
+import org.joml.Matrix4f;
 
-/**
- * Renders the tactical move destination marker.
- *
- * The earlier world-line implementation depended on Forge's 1.21.1 render-stage
- * matrices and was not reliably visible with the tactical camera. This version
- * deliberately uses client-side particles instead, which are rendered by
- * Minecraft's normal particle pipeline and therefore remain visible regardless
- * of the custom camera distance/angle.
- */
+/** Renders a clean, full-bright tactical destination ring. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class TacticalMoveMarkerRenderer
 {
-    private static final int OUTER_PARTICLES = 24;
-    private static final int INNER_PARTICLES = 12;
-    private static final double BASE_RADIUS = 0.72;
-    private static final double PULSE_AMOUNT = 0.13;
-    private static final double HEIGHT_OFFSET = 0.13;
-    private static final double HEIGHT_PULSE = 0.045;
-
-    private static final DustParticleOptions RING_PARTICLE =
-            new DustParticleOptions(new Vector3f(0.12F, 1.00F, 0.38F), 1.05F);
-    private static final DustParticleOptions INNER_PARTICLE =
-            new DustParticleOptions(new Vector3f(0.38F, 1.00F, 0.62F), 0.72F);
-    private static final DustParticleOptions CHASE_PARTICLE =
-            new DustParticleOptions(new Vector3f(0.82F, 1.00F, 0.88F), 1.45F);
-
-    private static int tickCounter;
+    private static final int TEXTURE_SIZE = 128;
+    private static final double BASE_RADIUS = 0.92;
+    private static final double PULSE_AMOUNT = 0.09;
+    private static final double HEIGHT_OFFSET = 0.075;
+    private static ResourceLocation ringTexture;
 
     private TacticalMoveMarkerRenderer() { }
 
-    @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent.Post event)
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onRenderLevel(RenderLevelStageEvent event)
     {
+        // Draw after the tactical fog composite. Debug lines drawn at earlier
+        // stages were dimmed or lost; this textured quad remains crisp while
+        // still using the world's depth buffer for natural terrain occlusion.
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL) return;
         if (!TacticalCameraController.isEnabled()) return;
-
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || minecraft.player == null || minecraft.isPaused()) return;
 
         Vec3 target = TacticalCameraController.getMovementTarget();
         if (target == null) return;
 
-        // Every other client tick is enough to keep the ring visually continuous
-        // without flooding the particle engine with redundant particles.
-        tickCounter++;
-        if ((tickCounter & 1) != 0) return;
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) return;
 
-        double time = minecraft.level.getGameTime() + minecraft.getTimer().getGameTimeDeltaPartialTick(false);
-        double pulse = Math.sin(time * 0.22);
-        double radius = BASE_RADIUS + pulse * PULSE_AMOUNT;
-        double y = target.y + HEIGHT_OFFSET + (pulse + 1.0) * HEIGHT_PULSE;
-        double phase = time * 0.10;
+        double time = minecraft.level.getGameTime() + event.getPartialTick();
+        float radius = (float)(BASE_RADIUS + Math.sin(time * 0.18) * PULSE_AMOUNT);
+        float alpha = (float)(0.82 + (Math.sin(time * 0.18) + 1.0) * 0.07);
+        Vec3 camera = event.getCamera().getPosition();
 
-        int chaseIndex = Math.floorMod((int)Math.floor(phase * OUTER_PARTICLES / (Math.PI * 2.0)), OUTER_PARTICLES);
+        @SuppressWarnings("removal")
+        Matrix4f pose = new Matrix4f(event.getPoseStack());
+        pose.translate(
+                (float)(target.x - camera.x),
+                (float)(target.y - camera.y + HEIGHT_OFFSET),
+                (float)(target.z - camera.z));
 
-        for (int i = 0; i < OUTER_PARTICLES; i++)
-        {
-            double angle = Math.PI * 2.0 * i / OUTER_PARTICLES + phase;
-            double x = target.x + Math.cos(angle) * radius;
-            double z = target.z + Math.sin(angle) * radius;
+        RenderType renderType = RenderType.entityTranslucentEmissive(getRingTexture());
+        MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
+        VertexConsumer vertices = buffers.getBuffer(renderType);
 
-            DustParticleOptions particle = distanceAroundRing(i, chaseIndex) <= 1
-                    ? CHASE_PARTICLE
-                    : RING_PARTICLE;
-
-            minecraft.level.addParticle(particle, x, y, z, 0.0, 0.0, 0.0);
-        }
-
-        // A counter-rotating inner halo makes the destination readable from
-        // high zoom levels without filling the centre or hiding the terrain.
-        double innerRadius = radius * 0.58;
-        for (int i = 0; i < INNER_PARTICLES; i++)
-        {
-            double angle = Math.PI * 2.0 * i / INNER_PARTICLES - phase * 0.65;
-            minecraft.level.addParticle(INNER_PARTICLE,
-                    target.x + Math.cos(angle) * innerRadius,
-                    y + 0.025,
-                    target.z + Math.sin(angle) * innerRadius,
-                    0.0, 0.0, 0.0);
-        }
-
-        // Three sparse emissive sparks give the ring a true glow while the
-        // dust layers retain a clean circular silhouette.
-        for (int offset = -1; offset <= 1; offset++)
-        {
-            double angle = Math.PI * 2.0 * (chaseIndex + offset) / OUTER_PARTICLES + phase;
-            minecraft.level.addParticle(ParticleTypes.END_ROD,
-                    target.x + Math.cos(angle) * radius,
-                    y + 0.035,
-                    target.z + Math.sin(angle) * radius,
-                    0.0, 0.002, 0.0);
-        }
+        // A faint, slightly larger copy supplies a restrained halo. Both
+        // layers use one smooth ring texture, so there are no dusty particles.
+        ring(vertices, pose, radius * 1.10F, 0.0F, 0.24F);
+        ring(vertices, pose, radius, 0.004F, alpha);
+        buffers.endBatch(renderType);
     }
 
-    private static int distanceAroundRing(int a, int b)
+    private static void ring(VertexConsumer vertices, Matrix4f pose, float radius, float y, float alpha)
     {
-        int direct = Math.abs(a - b);
-        return Math.min(direct, OUTER_PARTICLES - direct);
+        vertex(vertices, pose, -radius, y, -radius, 0.0F, 0.0F, alpha);
+        vertex(vertices, pose, -radius, y, radius, 0.0F, 1.0F, alpha);
+        vertex(vertices, pose, radius, y, radius, 1.0F, 1.0F, alpha);
+        vertex(vertices, pose, radius, y, -radius, 1.0F, 0.0F, alpha);
+    }
+
+    private static void vertex(VertexConsumer vertices, Matrix4f pose,
+                               float x, float y, float z, float u, float v, float alpha)
+    {
+        vertices.addVertex(pose, x, y, z)
+                .setColor(0.21F, 1.0F, 0.45F, alpha)
+                .setUv(u, v)
+                .setOverlay(OverlayTexture.NO_OVERLAY)
+                .setLight(LightTexture.FULL_BRIGHT)
+                .setNormal(0.0F, 1.0F, 0.0F);
+    }
+
+    private static ResourceLocation getRingTexture()
+    {
+        if (ringTexture != null) return ringTexture;
+
+        DynamicTexture texture = new DynamicTexture(TEXTURE_SIZE, TEXTURE_SIZE, false);
+        NativeImage pixels = texture.getPixels();
+        if (pixels == null) throw new IllegalStateException("Destination ring texture has no pixel storage");
+        double centre = (TEXTURE_SIZE - 1) * 0.5;
+        for (int y = 0; y < TEXTURE_SIZE; y++)
+            for (int x = 0; x < TEXTURE_SIZE; x++)
+            {
+                double distance = Math.hypot(x - centre, y - centre) / centre;
+                // Smooth inner and outer edges around a narrow, solid band.
+                double inner = smoothstep(0.69, 0.73, distance);
+                double outer = 1.0 - smoothstep(0.88, 0.93, distance);
+                int alpha = (int)Math.round(255.0 * inner * outer);
+                pixels.setPixelRGBA(x, y, (alpha << 24) | 0x00FFFFFF);
+            }
+        texture.upload();
+        ringTexture = Minecraft.getInstance().getTextureManager()
+                .register("cobbledeep_tactical_destination_ring", texture);
+        return ringTexture;
+    }
+
+    private static double smoothstep(double low, double high, double value)
+    {
+        double t = Math.max(0.0, Math.min(1.0, (value - low) / (high - low)));
+        return t * t * (3.0 - 2.0 * t);
     }
 }
