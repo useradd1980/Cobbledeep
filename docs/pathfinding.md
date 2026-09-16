@@ -63,6 +63,12 @@ reversing their heading. Corners are not skipped during that height wait. A
 route's initial graph node is skipped only when the next edge is already safe,
 avoiding unnecessary recentering after a replan.
 
+When the horizontal plane is reached before an ascent is complete, the follower
+preserves the validated edge's heading and continues forward/jump input until
+the player's feet reach the higher surface. This applies to final uphill steps
+and uphill corners as well as straight stair runs. Descents retain the separate
+landing wait above.
+
 ## Verification
 
 Compile `src/main/java/dev/cobbledeep/pathfinding/GridPathfinder.java` and

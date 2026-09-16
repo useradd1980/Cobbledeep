@@ -134,6 +134,26 @@ final class TacticalPathMovement
             if (progress == WaypointProgress.State.APPROACH) break;
             if (progress == WaypointProgress.State.WAIT_FOR_HEIGHT)
             {
+                // Reaching the horizontal plane of an uphill node does not
+                // mean the climb has finished. Preserve the validated edge's
+                // heading and movement until the player's feet rise onto it.
+                // Aiming back at the node centre here caused the old stop,
+                // replan and retry cycle at final steps and uphill corners.
+                if (WaypointProgress.waitingForClimb(point.y, mc.player.getY())
+                        && world.canTravel(from, node))
+                {
+                    if (Double.isNaN(previousWaitY) || Math.abs(previousWaitY - mc.player.getY()) > 0.025) stalled = 0;
+                    else stalled++;
+                    previousWaitY = mc.player.getY();
+                    double edgeX = point.x - from.x, edgeZ = point.z - from.z;
+                    mc.player.setYRot((float)Math.toDegrees(Math.atan2(-edgeX, edgeZ)));
+                    boolean jump = WalkStepRules.shouldJump(point.y - mc.player.getY(),
+                            Math.hypot(point.x - mc.player.getX(), point.z - mc.player.getZ()), mc.player.onGround());
+                    input(mc, true, jump);
+                    if (stalled >= 30 && mc.player.onGround() && search == null) replan(mc, false);
+                    else if (stalled >= 80) fail(mc, "Movement interrupted. Choose another destination.");
+                    return;
+                }
                 // Continue along a straight stair run only when the existing
                 // collision checks approve the next edge from the actual body.
                 // At corners or blocked edges, let gravity finish the step

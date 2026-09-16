@@ -41,6 +41,10 @@ public final class WaypointProgressTest
         check(WaypointProgress.straight(0,0,1,0,2,0), "Straight stairs permit checked lookahead");
         check(!WaypointProgress.straight(0,0,1,0,1,1), "A corner must not be cut while airborne");
         check(!WaypointProgress.straight(0,0,1,0,0,0), "A switchback must not be skipped");
+        check(WaypointProgress.waitingForClimb(65,64), "Full block ascent continues climbing");
+        check(WaypointProgress.waitingForClimb(64.5,64), "Half block ascent continues forward");
+        check(!WaypointProgress.waitingForClimb(64.35,64), "Arrival tolerance completes a climb");
+        check(!WaypointProgress.waitingForClimb(63,64), "A descent never uses uphill drive");
         System.out.println("Passed " + checks + " waypoint progression checks.");
     }
 }

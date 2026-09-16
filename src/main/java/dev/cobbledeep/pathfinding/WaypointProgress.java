@@ -28,4 +28,9 @@ public final class WaypointProgress
         double ax = x - fromX, az = z - fromZ, bx = nextX - x, bz = nextZ - z;
         return ax * bx + az * bz > 0 && Math.abs(ax * bz - az * bx) < 0.0001;
     }
+
+    public static boolean waitingForClimb(double targetY, double y)
+    {
+        return targetY - y > 0.35;
+    }
 }
