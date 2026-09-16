@@ -87,12 +87,12 @@ public final class TacticalCameraController
 
     static Vec3 getMovementTarget()
     {
-        return TacticalPathMovement.markerTarget();
+        return TacticalPathMovement.markerTarget(Minecraft.getInstance());
     }
 
     static boolean isShowingArrivalMarker()
     {
-        return TacticalPathMovement.showingArrivalMarker();
+        return TacticalPathMovement.showingArrivalMarker(Minecraft.getInstance());
     }
 
     @SubscribeEvent
@@ -264,7 +264,7 @@ public final class TacticalCameraController
     {
         if (!enabled || event.getAction() != GLFW.GLFW_PRESS) return;
         Minecraft mc = Minecraft.getInstance();
-        if (TacticalPathMovement.target() == null) return;
+        if (TacticalPathMovement.markerTarget(mc) == null) return;
         for (var key : new net.minecraft.client.KeyMapping[] {mc.options.keyUp, mc.options.keyDown,
                 mc.options.keyLeft, mc.options.keyRight, mc.options.keyJump, mc.options.keyShift})
             if (key.matches(event.getKey(), event.getScanCode()))

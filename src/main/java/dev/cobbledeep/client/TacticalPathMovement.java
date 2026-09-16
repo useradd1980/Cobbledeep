@@ -32,17 +32,28 @@ final class TacticalPathMovement
 
     static Vec3 target() { return target; }
 
-    static Vec3 markerTarget()
+    static Vec3 markerTarget(Minecraft mc)
     {
         if (target != null) return target;
-        if (arrivedTarget != null && System.nanoTime() < arrivalMarkerUntil) return arrivedTarget;
+        updateArrivalMarker(mc);
+        if (arrivedTarget != null && (arrivalMarkerUntil == 0L
+                || System.nanoTime() < arrivalMarkerUntil)) return arrivedTarget;
         arrivedTarget = null;
         return null;
     }
 
-    static boolean showingArrivalMarker()
+    static boolean showingArrivalMarker(Minecraft mc)
     {
-        return target == null && arrivedTarget != null && System.nanoTime() < arrivalMarkerUntil;
+        updateArrivalMarker(mc);
+        return target == null && arrivedTarget != null && arrivalMarkerUntil != 0L
+                && System.nanoTime() < arrivalMarkerUntil;
+    }
+
+    private static void updateArrivalMarker(Minecraft mc)
+    {
+        if (arrivedTarget == null || arrivalMarkerUntil != 0L || mc.player == null) return;
+        if (mc.player.onGround() && mc.player.getDeltaMovement().horizontalDistanceSqr() <= 0.0004)
+            arrivalMarkerUntil = System.nanoTime() + ARRIVAL_MARKER_NANOS;
     }
 
     static void start(Minecraft mc, Vec3 clicked)
@@ -279,7 +290,9 @@ final class TacticalPathMovement
         Vec3 reached = target;
         stop(mc);
         arrivedTarget = reached;
-        arrivalMarkerUntil = System.nanoTime() + ARRIVAL_MARKER_NANOS;
+        // Keep the marker at its destination while released movement momentum
+        // settles. The half-second merged display starts after the actual stop.
+        arrivalMarkerUntil = 0L;
     }
 
     private static void input(Minecraft mc, boolean forward, boolean jump)
