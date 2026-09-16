@@ -15,6 +15,7 @@ final class TacticalPathMovement
 {
     private static TacticalWalkWorld world;
     private static GridPathfinder.Search search;
+    private static boolean searchWhileMoving;
     private static List<Node> route = List.of();
     private static Vec3 target;
     private static Vec3 pathStart;
@@ -47,7 +48,12 @@ final class TacticalPathMovement
         route = List.of(); waypoint = stalled = 0; bestDistance = Double.POSITIVE_INFINITY;
         previousWaitY = Double.NaN;
         blockedTicks = 0;
-        pathStart = mc.player.position();
+        beginSearch(mc, false);
+    }
+
+    private static void beginSearch(Minecraft mc, boolean whileMoving)
+    {
+        if (!whileMoving) input(mc, false, false);
         world = new TacticalWalkWorld(mc.player);
         Node start = world.nearestReachable(mc.player.position());
         Node goal = new Node((int)Math.floor(target.x), (int)Math.round(target.y * 16), (int)Math.floor(target.z));
@@ -57,7 +63,8 @@ final class TacticalPathMovement
             return;
         }
         search = new GridPathfinder.Search(world, start, goal, 4096, 64);
-        message(mc, "Finding route...");
+        searchWhileMoving = whileMoving && !route.isEmpty();
+        message(mc, searchWhileMoving ? "Updating route..." : "Finding route...");
     }
 
     static void tick(Minecraft mc)
@@ -75,18 +82,48 @@ final class TacticalPathMovement
         if (search != null)
         {
             var status = search.step(48);
-            if (status == GridPathfinder.Status.SEARCHING) return;
-            if (status != GridPathfinder.Status.FOUND)
+            if (status == GridPathfinder.Status.SEARCHING)
+            {
+                if (!searchWhileMoving) return;
+            }
+            else if (status != GridPathfinder.Status.FOUND)
             {
                 fail(mc, status == GridPathfinder.Status.LIMIT
                         ? "Route search limit reached. Try a closer destination." : "No safe walking route found.");
                 return;
             }
-            route = search.path(); search = null;
-            // A route's first node anchors the graph. Do not walk back to its
-            // centre if the next edge can already be entered safely.
-            if (route.size() > 1 && world.canTravel(mc.player.position(), route.get(1))) waypoint = 1;
-            message(mc, "");
+            else
+            {
+                List<Node> replacement = search.path();
+                search = null;
+                searchWhileMoving = false;
+
+                // A rolling search began behind the moving player. Join the
+                // furthest replacement node that is now directly reachable,
+                // avoiding a turn back toward the old search origin.
+                int join = -1;
+                for (int i = 0; i < replacement.size(); i++)
+                    if (world.canTravel(mc.player.position(), replacement.get(i))) join = i;
+                if (join < 0)
+                {
+                    // The player outran this search along the old route. Start
+                    // another rolling search instead of walking backward.
+                    beginSearch(mc, true);
+                }
+                else
+                {
+                    route = List.copyOf(replacement.subList(join, replacement.size()));
+                    pathStart = mc.player.position();
+                    waypoint = 0;
+                    bestDistance = Double.POSITIVE_INFINITY;
+                    stalled = blockedTicks = 0;
+                    previousWaitY = Double.NaN;
+                    // A route's first node anchors the graph. Do not walk back
+                    // to its centre if the next edge is already safe.
+                    if (route.size() > 1 && world.canTravel(mc.player.position(), route.get(1))) waypoint = 1;
+                    message(mc, "");
+                }
+            }
         }
         Node node = route.get(waypoint);
         Vec3 point = TacticalWalkWorld.point(node);
@@ -116,7 +153,7 @@ final class TacticalPathMovement
                     else stalled++;
                     previousWaitY = mc.player.getY();
                     input(mc, false, false);
-                    if (stalled >= 30 && mc.player.onGround()) replan(mc);
+                    if (stalled >= 30 && mc.player.onGround() && search == null) replan(mc, false);
                     else if (stalled >= 80) fail(mc, "Movement interrupted. Choose another destination.");
                     return;
                 }
@@ -137,13 +174,15 @@ final class TacticalPathMovement
             // Recheck a brief contact before spending a route recovery. Keep
             // movement released throughout: this never drives through a wall.
             input(mc, false, false);
-            if (++blockedTicks >= 3) replan(mc);
+            if (++blockedTicks >= 3 && search == null) replan(mc, false);
             return;
         }
         blockedTicks = 0;
-        if (mc.player.onGround() && stalled >= 30)
+        if (mc.player.onGround() && stalled >= 30 && search == null)
         {
-            replan(mc);
+            // The next edge is still safe, so keep following it while A*
+            // prepares a fresher route from the player's current position.
+            replan(mc, true);
             return;
         }
         // Also stop if a fall or displacement prevents progress while airborne.
@@ -159,6 +198,7 @@ final class TacticalPathMovement
     {
         input(mc, false, false);
         target = null; pathStart = null; world = null; search = null; route = List.of();
+        searchWhileMoving = false;
         previousWaitY = Double.NaN;
         waypoint = stalled = blockedTicks = 0;
         recovery.clear();
@@ -171,11 +211,15 @@ final class TacticalPathMovement
     }
 
     private static void fail(Minecraft mc, String text) { stop(mc); message(mc, text); }
-    private static void replan(Minecraft mc)
+    private static void replan(Minecraft mc, boolean whileMoving)
     {
         if (!recovery.retry(mc.player.getX(), mc.player.getY(), mc.player.getZ()))
             fail(mc, "Unable to continue from here. Choose another destination.");
-        else plan(mc);
+        else
+        {
+            stalled = blockedTicks = 0;
+            beginSearch(mc, whileMoving);
+        }
     }
     private static void message(Minecraft mc, String text)
     {
