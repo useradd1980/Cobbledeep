@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.cobbledeep.Cobbledeep;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -25,8 +26,12 @@ public final class TacticalMoveMarkerRenderer
 {
     private static final int TEXTURE_SIZE = 128;
     private static final float RADIUS = 0.92F;
-    private static final double HEIGHT_OFFSET = 0.075;
+    private static final double HEIGHT_OFFSET = 0.10;
+    private static final double FOLLOW_RESPONSE = 24.0;
     private static ResourceLocation ringTexture;
+    private static LocalPlayer followedPlayer;
+    private static Vec3 smoothedTarget;
+    private static long previousFrameNanos;
 
     private TacticalMoveMarkerRenderer() { }
 
@@ -41,7 +46,7 @@ public final class TacticalMoveMarkerRenderer
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null) return;
 
-        Vec3 target = minecraft.player.getPosition(event.getPartialTick());
+        Vec3 target = smoothTarget(minecraft.player.getPosition(event.getPartialTick()), minecraft.player);
         Vec3 camera = event.getCamera().getPosition();
 
         // AFTER_LEVEL receives GameRenderer's effect pose, not the view matrix
@@ -58,7 +63,7 @@ public final class TacticalMoveMarkerRenderer
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
         VertexConsumer vertices = buffers.getBuffer(renderType);
 
-        ring(vertices, pose, RADIUS, 0.0F, 0.88F);
+        ring(vertices, pose, RADIUS, 0.0F, 0.92F);
         buffers.endBatch(renderType);
     }
 
@@ -74,7 +79,7 @@ public final class TacticalMoveMarkerRenderer
                                float x, float y, float z, float u, float v, float alpha)
     {
         vertices.addVertex(pose, x, y, z)
-                .setColor(0.21F, 1.0F, 0.45F, alpha)
+                .setColor(0.55F, 1.0F, 0.68F, alpha)
                 .setUv(u, v)
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(LightTexture.FULL_BRIGHT)
@@ -94,8 +99,8 @@ public final class TacticalMoveMarkerRenderer
             {
                 double distance = Math.hypot(x - centre, y - centre) / centre;
                 // Two narrow anti-aliased bands separated by a clean gap.
-                double innerRing = band(0.58, 0.61, 0.67, 0.70, distance);
-                double outerRing = band(0.80, 0.83, 0.90, 0.93, distance);
+                double innerRing = band(0.67, 0.685, 0.710, 0.725, distance);
+                double outerRing = band(0.84, 0.855, 0.880, 0.895, distance);
                 int alpha = (int)Math.round(255.0 * Math.max(innerRing, outerRing));
                 pixels.setPixelRGBA(x, y, (alpha << 24) | 0x00FFFFFF);
             }
@@ -103,6 +108,25 @@ public final class TacticalMoveMarkerRenderer
         ringTexture = Minecraft.getInstance().getTextureManager()
                 .register("cobbledeep_tactical_selection_ring", texture);
         return ringTexture;
+    }
+
+    private static Vec3 smoothTarget(Vec3 current, LocalPlayer player)
+    {
+        long now = System.nanoTime();
+        double elapsed = (now - previousFrameNanos) / 1_000_000_000.0;
+        if (followedPlayer != player || smoothedTarget == null || elapsed <= 0.0
+                || elapsed > 0.25 || smoothedTarget.distanceToSqr(current) > 16.0)
+        {
+            followedPlayer = player;
+            smoothedTarget = current;
+        }
+        else
+        {
+            double blend = 1.0 - Math.exp(-FOLLOW_RESPONSE * elapsed);
+            smoothedTarget = smoothedTarget.lerp(current, blend);
+        }
+        previousFrameNanos = now;
+        return smoothedTarget;
     }
 
     private static double band(double innerStart, double innerEnd,
