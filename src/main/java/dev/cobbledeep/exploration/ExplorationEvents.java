@@ -26,7 +26,7 @@ import java.util.WeakHashMap;
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID)
 public final class ExplorationEvents
 {
-    private static final int RAYS_PER_TICK = 96;
+    private static final int CELLS_PER_TICK = 96;
     private static final List<BlockPos> OFFSETS = offsets();
     private static final Map<ServerPlayer, Integer> CURSORS = new WeakHashMap<>();
 
@@ -59,33 +59,44 @@ public final class ExplorationEvents
         int cursor = CURSORS.getOrDefault(player, 0);
         // The bounded scan continues even while stationary, so opening a door
         // reveals newly exposed cells. No player/camera movement is required.
-        for (int i = 0; i < RAYS_PER_TICK; i++)
+        for (int i = 0; i < CELLS_PER_TICK; i++)
         {
             BlockPos offset = OFFSETS.get(cursor);
             cursor = (cursor + 1) % OFFSETS.size();
-            Vec3 end = new Vec3(baseX + offset.getX() * size + size * 0.5,
-                    baseY + offset.getY() * size + size * 0.5,
-                    baseZ + offset.getZ() * size + size * 0.5);
-            if (end.y < player.level().getMinBuildHeight() || end.y >= player.level().getMaxBuildHeight()) continue;
-            BlockHitResult hit = CharacterSight.trace(player, eye, end);
-            if (hit == null) continue;
-            Vec3 visibleEnd = hit.getLocation();
-            // Mark only the unobstructed segment. Never continue through a wall
-            // or use the terrain heightmap to infer discovery underground.
-            int steps = Math.max(1, (int) Math.ceil(eye.distanceTo(visibleEnd) / 0.75));
-            for (int step = 0; step <= steps; step++)
+            int x = baseX + offset.getX() * size;
+            int y = baseY + offset.getY() * size;
+            int z = baseZ + offset.getZ() * size;
+            if (y < player.level().getMinBuildHeight() || y >= player.level().getMaxBuildHeight()) continue;
+            CellSight.visible(eye.x, eye.y, eye.z, x, y, z, CharacterSight.RANGE, (px, py, pz) ->
             {
-                Vec3 point = eye.lerp(visibleEnd, (double) step / steps);
-                data.discover(Mth.floor(point.x), Mth.floor(point.y), Mth.floor(point.z));
-            }
-            if (hit.getType() == HitResult.Type.BLOCK)
-            {
-                BlockPos surface = hit.getBlockPos();
-                data.discover(surface.getX(), surface.getY(), surface.getZ());
-            }
+                BlockHitResult hit = CharacterSight.trace(player, eye, new Vec3(px, py, pz));
+                if (hit != null) revealSegment(data, eye, hit);
+                // Keep the first ray even for remembered cells: newly opened
+                // passages along that ray must still be discovered. Additional
+                // samples are needed only while the target cell remains unknown.
+                return data.grid().isExplored(x, y, z);
+            });
         }
         CURSORS.put(player, cursor);
         ExplorationSync.tick(player, data);
+    }
+
+    private static void revealSegment(ExplorationData data, Vec3 eye, BlockHitResult hit)
+    {
+        Vec3 visibleEnd = hit.getLocation();
+        // Mark only the unobstructed segment. Never continue through a wall
+        // or use the terrain heightmap to infer discovery underground.
+        int steps = Math.max(1, (int) Math.ceil(eye.distanceTo(visibleEnd) / 0.75));
+        for (int step = 0; step <= steps; step++)
+        {
+            Vec3 point = eye.lerp(visibleEnd, (double) step / steps);
+            data.discover(Mth.floor(point.x), Mth.floor(point.y), Mth.floor(point.z));
+        }
+        if (hit.getType() == HitResult.Type.BLOCK)
+        {
+            BlockPos surface = hit.getBlockPos();
+            data.discover(surface.getX(), surface.getY(), surface.getZ());
+        }
     }
 
     @SubscribeEvent

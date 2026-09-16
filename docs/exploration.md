@@ -21,8 +21,12 @@ are rewritten as a whole in this first pass, not as individual section files.
 Back up the entire world to preserve exploration along with everything else.
 
 Discovery runs regardless of tactical mode, but does not run for dead players or
-spectators. A scan is limited to 96 rays per player per server tick and cycles
-through nearby 3D cell centres in roughly four seconds at normal tick rate.
+spectators. A scan is limited to 96 cells per player per server tick and cycles
+through nearby 3D cells in roughly four seconds at normal tick rate. Each cell
+tests its centre first, then up to eight inset corners if still undiscovered
+(at most 864 rays per tick). This avoids repeatedly missing exposed terrace
+edges because a cell's centre lies behind the terrain. Remembered cells still
+receive the first ray, but skip the additional discovery samples.
 Newly exposed rooms therefore fill in over several ticks. A ray marks only its
 unobstructed segment and the surface it hits. Missing chunks are not loaded by
 the scanner. No client packet can mark a location explored.
@@ -51,6 +55,9 @@ protocol 2 requires matching updated mod versions on server and client.
 
 Current terrain visibility is recalculated from the character's eyes five times
 per second, independently of permanent discovery. The rendered fog samples the
+cell centre and inset corners too: an exposed part is sufficient, but rays still
+stop at the first obstacle. The boundary intentionally follows character sight,
+so hills and walls prevent it being a perfect circle. The rendered fog uses the
 same 2-block 3D cells as storage: partially seen cells can expose a small area at
 a doorway, but creature visibility still uses its separate multi-point checks.
 Discovery can take roughly four seconds to fill in after entering a new area.
@@ -116,3 +123,9 @@ GLSL resources and verify opaque/dim/clear pixels, depth copying, out-of-window
 masking and rotated/translated world-position reconstruction. It requires Mesa
 EGL/OpenGL libraries but no Python packages. These tests do not exercise Forge's
 live rendering hooks or network lifecycle.
+
+Compile `CellSight.java` and `tests/CellSightTest.java` and run `CellSightTest`
+for centre-occluded terraces, solid walls, vertical separation, range clipping,
+negative coordinates and the bounded ray budget. These synthetic geometry tests
+do not replace walking over the affected hillside in Minecraft. Existing worlds
+need no reset; revisit an affected area and allow one discovery scan to fill gaps.

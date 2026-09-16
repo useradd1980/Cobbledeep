@@ -12,7 +12,6 @@ import dev.cobbledeep.exploration.FogVolume;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.util.Mth;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
@@ -144,20 +143,7 @@ public final class TacticalFogRenderer
     {
         Vec3 eye = mc.player.getEyePosition();
         FogVolume.fill(PIXELS, ClientExploration.grid(mc.level.dimension().location()),
-                originX, originY, originZ, (x, y, z) ->
-                {
-                    Vec3 centre = new Vec3(x + 1.0, y + 1.0, z + 1.0);
-                    if (eye.distanceToSqr(centre) > CharacterSight.RANGE * CharacterSight.RANGE) return false;
-                    var hit = CharacterSight.trace(mc.player, eye, centre);
-                    if (hit == null) return false;
-                    if (hit.getType() == HitResult.Type.MISS) return true;
-                    var surface = hit.getBlockPos();
-                    // Visible surfaces count even though their cell centre is
-                    // inside stone. Do not reveal any cell behind the first hit.
-                    return Math.floorDiv(surface.getX(), 2) == Math.floorDiv(x, 2)
-                            && Math.floorDiv(surface.getY(), 2) == Math.floorDiv(y, 2)
-                            && Math.floorDiv(surface.getZ(), 2) == Math.floorDiv(z, 2);
-                });
+                originX, originY, originZ, (x, y, z) -> CharacterSight.seesCell(mc.player, eye, x, y, z));
         if (upload == null) upload = MemoryUtil.memAlloc(FogVolume.LENGTH);
         upload.clear(); upload.put(PIXELS); upload.flip();
         boolean created = fogTexture == -1;

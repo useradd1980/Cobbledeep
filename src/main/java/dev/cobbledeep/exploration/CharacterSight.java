@@ -41,6 +41,21 @@ public final class CharacterSight
         return hit != null && hit.getType() == HitResult.Type.MISS;
     }
 
+    /** A surface hit counts only for the target cell, never the cell behind it. */
+    public static boolean seesCell(Player observer, Vec3 eye, int x, int y, int z)
+    {
+        return CellSight.visible(eye.x, eye.y, eye.z, x, y, z, RANGE, (px, py, pz) ->
+        {
+            BlockHitResult hit = trace(observer, eye, new Vec3(px, py, pz));
+            if (hit == null) return false;
+            if (hit.getType() == HitResult.Type.MISS) return true;
+            BlockPos surface = hit.getBlockPos();
+            return Math.floorDiv(surface.getX(), 2) == Math.floorDiv(x, 2)
+                    && Math.floorDiv(surface.getY(), 2) == Math.floorDiv(y, 2)
+                    && Math.floorDiv(surface.getZ(), 2) == Math.floorDiv(z, 2);
+        });
+    }
+
     public static boolean seesEntity(Player observer, LivingEntity target, float partialTick)
     {
         if (observer == target) return true;
