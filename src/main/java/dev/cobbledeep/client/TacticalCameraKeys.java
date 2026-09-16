@@ -40,6 +40,12 @@ public final class TacticalCameraKeys
             GLFW.GLFW_KEY_HOME,
             CATEGORY);
 
+    public static final KeyMapping PLAY_PAUSE = new KeyMapping(
+            "key.cobbledeep.tactical_camera.play_pause",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_SPACE,
+            CATEGORY);
+
     private TacticalCameraKeys() { }
 
     @SubscribeEvent
@@ -49,5 +55,6 @@ public final class TacticalCameraKeys
         event.register(ROTATE_LEFT);
         event.register(ROTATE_RIGHT);
         event.register(RECENTER);
+        event.register(PLAY_PAUSE);
     }
 }

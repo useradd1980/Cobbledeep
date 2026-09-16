@@ -59,6 +59,7 @@ public final class TacticalCameraController
     private static final double TERRAIN_HEIGHT_RESPONSE = 6.0;
 
     private static boolean enabled;
+    private static boolean gamePaused;
     private static float yaw = 45.0F;
     private static float cameraDistance = DEFAULT_CAMERA_DISTANCE;
     private static CameraType previousCameraType = CameraType.FIRST_PERSON;
@@ -100,6 +101,9 @@ public final class TacticalCameraController
     {
         Minecraft minecraft = Minecraft.getInstance();
 
+        if (gamePaused && (minecraft.player == null || minecraft.level == null))
+            gamePaused = false;
+
         while (TacticalCameraKeys.TOGGLE.consumeClick())
         {
             if (minecraft.player == null) return;
@@ -122,6 +126,7 @@ public final class TacticalCameraController
             }
             else
             {
+                setGamePaused(minecraft, false);
                 stopClickMovement(minecraft);
                 cameraFocus = null;
                 previousCameraFocus = cameraFocus;
@@ -161,6 +166,13 @@ public final class TacticalCameraController
             }
         }
 
+        while (TacticalCameraKeys.PLAY_PAUSE.consumeClick())
+        {
+            if (minecraft.player != null && minecraft.level != null
+                    && minecraft.screen == null && minecraft.isWindowActive())
+                setGamePaused(minecraft, !gamePaused);
+        }
+
         if (minecraft.player != null && minecraft.options.getCameraType() != CameraType.THIRD_PERSON_BACK)
         {
             minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
@@ -177,7 +189,22 @@ public final class TacticalCameraController
         // settles at the target instead of replaying the previous movement.
         previousCameraFocus = cameraFocus;
         updateEdgePan(minecraft);
-        updateClickMovement(minecraft);
+        if (!gamePaused) updateClickMovement(minecraft);
+    }
+
+    private static void setGamePaused(Minecraft minecraft, boolean paused)
+    {
+        if (gamePaused == paused) return;
+        var server = minecraft.getSingleplayerServer();
+        if (server == null) return;
+
+        gamePaused = paused;
+        TacticalPathMovement.suspendInputs(minecraft);
+        minecraft.options.keyJump.setDown(false);
+        server.execute(() -> server.tickRateManager().setFrozen(paused));
+        if (minecraft.player != null)
+            minecraft.player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal(paused ? "PAUSED" : "PLAYING"), true);
     }
 
     private static void updateEdgePan(Minecraft minecraft)
@@ -263,6 +290,7 @@ public final class TacticalCameraController
     public static void onMovementKey(InputEvent.Key event)
     {
         if (!enabled || event.getAction() != GLFW.GLFW_PRESS) return;
+        if (TacticalCameraKeys.PLAY_PAUSE.matches(event.getKey(), event.getScanCode())) return;
         Minecraft mc = Minecraft.getInstance();
         if (TacticalPathMovement.markerTarget(mc) == null) return;
         for (var key : new net.minecraft.client.KeyMapping[] {mc.options.keyUp, mc.options.keyDown,

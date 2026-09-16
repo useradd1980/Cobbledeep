@@ -16,6 +16,11 @@ camera. Pressing a movement/jump/sneak key cancels the route and returns control
 to the keyboard. Opening a menu, losing window focus, dying, changing world or
 leaving tactical mode also stops movement and releases automated inputs.
 
+Press Space in tactical mode to pause or resume the single-player simulation.
+Pausing freezes world time, creatures, projectiles and other server simulation
+while leaving the tactical camera and cursor responsive. An active route is
+retained, releases its movement inputs while paused, and resumes on play.
+
 Routes use A* over block-centred positions, with feet height stored in sixteenths
 of a block. Actual collision shapes and a standing player-sized body determine
 clearance. Open doors, ordinary stairs/slabs, one-block jumps and drops of at

@@ -285,6 +285,11 @@ final class TacticalPathMovement
         recovery.clear();
     }
 
+    static void suspendInputs(Minecraft mc)
+    {
+        input(mc, false, false);
+    }
+
     private static void arrive(Minecraft mc)
     {
         Vec3 reached = target;
