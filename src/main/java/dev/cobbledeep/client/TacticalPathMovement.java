@@ -2,6 +2,7 @@ package dev.cobbledeep.client;
 
 import dev.cobbledeep.pathfinding.GridPathfinder;
 import dev.cobbledeep.pathfinding.GridPathfinder.Node;
+import dev.cobbledeep.pathfinding.MovementProgress;
 import dev.cobbledeep.pathfinding.WaypointProgress;
 import dev.cobbledeep.pathfinding.WalkStepRules;
 import dev.cobbledeep.pathfinding.RouteRecovery;
@@ -22,7 +23,7 @@ final class TacticalPathMovement
     private static double previousWaitY = Double.NaN;
     private static int waypoint, stalled, blockedTicks;
     private static final RouteRecovery recovery = new RouteRecovery();
-    private static double bestDistance;
+    private static final MovementProgress movement = new MovementProgress();
     private static boolean forwardHeld, jumpHeld;
 
     static Vec3 target() { return target; }
@@ -45,7 +46,8 @@ final class TacticalPathMovement
     private static void plan(Minecraft mc)
     {
         input(mc, false, false);
-        route = List.of(); waypoint = stalled = 0; bestDistance = Double.POSITIVE_INFINITY;
+        route = List.of(); waypoint = stalled = 0;
+        movement.reset();
         previousWaitY = Double.NaN;
         blockedTicks = 0;
         beginSearch(mc, false);
@@ -115,12 +117,9 @@ final class TacticalPathMovement
                     route = List.copyOf(replacement.subList(join, replacement.size()));
                     pathStart = mc.player.position();
                     waypoint = 0;
-                    bestDistance = Double.POSITIVE_INFINITY;
+                    movement.reset();
                     stalled = blockedTicks = 0;
                     previousWaitY = Double.NaN;
-                    // A route's first node anchors the graph. Do not walk back
-                    // to its centre if the next edge is already safe.
-                    if (route.size() > 1 && world.canTravel(mc.player.position(), route.get(1))) waypoint = 1;
                     message(mc, "");
                 }
             }
@@ -162,13 +161,13 @@ final class TacticalPathMovement
                 recovery.reachedWaypoint(mc.player.getX(), mc.player.getY(), mc.player.getZ());
             if (++waypoint >= route.size()) { stop(mc); return; }
             node = route.get(waypoint); point = TacticalWalkWorld.point(node);
-            bestDistance = Double.POSITIVE_INFINITY; stalled = 0;
+            movement.reset();
+            stalled = 0;
             previousWaitY = Double.NaN;
         }
         previousWaitY = Double.NaN;
         double distance = Math.hypot(point.x - mc.player.getX(), point.z - mc.player.getZ());
-        if (distance < bestDistance - 0.025) { bestDistance = distance; stalled = 0; }
-        else stalled++;
+        int stationaryTicks = movement.update(mc.player.getX(), mc.player.getY(), mc.player.getZ());
         if (mc.player.onGround() && !world.canTravel(mc.player.position(), node))
         {
             // Recheck a brief contact before spending a route recovery. Keep
@@ -178,7 +177,7 @@ final class TacticalPathMovement
             return;
         }
         blockedTicks = 0;
-        if (mc.player.onGround() && stalled >= 30 && search == null)
+        if (mc.player.onGround() && stationaryTicks >= 30 && search == null)
         {
             // The next edge is still safe, so keep following it while A*
             // prepares a fresher route from the player's current position.
@@ -186,7 +185,7 @@ final class TacticalPathMovement
             return;
         }
         // Also stop if a fall or displacement prevents progress while airborne.
-        if (stalled >= 80 || distance > 2.5 || mc.player.getY() < point.y - 1.25)
+        if (stationaryTicks >= 80 || distance > 2.5 || mc.player.getY() < point.y - 1.25)
         { fail(mc, "Movement interrupted. Choose another destination."); return; }
         double dx = point.x - mc.player.getX(), dz = point.z - mc.player.getZ();
         mc.player.setYRot((float)Math.toDegrees(Math.atan2(-dx, dz)));
@@ -199,6 +198,7 @@ final class TacticalPathMovement
         input(mc, false, false);
         target = null; pathStart = null; world = null; search = null; route = List.of();
         searchWhileMoving = false;
+        movement.reset();
         previousWaitY = Double.NaN;
         waypoint = stalled = blockedTicks = 0;
         recovery.clear();

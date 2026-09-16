@@ -56,6 +56,10 @@ public final class RouteRecoveryTest
             check(recovery.retry(step+.1,0,0), "Separate obstacles do not exhaust whole-trip budget");
         }
         recovery.clear();
+        check(recovery.retry(0,0,0), "First retry before direct travel allowed");
+        check(recovery.retry(.1,0,0), "Nearby retry still uses local allowance");
+        check(recovery.retry(1,0,0), "Retry itself recognizes travel to a new area");
+        recovery.clear();
         check(recovery.retry(0,0,0), "New destination resets retries");
         System.out.println("Passed " + checks + " swept-collision and recovery checks.");
     }

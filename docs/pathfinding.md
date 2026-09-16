@@ -30,14 +30,19 @@ Searches process at most 48 queue entries per client tick, with a 4,096-expansio
 limit and a 64-block bound on each axis from the start. Difficult searches can
 take several seconds and may ask for a closer target. Failure stops movement;
 it never falls back to walking straight through an obstacle. Waypoints are
-rechecked while walking. Routine replanning runs incrementally while the player
+rechecked while walking. A stall is measured from actual three-dimensional
+player displacement, not distance to an exact waypoint centre; moving around a
+corner or over uneven terrain therefore does not cause a false replan. Routine
+replanning runs incrementally while the player
 continues along the still-safe active route, then joins the furthest directly
 reachable point on the replacement route without turning back toward its search
 origin. A genuinely unsafe next edge still stops movement. Brief failed checks
 stop input and are rechecked for
 three ticks before replanning. Repeated failures in one place allow at most two
 replans; reaching a later waypoint at least 0.75 blocks away restores that
-allowance, so separate recoveries do not exhaust a whole-trip budget.
+allowance. A retry also measures its current position against the original
+failure location, so route handoffs cannot prevent genuine travel from restoring
+the allowance and separate recoveries do not exhaust a whole-trip budget.
 No movement teleports, speed changes or new server packets are used.
 Exploration, lighting and creature line of sight are unchanged.
 
@@ -75,6 +80,9 @@ jump timing and an A* route up a synthetic terraced hill.
 Compile `SweptBody.java`, `RouteRecovery.java` and `tests/RouteRecoveryTest.java`
 and run `RouteRecoveryTest` for off-route obstructions, thin doors, wall/ground
 contact, randomized collision samples and recovery limits with/without progress.
+Compile `MovementProgress.java` with `tests/MovementProgressTest.java` and run
+`MovementProgressTest` for stationary detection, small positional jitter and
+continuous horizontal/vertical movement.
 
 In Minecraft, check:
 
