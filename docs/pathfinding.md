@@ -30,6 +30,15 @@ rechecked while walking. A blocked/stalled route replans at most twice before
 stopping. No movement teleports, speed changes or new server packets are used.
 Exploration, lighting and creature line of sight are unchanged.
 
+Waypoint arrival uses progress along the incoming segment as well as distance,
+so passing a node during a jump/drop does not trigger a turn back to its centre.
+On straight stair runs the follower can advance to the next node while airborne
+only if the normal collision checks approve that edge from its actual position.
+Otherwise forward input is released while the player finishes landing, without
+reversing their heading. Corners are not skipped during that height wait. A
+route's initial graph node is skipped only when the next edge is already safe,
+avoiding unnecessary recentering after a replan.
+
 ## Verification
 
 Compile `src/main/java/dev/cobbledeep/pathfinding/GridPathfinder.java` and
@@ -38,6 +47,9 @@ detours through a doorway, closed/changed openings, elevation, separate floors,
 unreachable destinations and bounded incremental work. Random maps compare
 reachability and shortest paths with an independent breadth-first search.
 These tests exercise the search engine, not Minecraft collision or input APIs.
+Compile `WaypointProgress.java` with `tests/WaypointProgressTest.java` and run
+`WaypointProgressTest` for jump/drop overshoot, cardinal/diagonal movement,
+negative coordinates, corners, switchbacks and final-destination tolerance.
 
 In Minecraft, check:
 
@@ -49,3 +61,5 @@ In Minecraft, check:
    menu opening, loss of focus, leaving tactical mode and changing worlds.
 6. Test narrow doorways and corners at different approach angles. Collision and
    momentum behaviour require an in-game run on the installed Forge version.
+7. Walk up and down consecutive one-block ledges, including a corner immediately
+   after a ledge. Check for backtracking, missed landings and cancellation mid-jump.

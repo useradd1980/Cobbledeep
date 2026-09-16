@@ -1,0 +1,46 @@
+import dev.cobbledeep.pathfinding.WaypointProgress;
+import static dev.cobbledeep.pathfinding.WaypointProgress.State.*;
+
+public final class WaypointProgressTest
+{
+    private static int checks;
+    private static void check(boolean condition, String message)
+    { checks++; if (!condition) throw new AssertionError(message); }
+
+    public static void main(String[] args)
+    {
+        // Jump/drop trajectories cross the waypoint plane before settling at
+        // its height. They must never become APPROACH again solely from that.
+        for (int direction : new int[] {-1, 1})
+            for (int axis = 0; axis < 2; axis++)
+                for (double base : new double[] {-100.5, 0.5, 100.5})
+                {
+                    double tx = base + (axis == 0 ? direction : 0);
+                    double tz = base + (axis == 1 ? direction : 0);
+                    for (double[] pose : new double[][] {{1.05,1.8},{1.15,1.5},{1.30,1.2}})
+                    {
+                        double x = base + (axis == 0 ? direction * pose[0] : 0);
+                        double z = base + (axis == 1 ? direction * pose[0] : 0);
+                        var state = WaypointProgress.classify(base,base,tx,1,tz,x,pose[1],z,false);
+                        check(state == (pose[1] > 1.35 ? WAIT_FOR_HEIGHT : REACHED), "Jump overshoot never commands reversal");
+                    }
+                    for (double[] pose : new double[][] {{1.05,.9},{1.15,.6},{1.30,.2}})
+                    {
+                        double x = base + (axis == 0 ? direction * pose[0] : 0);
+                        double z = base + (axis == 1 ? direction * pose[0] : 0);
+                        var state = WaypointProgress.classify(base,base,tx,0,tz,x,pose[1],z,false);
+                        check(state == (pose[1] > .35 ? WAIT_FOR_HEIGHT : REACHED), "Drop overshoot waits or advances");
+                    }
+                }
+        check(WaypointProgress.classify(0,0,1,0,0,.5,0,0,false) == APPROACH, "Do not skip a waypoint before reaching it");
+        check(WaypointProgress.classify(0,0,1,0,0,1.2,0,.5,false) == APPROACH, "Lateral displacement is not forward progress");
+        check(WaypointProgress.classify(0,0,1,0,0,3,0,0,false) == APPROACH, "Large displacement cannot consume route");
+        check(WaypointProgress.classify(0,0,1,0,0,1.5,0,0,true) == APPROACH, "Final destination has tighter overshoot tolerance");
+        check(WaypointProgress.classify(0,0,1,0,1,1.15,0,1.15,false) == REACHED, "Diagonal segment progress");
+        check(WaypointProgress.classify(1,1,1,0,1,1,0,1,false) == REACHED, "Zero-length first segment is safe");
+        check(WaypointProgress.straight(0,0,1,0,2,0), "Straight stairs permit checked lookahead");
+        check(!WaypointProgress.straight(0,0,1,0,1,1), "A corner must not be cut while airborne");
+        check(!WaypointProgress.straight(0,0,1,0,0,0), "A switchback must not be skipped");
+        System.out.println("Passed " + checks + " waypoint progression checks.");
+    }
+}

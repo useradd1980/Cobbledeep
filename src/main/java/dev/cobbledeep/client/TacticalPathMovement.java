@@ -2,6 +2,7 @@ package dev.cobbledeep.client;
 
 import dev.cobbledeep.pathfinding.GridPathfinder;
 import dev.cobbledeep.pathfinding.GridPathfinder.Node;
+import dev.cobbledeep.pathfinding.WaypointProgress;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
@@ -14,6 +15,8 @@ final class TacticalPathMovement
     private static GridPathfinder.Search search;
     private static List<Node> route = List.of();
     private static Vec3 target;
+    private static Vec3 pathStart;
+    private static double previousWaitY = Double.NaN;
     private static int waypoint, stalled, retries;
     private static double bestDistance;
     private static boolean forwardHeld, jumpHeld;
@@ -39,6 +42,8 @@ final class TacticalPathMovement
     {
         input(mc, false, false);
         route = List.of(); waypoint = stalled = 0; bestDistance = Double.POSITIVE_INFINITY;
+        previousWaitY = Double.NaN;
+        pathStart = mc.player.position();
         world = new TacticalWalkWorld(mc.player);
         Node start = world.nearest(mc.player.position());
         Node goal = new Node((int)Math.floor(target.x), (int)Math.round(target.y * 16), (int)Math.floor(target.z));
@@ -74,24 +79,56 @@ final class TacticalPathMovement
                 return;
             }
             route = search.path(); search = null;
+            // A route's first node anchors the graph. Do not walk back to its
+            // centre if the next edge can already be entered safely.
+            if (route.size() > 1 && world.canTravel(mc.player.position(), route.get(1))) waypoint = 1;
             message(mc, "");
         }
         Node node = route.get(waypoint);
         Vec3 point = TacticalWalkWorld.point(node);
-        double distance = Math.hypot(point.x - mc.player.getX(), point.z - mc.player.getZ());
-        if (distance <= 0.18 && Math.abs(point.y - mc.player.getY()) <= 0.35)
+        while (true)
         {
+            Vec3 from = waypoint == 0 ? pathStart : TacticalWalkWorld.point(route.get(waypoint - 1));
+            var progress = WaypointProgress.classify(from.x, from.z, point.x, point.y, point.z,
+                    mc.player.getX(), mc.player.getY(), mc.player.getZ(), waypoint == route.size() - 1);
+            if (progress == WaypointProgress.State.APPROACH) break;
+            if (progress == WaypointProgress.State.WAIT_FOR_HEIGHT)
+            {
+                // Continue along a straight stair run only when the existing
+                // collision checks approve the next edge from the actual body.
+                // At corners or blocked edges, let gravity finish the step
+                // without turning back toward the waypoint we just passed.
+                boolean continueAhead = false;
+                if (waypoint + 1 < route.size())
+                {
+                    Node next = route.get(waypoint + 1);
+                    Vec3 nextPoint = TacticalWalkWorld.point(next);
+                    continueAhead = WaypointProgress.straight(from.x, from.z, point.x, point.z, nextPoint.x, nextPoint.z)
+                            && world.canTravel(mc.player.position(), next);
+                }
+                if (!continueAhead)
+                {
+                    if (Double.isNaN(previousWaitY) || Math.abs(previousWaitY - mc.player.getY()) > 0.025) stalled = 0;
+                    else stalled++;
+                    previousWaitY = mc.player.getY();
+                    input(mc, false, false);
+                    if (stalled >= 30 && mc.player.onGround()) replan(mc);
+                    else if (stalled >= 80) fail(mc, "Movement interrupted. Choose another destination.");
+                    return;
+                }
+            }
             if (++waypoint >= route.size()) { stop(mc); return; }
             node = route.get(waypoint); point = TacticalWalkWorld.point(node);
-            distance = Math.hypot(point.x - mc.player.getX(), point.z - mc.player.getZ());
             bestDistance = Double.POSITIVE_INFINITY; stalled = 0;
+            previousWaitY = Double.NaN;
         }
+        previousWaitY = Double.NaN;
+        double distance = Math.hypot(point.x - mc.player.getX(), point.z - mc.player.getZ());
         if (distance < bestDistance - 0.025) { bestDistance = distance; stalled = 0; }
         else stalled++;
         if (mc.player.onGround() && (!world.canTravel(mc.player.position(), node) || stalled >= 30))
         {
-            if (++retries > 2) fail(mc, "Route blocked. Choose another destination.");
-            else plan(mc);
+            replan(mc);
             return;
         }
         // Also stop if a fall or displacement prevents progress while airborne.
@@ -106,7 +143,8 @@ final class TacticalPathMovement
     static void stop(Minecraft mc)
     {
         input(mc, false, false);
-        target = null; world = null; search = null; route = List.of();
+        target = null; pathStart = null; world = null; search = null; route = List.of();
+        previousWaitY = Double.NaN;
         waypoint = stalled = retries = 0;
     }
 
@@ -117,6 +155,11 @@ final class TacticalPathMovement
     }
 
     private static void fail(Minecraft mc, String text) { stop(mc); message(mc, text); }
+    private static void replan(Minecraft mc)
+    {
+        if (++retries > 2) fail(mc, "Route blocked. Choose another destination.");
+        else plan(mc);
+    }
     private static void message(Minecraft mc, String text)
     {
         if (mc.player != null) mc.player.displayClientMessage(Component.literal(text), true);
