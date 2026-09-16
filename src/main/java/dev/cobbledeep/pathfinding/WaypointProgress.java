@@ -45,4 +45,9 @@ public final class WaypointProgress
         // collision-checked path from the actual body is the stronger test.
         return travelClear && (grounded || straight);
     }
+
+    public static boolean retryLandingEdgeFromPath(boolean grounded, int graceTicks, boolean liveClear)
+    {
+        return grounded && graceTicks > 0 && !liveClear;
+    }
 }

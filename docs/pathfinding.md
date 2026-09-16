@@ -67,6 +67,9 @@ Height-wait lookahead requires a straight segment only while airborne. After
 landing, a turn may advance when the normal collision checks approve travel
 from the player's actual body to the next node. This prevents a safe uphill
 corner from waiting thirty ticks and launching a `landing height wait` replan.
+During the post-climb transition, a next edge rejected only by the settling live
+body is checked again from the current canonical path node before that height-
+wait branch can return. Both checks must reject a genuinely blocked edge.
 
 When the horizontal plane is reached before an ascent is complete, the follower
 preserves the validated edge's heading and continues forward/jump input until

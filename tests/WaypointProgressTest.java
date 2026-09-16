@@ -53,6 +53,10 @@ public final class WaypointProgressTest
         check(WaypointProgress.canLookAhead(false,true,true), "airborne straight run can advance");
         check(!WaypointProgress.canLookAhead(false,false,true), "airborne corner cannot be cut");
         check(!WaypointProgress.canLookAhead(true,true,false), "collision blocks grounded lookahead");
+        check(WaypointProgress.retryLandingEdgeFromPath(true,6,false), "settled climb retries rejected live edge");
+        check(!WaypointProgress.retryLandingEdgeFromPath(false,6,false), "airborne edge does not use landing fallback");
+        check(!WaypointProgress.retryLandingEdgeFromPath(true,0,false), "expired transition does not use fallback");
+        check(!WaypointProgress.retryLandingEdgeFromPath(true,6,true), "clear live edge needs no fallback");
         System.out.println("Passed " + checks + " waypoint progression checks.");
     }
 }

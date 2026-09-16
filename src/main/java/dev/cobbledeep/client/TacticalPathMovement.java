@@ -169,6 +169,14 @@ final class TacticalPathMovement
                     boolean straight = WaypointProgress.straight(from.x, from.z,
                             point.x, point.z, nextPoint.x, nextPoint.z);
                     boolean travelClear = world.canTravel(mc.player.position(), next);
+                    if (WaypointProgress.retryLandingEdgeFromPath(mc.player.onGround(),
+                            postClimbGraceTicks, travelClear))
+                    {
+                        // This branch returns before the general post-climb
+                        // fallback below. Retry the same planned edge from its
+                        // canonical node so a settling body cannot reject it.
+                        travelClear = world.canTravel(point, next);
+                    }
                     continueAhead = WaypointProgress.canLookAhead(mc.player.onGround(), straight, travelClear);
                     landingWaitCause = !travelClear ? "next edge rejected" : "airborne turn";
                 }
