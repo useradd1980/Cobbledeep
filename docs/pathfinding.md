@@ -30,9 +30,20 @@ Searches process at most 48 queue entries per client tick, with a 4,096-expansio
 limit and a 64-block bound on each axis from the start. Difficult searches can
 take several seconds and may ask for a closer target. Failure stops movement;
 it never falls back to walking straight through an obstacle. Waypoints are
-rechecked while walking. A blocked/stalled route replans at most twice before
-stopping. No movement teleports, speed changes or new server packets are used.
+rechecked while walking. Brief failed checks stop input and are rechecked for
+three ticks before replanning. Repeated failures in one place allow at most two
+replans; reaching a later waypoint at least 0.75 blocks away restores that
+allowance, so separate recoveries do not exhaust a whole-trip budget.
+No movement teleports, speed changes or new server packets are used.
 Exploration, lighting and creature line of sight are unchanged.
+
+Horizontal collision checks use a continuous swept player box against the
+actual collision shapes, rather than rejecting everything inside the enclosing
+rectangle of a diagonal move. Walls and thin door shapes still block movement;
+unused corners of that rectangle no longer cause false obstructions. Hazard
+and loaded-chunk checks remain conservative over the enclosing bounds. Starting
+or replanning chooses the nearest reachable standing node, skipping closer
+nodes that cannot be entered from the player's actual position.
 
 Waypoint arrival uses progress along the incoming segment as well as distance,
 so passing a node during a jump/drop does not trigger a turn back to its centre.
@@ -57,6 +68,9 @@ negative coordinates, corners, switchbacks and final-destination tolerance.
 Compile `WalkStepRules.java`, `GridPathfinder.java` and `tests/WalkStepRulesTest.java`
 and run `WalkStepRulesTest` for supported diagonal climbs, side gaps/walls,
 jump timing and an A* route up a synthetic terraced hill.
+Compile `SweptBody.java`, `RouteRecovery.java` and `tests/RouteRecoveryTest.java`
+and run `RouteRecoveryTest` for off-route obstructions, thin doors, wall/ground
+contact, randomized collision samples and recovery limits with/without progress.
 
 In Minecraft, check:
 

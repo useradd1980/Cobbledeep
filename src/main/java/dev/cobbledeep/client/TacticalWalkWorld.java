@@ -3,6 +3,7 @@ package dev.cobbledeep.client;
 import dev.cobbledeep.pathfinding.GridPathfinder;
 import dev.cobbledeep.pathfinding.GridPathfinder.Node;
 import dev.cobbledeep.pathfinding.WalkStepRules;
+import dev.cobbledeep.pathfinding.SweptBody;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -33,6 +34,16 @@ final class TacticalWalkWorld implements GridPathfinder.World
 
     Node nearest(Vec3 point)
     {
+        return nearest(point, false);
+    }
+
+    Node nearestReachable(Vec3 point)
+    {
+        return nearest(point, true);
+    }
+
+    private Node nearest(Vec3 point, boolean requireReachable)
+    {
         Node best = null;
         double score = Double.POSITIVE_INFINITY;
         for (int dx = -1; dx <= 1; dx++)
@@ -40,7 +51,7 @@ final class TacticalWalkWorld implements GridPathfinder.World
                 for (Node n : surfaces(Mth.floor(point.x) + dx, Mth.floor(point.z) + dz, point.y - 1.05, point.y + 1.05))
                 {
                     double d = point(n).distanceToSqr(point);
-                    if (d < score) { score = d; best = n; }
+                    if (d < score && (!requireReachable || canTravel(point, n))) { score = d; best = n; }
                 }
         return best;
     }
@@ -131,10 +142,27 @@ final class TacticalWalkWorld implements GridPathfinder.World
         // use normal stepping, but still require a clear swept body volume.
         double jumpClearance = rise > 0.6 ? 0.3 : 0;
         AABB ascent = body(from).expandTowards(0, lift + jumpClearance, 0);
-        AABB across = body(from.add(0, lift, 0)).expandTowards(end.x - from.x, jumpClearance, end.z - from.z);
+        AABB moving = body(from.add(0, lift, 0)).expandTowards(0, jumpClearance, 0);
+        AABB across = moving.expandTowards(end.x - from.x, 0, end.z - from.z);
         AABB descent = body(end).expandTowards(0, Math.max(0, -rise) + jumpClearance, 0);
         return safe(ascent) && safe(across) && safe(descent)
-                && level.noCollision(player, ascent) && level.noCollision(player, across)
+                && level.noCollision(player, ascent) && clearSweep(moving, end.x - from.x, end.z - from.z, across)
                 && level.noCollision(player, descent);
+    }
+
+    private boolean clearSweep(AABB body, double dx, double dz, AABB bounds)
+    {
+        // Bounds only selects nearby collision shapes. Test the actual swept
+        // footprint, rather than treating all four corners of bounds as occupied.
+        SweptBody.Box moving = box(body);
+        for (var shape : level.getCollisions(player, bounds))
+            for (AABB obstacle : shape.toAabbs())
+                if (SweptBody.hits(moving, dx, 0, dz, box(obstacle))) return false;
+        return true;
+    }
+
+    private static SweptBody.Box box(AABB box)
+    {
+        return new SweptBody.Box(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);
     }
 }

@@ -4,6 +4,7 @@ import dev.cobbledeep.pathfinding.GridPathfinder;
 import dev.cobbledeep.pathfinding.GridPathfinder.Node;
 import dev.cobbledeep.pathfinding.WaypointProgress;
 import dev.cobbledeep.pathfinding.WalkStepRules;
+import dev.cobbledeep.pathfinding.RouteRecovery;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
@@ -18,7 +19,8 @@ final class TacticalPathMovement
     private static Vec3 target;
     private static Vec3 pathStart;
     private static double previousWaitY = Double.NaN;
-    private static int waypoint, stalled, retries;
+    private static int waypoint, stalled, blockedTicks;
+    private static final RouteRecovery recovery = new RouteRecovery();
     private static double bestDistance;
     private static boolean forwardHeld, jumpHeld;
 
@@ -44,9 +46,10 @@ final class TacticalPathMovement
         input(mc, false, false);
         route = List.of(); waypoint = stalled = 0; bestDistance = Double.POSITIVE_INFINITY;
         previousWaitY = Double.NaN;
+        blockedTicks = 0;
         pathStart = mc.player.position();
         world = new TacticalWalkWorld(mc.player);
-        Node start = world.nearest(mc.player.position());
+        Node start = world.nearestReachable(mc.player.position());
         Node goal = new Node((int)Math.floor(target.x), (int)Math.round(target.y * 16), (int)Math.floor(target.z));
         if (start == null || !world.canTravel(mc.player.position(), start) || !world.standable(goal))
         {
@@ -118,6 +121,8 @@ final class TacticalPathMovement
                     return;
                 }
             }
+            if (progress == WaypointProgress.State.REACHED && waypoint > 0)
+                recovery.reachedWaypoint(mc.player.getX(), mc.player.getY(), mc.player.getZ());
             if (++waypoint >= route.size()) { stop(mc); return; }
             node = route.get(waypoint); point = TacticalWalkWorld.point(node);
             bestDistance = Double.POSITIVE_INFINITY; stalled = 0;
@@ -127,7 +132,16 @@ final class TacticalPathMovement
         double distance = Math.hypot(point.x - mc.player.getX(), point.z - mc.player.getZ());
         if (distance < bestDistance - 0.025) { bestDistance = distance; stalled = 0; }
         else stalled++;
-        if (mc.player.onGround() && (!world.canTravel(mc.player.position(), node) || stalled >= 30))
+        if (mc.player.onGround() && !world.canTravel(mc.player.position(), node))
+        {
+            // Recheck a brief contact before spending a route recovery. Keep
+            // movement released throughout: this never drives through a wall.
+            input(mc, false, false);
+            if (++blockedTicks >= 3) replan(mc);
+            return;
+        }
+        blockedTicks = 0;
+        if (mc.player.onGround() && stalled >= 30)
         {
             replan(mc);
             return;
@@ -146,7 +160,8 @@ final class TacticalPathMovement
         input(mc, false, false);
         target = null; pathStart = null; world = null; search = null; route = List.of();
         previousWaitY = Double.NaN;
-        waypoint = stalled = retries = 0;
+        waypoint = stalled = blockedTicks = 0;
+        recovery.clear();
     }
 
     private static void input(Minecraft mc, boolean forward, boolean jump)
@@ -158,7 +173,8 @@ final class TacticalPathMovement
     private static void fail(Minecraft mc, String text) { stop(mc); message(mc, text); }
     private static void replan(Minecraft mc)
     {
-        if (++retries > 2) fail(mc, "Route blocked. Choose another destination.");
+        if (!recovery.retry(mc.player.getX(), mc.player.getY(), mc.player.getZ()))
+            fail(mc, "Unable to continue from here. Choose another destination.");
         else plan(mc);
     }
     private static void message(Minecraft mc, String text)
