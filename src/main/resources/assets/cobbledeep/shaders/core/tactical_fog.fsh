@@ -11,6 +11,8 @@ in vec2 texCoord;
 out vec4 fragColor;
 
 const float DIM_ALPHA = 0.35;
+const float SCENE_BRIGHTNESS = 0.85;
+const float SIGHT_FADE_WIDTH = 8.0;
 
 int stateAt(ivec3 cell) {
     if (any(lessThan(cell, ivec3(0))) || any(greaterThanEqual(cell, ivec3(128)))) return 0;
@@ -53,7 +55,15 @@ void main() {
     bool nearby = dot(fromPlayer, fromPlayer) <= TerrainRange * TerrainRange;
     vec3 grid = world / 2.0 - GridOrigin;
     int state = stateAt(ivec3(floor(grid)));
-    if (nearby) fragColor = vec4(0.0, 0.0, 0.0, DIM_ALPHA * (1.0 - smoothSight(grid)));
-    else if (state != 0) fragColor = vec4(0.0, 0.0, 0.0, DIM_ALPHA);
+    if (nearby) {
+        // Fade the lighting advantage over the outer eight blocks. This meets
+        // remembered-terrain brightness continuously at the radius boundary.
+        float inner = max(0.0, TerrainRange - SIGHT_FADE_WIDTH);
+        float outer = max(inner + 0.001, TerrainRange);
+        float falloff = 1.0 - smoothstep(inner, outer, length(fromPlayer));
+        float brightness = SCENE_BRIGHTNESS * (1.0 - DIM_ALPHA * (1.0 - smoothSight(grid) * falloff));
+        fragColor = vec4(0.0, 0.0, 0.0, 1.0 - brightness);
+    }
+    else if (state != 0) fragColor = vec4(0.0, 0.0, 0.0, 1.0 - SCENE_BRIGHTNESS * (1.0 - DIM_ALPHA));
     else fragColor = vec4(0.035, 0.045, 0.06, 1.0);
 }

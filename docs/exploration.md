@@ -6,9 +6,15 @@ The circle follows the interpolated character position every rendered frame;
 Nearby terrain never turns opaque while waiting for an exploration packet. Camera movement
 never moves the reveal circle or writes exploration.
 
-Outside the circle, previously explored terrain is dimmed to 65% brightness;
+The tactical world view has a 15% overall brightness reduction; HUD and menus
+are unchanged. Sight brightness fades gradually over the outer eight blocks
+(16 to 24 blocks from the character), meeting the dim remembered terrain
+without a sharp lighting ring. The fade affects lighting only; exploration
+range, creature visibility and enemy detection rules are unchanged.
+
+Outside the circle, previously explored terrain retains 65% of that reduced brightness;
 unknown terrain is opaque. Normal Minecraft lighting still applies inside the
-circle. Within the circle, current character line of sight removes the dimming;
+circle. Within the inner circle, current character line of sight removes the extra fog dimming;
 walls, closed doors and intervening terrain leave blocked areas dim. A clear
 view through an opening brightens the visible cells beyond it. Current sight
 uses centre and inset-corner samples from the character's eyes, within 24 blocks

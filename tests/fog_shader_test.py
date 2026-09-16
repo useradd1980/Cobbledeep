@@ -137,7 +137,7 @@ def draw(expected, background=(0.8, 0.6, 0.4)):
     checks += 1
 
 depth(0.5)
-for state, expected in [(0, (.035,.045,.06)), (1, (.52,.39,.26)), (2, (.52,.39,.26))]:
+for state, expected in [(0, (.035,.045,.06)), (1, (.442,.3315,.221)), (2, (.442,.3315,.221))]:
     fog(bytes([state]) * (128**3))
     draw(expected)
 depth(1)
@@ -163,14 +163,14 @@ for x in (4, 5):
         for z in (14, 15):
             pixels[x + 128 * (z + 128 * y)] = 2
 fog(pixels)
-draw((.8,.6,.4))
+draw((.68,.51,.34))
 # Nearby terrain is never black, even before memory arrives or at other heights.
 fog(bytes(128**3))
 for height in [-200, 20, 300]:
     set3(uniform(program, b"PlayerPosition"), 10, height, 30)
-    draw((.52,.39,.26))
+    draw((.442,.3315,.221))
 set3(uniform(program, b"PlayerPosition"), 33.5, 20, 29.5)
-draw((.52,.39,.26))
+draw((.442,.3315,.221))
 set3(uniform(program, b"PlayerPosition"), 34.5, 20, 29.5)
 draw((.035,.045,.06))
 # Move the character away without moving the camera: unknown returns opaque,
@@ -178,16 +178,16 @@ draw((.035,.045,.06))
 set3(uniform(program, b"PlayerPosition"), 100, 20, 100)
 draw((.035,.045,.06))
 fog(bytes([1]) * (128**3))
-draw((.52,.39,.26))
+draw((.442,.3315,.221))
 # A room in range dims when blocked, clears with sight through the doorway,
 # and dims again when sight is lost. Neither case can erase its discovery.
 set3(uniform(program, b"PlayerPosition"), 10, 20, 30)
-for state, expected in [(1, (.52,.39,.26)), (2, (.8,.6,.4)), (1, (.52,.39,.26))]:
+for state, expected in [(1, (.442,.3315,.221)), (2, (.68,.51,.34)), (1, (.442,.3315,.221))]:
     fog(bytes([state]) * (128**3))
     draw(expected)
 # Missing atlas coverage is also dim (not black) inside the radius.
 set3(uniform(program, b"GridOrigin"), 1000, 1000, 1000)
-draw((.52,.39,.26))
+draw((.442,.3315,.221))
 
 # Reconstruct known points across a dim/clear cell boundary. Test the midpoint
 # and both sides of the old discontinuity, not just uniform atlas colours.
@@ -201,7 +201,7 @@ for x in (1, 1.5, 1.99, 2.01, 2.5, 3):
     set3(uniform(program, b"CameraPosition"), x - offset, 1 - offset, 1)
     fraction = (x - 1) / 2
     brightness = .65 + .35 * fraction * fraction * (3 - 2 * fraction)
-    draw(tuple(c * brightness for c in (.8, .6, .4)))
+    draw(tuple(c * .85 * brightness for c in (.8, .6, .4)))
 
 # Smoothing cannot expose an unknown cell outside the character's circle.
 fog(bytes([0] * 65 + [2] * 63) * (128 * 128))
@@ -209,7 +209,22 @@ set3(uniform(program, b"CameraPosition"), 1.99 - offset, 1 - offset, 1)
 set3(uniform(program, b"PlayerPosition"), 100, 0, 100)
 draw((.035,.045,.06))
 
-# Already-dark grass retains 65% of its texture brightness, rather than 40%.
+# Dark grass retains the existing fog contrast under the 15% scene reduction.
 fog(bytes([1]) * (128**3))
-draw((.091,.117,.0715), background=(.14,.18,.11))
+draw((.07735,.09945,.060775), background=(.14,.18,.11))
+
+# The outer lighting ring meets remembered terrain continuously at 24 blocks.
+# Keep every sample marked visible to isolate radial fading from LOS sampling.
+fog(bytes([2]) * (128**3))
+set3(uniform(program, b"PlayerPosition"), 0, 0, 0)
+for radius, sight_weight in [(0, 1), (12, 1), (16, 1), (18, .84375),
+                             (20, .5), (22, .15625), (23.99, 0), (24, 0),
+                             (24.01, 0), (30, 0)]:
+    set3(uniform(program, b"CameraPosition"), radius - offset, 1 - offset, 0)
+    brightness = .85 * (.65 + .35 * sight_weight)
+    draw(tuple(c * brightness for c in (.8, .6, .4)))
+# Occluded rooms retain their dim level even in the centre of the circle.
+fog(bytes([1]) * (128**3))
+set3(uniform(program, b"CameraPosition"), -offset, 1 - offset, 0)
+draw((.442,.3315,.221))
 print(f"GLSL compile/link, resource uniforms, depth copying and {checks} framebuffer checks passed.")
