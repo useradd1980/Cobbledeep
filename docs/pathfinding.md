@@ -2,10 +2,10 @@
 
 Left-click a walkable surface to plan a route. The action bar briefly shows
 "Finding route..."; the character then follows the route with normal movement.
-While a destination is active, a clean full-bright green ring pulses just above
-its surface. It is rendered after tactical fog as an anti-aliased world-space
-decal, with a restrained outer halo and a larger footprint that remains readable
-at maximum zoom. The marker disappears when movement finishes or is cancelled.
+In tactical mode, a clean full-bright green double ring marks the currently
+controlled player. It stays centred beneath the player during movement and is
+stationary rather than pulsing. It is rendered after tactical fog as an
+anti-aliased world-space decal and remains readable at maximum zoom.
 Right-click without dragging cancels. Dragging right-click still rotates the
 camera. Pressing a movement/jump/sneak key cancels the route and returns control
 to the keyboard. Opening a menu, losing window focus, dying, changing world or
