@@ -21,6 +21,7 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     private static final int HEADING = 0xFFD7C58A;
     private static final int LABEL = 0xFF9EAAA1;
     private static final int VALUE = 0xFFF0F2E8;
+
     private final Inventory playerInventory;
 
     public AdndInventoryScreen(AdndInventoryMenu menu, Inventory inventory, Component title)
@@ -28,8 +29,8 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         super(menu, inventory, title);
         playerInventory = inventory;
         imageWidth = 326;
-        imageHeight = 250;
-        inventoryLabelY = 156;
+        imageHeight = 238;
+        inventoryLabelY = 188;
     }
 
     @Override
@@ -51,11 +52,11 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     {
         graphics.fill(leftPos - 1, topPos - 1, leftPos + imageWidth + 1, topPos + imageHeight + 1, BORDER);
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, PANEL);
-        graphics.fill(leftPos + 92, topPos + 50, leftPos + 228, topPos + 157, 0x80222923);
-        graphics.fill(leftPos + 8, topPos + 153, leftPos + imageWidth - 8, topPos + 154, 0xFF455248);
+        graphics.fill(leftPos + 92, topPos + 50, leftPos + 238, topPos + 183, 0x80222923);
+        graphics.fill(leftPos + 8, topPos + 185, leftPos + imageWidth - 8, topPos + 186, 0xFF455248);
 
         InventoryScreen.renderEntityInInventoryFollowsMouse(graphics,
-                leftPos + 108, topPos + 76, leftPos + 218, topPos + 132,
+                leftPos + 112, topPos + 76, leftPos + 200, topPos + 144,
                 24, 0.0625F, mouseX, mouseY, playerInventory.player);
 
         for (var slot : menu.slots)
@@ -76,18 +77,18 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         graphics.drawString(font, "HELM", 161, 48, LABEL);
         graphics.drawString(font, "NECK", 194, 48, LABEL);
 
-        graphics.drawString(font, "AMMO", 43, 76, HEADING);
-        graphics.drawString(font, "QUICK WEAPONS", 34, 102, HEADING);
-        graphics.drawString(font, "L RING", 20, 138, LABEL);
-        graphics.drawString(font, "OFF HAND", 235, 78, LABEL);
-        graphics.drawString(font, "R RING", 239, 124, LABEL);
+        graphics.drawString(font, "QUIVER", 43, 76, HEADING);
+        graphics.drawString(font, "WEAPONS", 34, 102, HEADING);
+        graphics.drawString(font, "L RING", 96, 102, LABEL);
+        graphics.drawString(font, "QUICK ITEMS", 43, 128, HEADING);
 
-        graphics.drawString(font, "CLK", 122, 124, LABEL);
-        graphics.drawString(font, "BOOT", 147, 124, LABEL);
-        graphics.drawString(font, "BELT", 176, 124, LABEL);
+        graphics.drawString(font, "OFF HAND", 211, 90, LABEL);
+        graphics.drawString(font, "R RING", 215, 120, LABEL);
+        graphics.drawString(font, "CLK", 122, 154, LABEL);
+        graphics.drawString(font, "BOOT", 147, 154, LABEL);
+        graphics.drawString(font, "BELT", 176, 154, LABEL);
 
-        graphics.drawString(font, "BACKPACK", 82, 160, HEADING);
-        graphics.drawString(font, "QUICK ITEMS", 139, 218, LABEL);
+        graphics.drawString(font, "BACKPACK", 91, 188, HEADING);
         renderCombatSummary(graphics);
     }
 

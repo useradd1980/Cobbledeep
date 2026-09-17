@@ -15,9 +15,9 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
     private static final int ACCESSORY_END = 6;
     private static final int EQUIPMENT_END = 10;
     private static final int BACKPACK_START = 10;
-    private static final int BACKPACK_END = 37;
-    private static final int HOTBAR_START = 37;
-    private static final int HOTBAR_END = 46;
+    private static final int BACKPACK_END = 26;
+    private static final int UTILITY_START = 26;
+    private static final int UTILITY_END = 36;
     private final Player owner;
 
     public AdndInventoryMenu(int containerId, Inventory playerInventory)
@@ -40,19 +40,19 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
     private void addAccessorySlots(ItemStackHandler accessories)
     {
         addSlot(new AccessorySlot(accessories, AccessoryEquipment.AMULET, 196, 58));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.CLOAK, 122, 134));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.LEFT_RING, 59, 134));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.RIGHT_RING, 244, 134));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.CLOAK, 122, 164));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.LEFT_RING, 96, 112));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.RIGHT_RING, 220, 130));
         addSlot(new AccessorySlot(accessories, AccessoryEquipment.GAUNTLETS, 136, 58));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.BELT, 178, 134));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.BELT, 178, 164));
     }
 
     private void addEquipmentSlots(Inventory inventory)
     {
         addSlot(new EquipmentItemSlot(inventory, 39, 164, 58, EquipmentSlot.HEAD, owner));
         addSlot(new EquipmentItemSlot(inventory, 38, 108, 58, EquipmentSlot.CHEST, owner));
-        addSlot(new EquipmentItemSlot(inventory, 36, 150, 134, EquipmentSlot.FEET, owner));
-        addSlot(new Slot(inventory, 40, 244, 92)
+        addSlot(new EquipmentItemSlot(inventory, 36, 150, 164, EquipmentSlot.FEET, owner));
+        addSlot(new Slot(inventory, 40, 220, 100)
         {
             @Override public int getMaxStackSize() { return 1; }
         });
@@ -60,32 +60,26 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
 
     private void addBackpackSlots(Inventory inventory)
     {
-        for (int row = 0; row < 3; row++)
+        for (int row = 0; row < 2; row++)
         {
-            for (int column = 0; column < 9; column++)
+            for (int column = 0; column < 8; column++)
             {
-                addSlot(new Slot(inventory, 9 + row * 9 + column,
-                        82 + column * 18, 170 + row * 18));
+                addSlot(new Slot(inventory, 9 + row * 8 + column,
+                        91 + column * 18, 198 + row * 18));
             }
         }
     }
 
     private void addHotbarSlots(Inventory inventory)
     {
-        for (int column = 0; column < 9; column++)
+        for (int column = 0; column < 4; column++)
+            addSlot(new Slot(inventory, column, 34 + column * 18, 112));
+        for (int column = 0; column < 3; column++)
+            addSlot(new Slot(inventory, 4 + column, 43 + column * 18, 86));
+        for (int column = 0; column < 3; column++)
         {
-            if (column < 4)
-            {
-                addSlot(new Slot(inventory, column, 34 + column * 18, 112));
-            }
-            else if (column < 7)
-            {
-                addSlot(new Slot(inventory, column, 43 + (column - 4) * 18, 86));
-            }
-            else
-            {
-                addSlot(new Slot(inventory, column, 145 + (column - 7) * 18, 228));
-            }
+            int inventoryIndex = column < 2 ? 7 + column : 25;
+            addSlot(new Slot(inventory, inventoryIndex, 43 + column * 18, 138));
         }
     }
 
@@ -106,7 +100,7 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
 
         if (index < EQUIPMENT_END)
         {
-            if (!moveItemStackTo(sourceStack, BACKPACK_START, HOTBAR_END, true))
+            if (!moveItemStackTo(sourceStack, BACKPACK_START, UTILITY_END, true))
                 return ItemStack.EMPTY;
         }
         else
@@ -119,7 +113,7 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
             }
             else if (index < BACKPACK_END)
             {
-                if (!moveItemStackTo(sourceStack, HOTBAR_START, HOTBAR_END, false))
+                if (!moveItemStackTo(sourceStack, UTILITY_START, UTILITY_END, false))
                     return ItemStack.EMPTY;
             }
             else if (!moveItemStackTo(sourceStack, BACKPACK_START, BACKPACK_END, false))
