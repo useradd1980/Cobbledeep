@@ -45,7 +45,7 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
     {
         addSlot(new AccessorySlot(accessories, AccessoryEquipment.AMULET, 196, 58));
         addSlot(new AccessorySlot(accessories, AccessoryEquipment.CLOAK, 122, 164));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.LEFT_RING, 76, 130));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.LEFT_RING, 112, 130));
         addSlot(new AccessorySlot(accessories, AccessoryEquipment.RIGHT_RING, 200, 130));
         addSlot(new AccessorySlot(accessories, AccessoryEquipment.GAUNTLETS, 136, 58));
         addSlot(new AccessorySlot(accessories, AccessoryEquipment.BELT, 178, 164));
@@ -69,7 +69,7 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
             for (int column = 0; column < 8; column++)
             {
                 addSlot(new Slot(inventory, 9 + row * 8 + column,
-                        54 + column * 18, 198 + row * 18));
+                        91 + column * 18, 198 + row * 18));
             }
         }
     }
@@ -92,7 +92,7 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
         for (int row = 0; row < 2; row++)
             for (int column = 0; column < 3; column++)
                 addSlot(new Slot(groundInventory, row * 3 + column,
-                        220 + column * 18, 198 + row * 18));
+                        254 + column * 18, 198 + row * 18));
     }
 
     @Override

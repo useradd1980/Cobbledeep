@@ -81,7 +81,7 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         graphics.drawString(font, "QUIVER", 44, 72, HEADING);
         graphics.drawString(font, "WEAPONS", 26, 102, HEADING);
         graphics.drawString(font, "QUICK ITEMS", 26, 132, HEADING);
-        graphics.drawString(font, "L RING", 76, 120, LABEL);
+        graphics.drawString(font, "L RING", 108, 120, LABEL);
 
         graphics.drawString(font, "OFF HAND", 194, 90, LABEL);
         graphics.drawString(font, "R RING", 195, 120, LABEL);
@@ -89,8 +89,8 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         graphics.drawString(font, "BOOT", 147, 154, LABEL);
         graphics.drawString(font, "BELT", 176, 154, LABEL);
 
-        graphics.drawString(font, "BACKPACK", 54, 188, HEADING);
-        graphics.drawString(font, "GROUND", 220, 188, HEADING);
+        graphics.drawCenteredString(font, "BACKPACK", imageWidth / 2, 188, HEADING);
+        graphics.drawString(font, "GROUND", 254, 188, HEADING);
         renderCombatSummary(graphics);
     }
 
