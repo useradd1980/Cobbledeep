@@ -53,7 +53,7 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     {
         graphics.fill(leftPos - 1, topPos - 1, leftPos + imageWidth + 1, topPos + imageHeight + 1, BORDER);
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, PANEL);
-        graphics.fill(leftPos + 8, topPos + 50, leftPos + 264, topPos + 183, 0x80222923);
+        graphics.fill(leftPos + 86, topPos + 50, leftPos + 248, topPos + 183, 0x80222923);
         graphics.fill(leftPos + 8, topPos + 185, leftPos + imageWidth - 8, topPos + 186, 0xFF455248);
 
         InventoryScreen.renderEntityInInventoryFollowsMouse(graphics,
