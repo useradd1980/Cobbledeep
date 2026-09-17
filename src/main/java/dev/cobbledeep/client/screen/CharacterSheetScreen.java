@@ -35,14 +35,13 @@ public final class CharacterSheetScreen extends Screen
         int bottom = panelBottom();
         int buttonWidth = Math.min(130, (panelWidth - 36) / 2);
 
-        int tabWidth = 76;
-        Button recordTab = Button.builder(Component.literal("Record"), button -> {})
-                .bounds(left + 12, panelTop() + 34, tabWidth, 20).build();
-        recordTab.active = false;
-        addRenderableWidget(recordTab);
-        Button inventoryTab = Button.builder(Component.literal("Inventory"), button -> openInventory())
-                .bounds(left + 92, panelTop() + 34, tabWidth, 20).build();
-        addRenderableWidget(inventoryTab);
+        for (Button button : ScreenNavigationColumn.create(
+                left - ScreenNavigationColumn.WIDTH - 8, panelTop() + 20,
+                ScreenNavigationColumn.Page.RECORD,
+                this::onClose,
+                this::openInventory,
+                null))
+            addRenderableWidget(button);
 
         Button levelUp = Button.builder(Component.literal("Level Up — Unavailable"), button -> {})
                 .bounds(left + 12, bottom - 30, buttonWidth, 20)
@@ -50,9 +49,6 @@ public final class CharacterSheetScreen extends Screen
         levelUp.active = false;
         addRenderableWidget(levelUp);
 
-        addRenderableWidget(Button.builder(Component.literal("Close"), button -> onClose())
-                .bounds(left + panelWidth - buttonWidth - 12, bottom - 30, buttonWidth, 20)
-                .build());
     }
 
     @Override

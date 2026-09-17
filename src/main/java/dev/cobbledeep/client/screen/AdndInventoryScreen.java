@@ -38,14 +38,20 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     protected void init()
     {
         super.init();
-        addRenderableWidget(Button.builder(Component.literal("Record"), button ->
-        {
-            if (minecraft != null && minecraft.player != null)
-            {
-                minecraft.player.closeContainer();
-                minecraft.setScreen(new CharacterSheetScreen());
-            }
-        }).bounds(leftPos + 12, topPos + 28, 72, 20).build());
+        for (Button button : ScreenNavigationColumn.create(
+                leftPos - ScreenNavigationColumn.WIDTH - 8, topPos + 20,
+                ScreenNavigationColumn.Page.INVENTORY,
+                this::onClose,
+                null,
+                this::openRecord))
+            addRenderableWidget(button);
+    }
+
+    private void openRecord()
+    {
+        if (minecraft == null || minecraft.player == null) return;
+        minecraft.player.closeContainer();
+        minecraft.setScreen(new CharacterSheetScreen());
     }
 
     @Override
