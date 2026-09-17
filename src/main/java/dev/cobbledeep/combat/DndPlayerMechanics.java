@@ -7,6 +7,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -24,6 +26,7 @@ public final class DndPlayerMechanics
         player.getFoodData().setFoodLevel(20);
         player.getFoodData().setSaturation(5.0F);
         player.getFoodData().setExhaustion(0.0F);
+        removeLeggings(player);
 
         if (player.tickCount % 40 == 0 && player.getServer() != null)
         {
@@ -55,6 +58,19 @@ public final class DndPlayerMechanics
         else if (player.getHealth() > maximumHitPoints)
         {
             player.setHealth(maximumHitPoints);
+        }
+    }
+
+    private static void removeLeggings(ServerPlayer player)
+    {
+        ItemStack leggings = player.getItemBySlot(EquipmentSlot.LEGS);
+        if (leggings.isEmpty()) return;
+
+        ItemStack returned = leggings.copy();
+        player.setItemSlot(EquipmentSlot.LEGS, ItemStack.EMPTY);
+        if (!player.getInventory().add(returned))
+        {
+            player.drop(returned, false);
         }
     }
 }

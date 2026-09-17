@@ -21,8 +21,9 @@ public final class CharacterSheetController
         {
             if (minecraft.player != null && minecraft.screen == null)
             {
-                minecraft.setScreen(new CharacterSheetScreen());
+                minecraft.setScreen(new CharacterSheetScreen(false));
             }
         }
     }
+
 }

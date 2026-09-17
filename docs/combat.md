@@ -25,3 +25,11 @@ Press **C** in game to open the character record. It displays identity, level,
 ability scores, current and maximum hit points, hit die, THAC0, live armour
 class, and melee attack adjustment. The level-up control is intentionally
 disabled until experience and advancement choices are implemented.
+
+The character record has a new **Inventory** page. Cobbledeep uses one full-suit
+Armour slot and has no leggings slot. If leggings
+are equipped through another interface, they are moved safely back to the
+backpack (or dropped when the backpack is full). The page reserves AD&D-style
+positions for an amulet, cloak, two rings, gauntlets, belt, ammunition, weapon
+sets, and quick items; persistent accessory storage and effects are the next
+inventory stage.
