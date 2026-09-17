@@ -2,7 +2,6 @@ package dev.cobbledeep.equipment;
 
 import dev.cobbledeep.registry.ModMenus;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -19,10 +18,12 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
     private static final int BACKPACK_END = 37;
     private static final int HOTBAR_START = 37;
     private static final int HOTBAR_END = 46;
+    private final Player owner;
 
     public AdndInventoryMenu(int containerId, Inventory playerInventory)
     {
         super(ModMenus.ADND_INVENTORY.get(), containerId);
+        owner = playerInventory.player;
 
         AccessoryEquipment accessories = playerInventory.player
                 .getCapability(AccessoryEquipmentCapabilities.EQUIPMENT)
@@ -48,9 +49,9 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
 
     private void addEquipmentSlots(Inventory inventory)
     {
-        addSlot(new EquipmentItemSlot(inventory, 39, 160, 76, EquipmentSlot.HEAD));
-        addSlot(new EquipmentItemSlot(inventory, 38, 160, 112, EquipmentSlot.CHEST));
-        addSlot(new EquipmentItemSlot(inventory, 36, 160, 148, EquipmentSlot.FEET));
+        addSlot(new EquipmentItemSlot(inventory, 39, 160, 76, EquipmentSlot.HEAD, owner));
+        addSlot(new EquipmentItemSlot(inventory, 38, 160, 112, EquipmentSlot.CHEST, owner));
+        addSlot(new EquipmentItemSlot(inventory, 36, 160, 148, EquipmentSlot.FEET, owner));
         addSlot(new Slot(inventory, 40, 160, 184)
         {
             @Override public int getMaxStackSize() { return 1; }
@@ -125,7 +126,7 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
 
     private int equipmentMenuIndex(ItemStack stack)
     {
-        return switch (Mob.getEquipmentSlotForItem(stack))
+        return switch (owner.getEquipmentSlotForItem(stack))
         {
             case HEAD -> 6;
             case CHEST -> 7;
@@ -147,16 +148,19 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
     private static final class EquipmentItemSlot extends Slot
     {
         private final EquipmentSlot equipmentSlot;
+        private final Player owner;
 
-        private EquipmentItemSlot(Inventory inventory, int index, int x, int y, EquipmentSlot equipmentSlot)
+        private EquipmentItemSlot(Inventory inventory, int index, int x, int y,
+                EquipmentSlot equipmentSlot, Player owner)
         {
             super(inventory, index, x, y);
             this.equipmentSlot = equipmentSlot;
+            this.owner = owner;
         }
 
         @Override public boolean mayPlace(ItemStack stack)
         {
-            return Mob.getEquipmentSlotForItem(stack) == equipmentSlot;
+            return owner.getEquipmentSlotForItem(stack) == equipmentSlot;
         }
 
         @Override public int getMaxStackSize() { return 1; }
