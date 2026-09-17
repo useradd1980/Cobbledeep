@@ -53,11 +53,11 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     {
         graphics.fill(leftPos - 1, topPos - 1, leftPos + imageWidth + 1, topPos + imageHeight + 1, BORDER);
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, PANEL);
-        graphics.fill(leftPos + 92, topPos + 50, leftPos + 238, topPos + 183, 0x80222923);
+        graphics.fill(leftPos + 8, topPos + 50, leftPos + 264, topPos + 183, 0x80222923);
         graphics.fill(leftPos + 8, topPos + 185, leftPos + imageWidth - 8, topPos + 186, 0xFF455248);
 
         InventoryScreen.renderEntityInInventoryFollowsMouse(graphics,
-                leftPos + 112, topPos + 76, leftPos + 200, topPos + 144,
+                leftPos + 112, topPos + 86, leftPos + 200, topPos + 154,
                 24, 0.0625F, mouseX, mouseY, playerInventory.player);
 
         for (var slot : menu.slots)
@@ -101,9 +101,9 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
                 .resolve().orElse(null);
         if (data == null || !data.isCharacterCreated())
         {
-            graphics.drawString(font, "GOLD " + carriedGold(), 242, 53, HEADING);
-            graphics.drawString(font, "AC --", 242, 65, LABEL);
-            graphics.drawString(font, "THAC0 --", 242, 77, LABEL);
+            graphics.drawString(font, "GOLD " + carriedGold(), 254, 53, HEADING);
+            graphics.drawString(font, "AC --", 254, 65, LABEL);
+            graphics.drawString(font, "THAC0 --", 254, 77, LABEL);
             return;
         }
 
@@ -111,11 +111,11 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         int baseThac0 = CombatRules.thac0(data.getCharacterClass(), data.getLevel());
         int attackAdjustment = WeaponCombatStats.totalAttackAdjustment(data, weapon);
 
-        graphics.drawString(font, "GOLD " + carriedGold(), 242, 53, HEADING);
+        graphics.drawString(font, "GOLD " + carriedGold(), 254, 53, HEADING);
         graphics.drawString(font,
-                "AC " + DndCombatStats.armorClass(playerInventory.player), 242, 65, VALUE);
+                "AC " + DndCombatStats.armorClass(playerInventory.player), 254, 65, VALUE);
         graphics.drawString(font,
-                "THAC0 " + (baseThac0 - attackAdjustment), 242, 77, VALUE);
+                "THAC0 " + (baseThac0 - attackAdjustment), 254, 77, VALUE);
     }
 
     private int carriedGold()
