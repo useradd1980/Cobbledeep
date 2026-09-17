@@ -21,15 +21,13 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     private static final int HEADING = 0xFFD7C58A;
     private static final int LABEL = 0xFF9EAAA1;
     private static final int VALUE = 0xFFF0F2E8;
-    private static final int COMBAT_PANEL_X = 232;
-
     private final Inventory playerInventory;
 
     public AdndInventoryScreen(AdndInventoryMenu menu, Inventory inventory, Component title)
     {
         super(menu, inventory, title);
         playerInventory = inventory;
-        imageWidth = 382;
+        imageWidth = 326;
         imageHeight = 250;
         inventoryLabelY = 156;
     }
@@ -53,12 +51,11 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     {
         graphics.fill(leftPos - 1, topPos - 1, leftPos + imageWidth + 1, topPos + imageHeight + 1, BORDER);
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, PANEL);
-        graphics.fill(leftPos + 70, topPos + 50, leftPos + 216, topPos + 151, 0x80222923);
-        graphics.fill(leftPos + 220, topPos + 50, leftPos + 221, topPos + 151, 0xFF455248);
+        graphics.fill(leftPos + 92, topPos + 50, leftPos + 228, topPos + 157, 0x80222923);
         graphics.fill(leftPos + 8, topPos + 153, leftPos + imageWidth - 8, topPos + 154, 0xFF455248);
 
         InventoryScreen.renderEntityInInventoryFollowsMouse(graphics,
-                leftPos + 108, topPos + 66, leftPos + 184, topPos + 146,
+                leftPos + 108, topPos + 74, leftPos + 218, topPos + 151,
                 30, 0.0625F, mouseX, mouseY, playerInventory.player);
 
         for (var slot : menu.slots)
@@ -74,36 +71,34 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY)
     {
         graphics.drawCenteredString(font, "COBBLEDEEP INVENTORY", imageWidth / 2, 10, HEADING);
-        graphics.drawString(font, "ACCESSORIES", 12, 43, HEADING);
-        graphics.drawString(font, "EQUIPMENT", 88, 43, HEADING);
+        graphics.drawString(font, "ARM", 108, 48, LABEL);
+        graphics.drawString(font, "GLV", 136, 48, LABEL);
+        graphics.drawString(font, "HELM", 161, 48, LABEL);
+        graphics.drawString(font, "NECK", 194, 48, LABEL);
 
-        drawSlotLabel(graphics, "Amul", 12, 62);
-        drawSlotLabel(graphics, "Cloak", 40, 62);
-        drawSlotLabel(graphics, "Ring L", 12, 92);
-        drawSlotLabel(graphics, "Ring R", 40, 92);
-        drawSlotLabel(graphics, "Glove", 12, 122);
-        drawSlotLabel(graphics, "Belt", 40, 122);
+        graphics.drawString(font, "QUICK WEAPONS", 43, 74, HEADING);
+        graphics.drawString(font, "L RING", 53, 124, LABEL);
+        graphics.drawString(font, "OFF HAND", 235, 78, LABEL);
+        graphics.drawString(font, "R RING", 239, 124, LABEL);
 
-        drawSlotLabel(graphics, "Helm", 116, 56);
-        graphics.drawString(font, "Armour", 76, 76, LABEL);
-        graphics.drawString(font, "Off hand", 178, 76, LABEL);
-        graphics.drawCenteredString(font, "Boots", 125, 116, LABEL);
+        graphics.drawString(font, "CLK", 122, 124, LABEL);
+        graphics.drawString(font, "BOOT", 147, 124, LABEL);
+        graphics.drawString(font, "BELT", 176, 124, LABEL);
 
-        graphics.drawString(font, "BACKPACK", 110, 156, HEADING);
-        graphics.drawString(font, "Selected weapon  •  Ammunition  •  Quick items", 110, 216, LABEL);
+        graphics.drawString(font, "BACKPACK", 82, 160, HEADING);
+        graphics.drawString(font, "AMMO / QUICK ITEMS", 118, 218, LABEL);
         renderCombatSummary(graphics);
     }
 
     private void renderCombatSummary(GuiGraphics graphics)
     {
-        graphics.drawString(font, "LIVE COMBAT", COMBAT_PANEL_X, 43, HEADING);
-
         CharacterData data = playerInventory.player
                 .getCapability(CharacterCapabilities.CHARACTER_DATA)
                 .resolve().orElse(null);
         if (data == null || !data.isCharacterCreated())
         {
-            graphics.drawString(font, "Character data unavailable", COMBAT_PANEL_X, 60, LABEL);
+            graphics.drawString(font, "AC --", 242, 53, LABEL);
+            graphics.drawString(font, "THAC0 --", 242, 65, LABEL);
             return;
         }
 
@@ -111,33 +106,10 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         int baseThac0 = CombatRules.thac0(data.getCharacterClass(), data.getLevel());
         int attackAdjustment = WeaponCombatStats.totalAttackAdjustment(data, weapon);
 
-        int y = 60;
-        drawCombatStat(graphics, "Armour Class", Integer.toString(DndCombatStats.armorClass(playerInventory.player)), y);
-        drawCombatStat(graphics, "Base THAC0", Integer.toString(baseThac0), y += 13);
-        drawCombatStat(graphics, "Effective THAC0", Integer.toString(baseThac0 - attackAdjustment), y += 13);
-        drawCombatStat(graphics, "Attack", signed(attackAdjustment), y += 13);
-        drawCombatStat(graphics, "Damage", WeaponCombatStats.damageText(data, weapon), y += 13);
-        drawCombatStat(graphics, "Weapon", weapon.displayName(), y += 13);
-        drawCombatStat(graphics, "Proficiency", WeaponCombatStats.proficiencyText(data, weapon), y += 13);
-    }
-
-    private void drawCombatStat(GuiGraphics graphics, String label, String value, int y)
-    {
-        graphics.drawString(font, label, COMBAT_PANEL_X, y, LABEL);
-        int maximumWidth = imageWidth - COMBAT_PANEL_X - 12;
-        String visibleValue = font.plainSubstrByWidth(value, maximumWidth);
-        int valueX = imageWidth - 12 - font.width(visibleValue);
-        graphics.drawString(font, visibleValue, Math.max(COMBAT_PANEL_X + 68, valueX), y, VALUE);
-    }
-
-    private String signed(int value)
-    {
-        return value > 0 ? "+" + value : Integer.toString(value);
-    }
-
-    private void drawSlotLabel(GuiGraphics graphics, String label, int x, int y)
-    {
-        graphics.drawString(font, label, x, y - 10, LABEL);
+        graphics.drawString(font,
+                "AC " + DndCombatStats.armorClass(playerInventory.player), 242, 53, VALUE);
+        graphics.drawString(font,
+                "THAC0 " + (baseThac0 - attackAdjustment), 242, 65, VALUE);
     }
 
     @Override

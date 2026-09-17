@@ -45,8 +45,8 @@ Until Cobbledeep accessory items are introduced, each accessory position accepts
 one item so persistence and inventory handling can be tested.
 
 The compact Inventory page uses a paper-doll layout with a live 3D player model
-surrounded by equipment and accessory positions. Its live combat summary sits
-beside the model, while the backpack and hotbar occupy the lower half. Armour
-Class updates as armour is moved; the weapon, proficiency, attack adjustment,
-effective THAC0, and damage update from the currently selected hotbar weapon
-without requiring a return to the character record.
+surrounded by equipment and accessory positions. Four quick-weapon positions
+sit to its left, with the off-hand weapon and second ring on its right. The page
+shows only live AC and effective THAC0; armour and selected weapons update those
+figures immediately. The backpack, ammunition, and quick-item positions occupy
+the lower half.
