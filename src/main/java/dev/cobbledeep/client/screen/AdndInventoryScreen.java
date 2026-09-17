@@ -39,7 +39,7 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     {
         super.init();
         for (Button button : ScreenNavigationColumn.create(
-                leftPos - ScreenNavigationColumn.WIDTH - 8, topPos + 20,
+                leftPos - ScreenNavigationColumn.WIDTH - ScreenNavigationColumn.GAP, topPos + 20,
                 ScreenNavigationColumn.Page.INVENTORY,
                 this::onClose,
                 null,

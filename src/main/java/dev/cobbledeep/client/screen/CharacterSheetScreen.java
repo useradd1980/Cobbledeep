@@ -36,7 +36,7 @@ public final class CharacterSheetScreen extends Screen
         int buttonWidth = Math.min(130, (panelWidth - 36) / 2);
 
         for (Button button : ScreenNavigationColumn.create(
-                left - ScreenNavigationColumn.WIDTH - 8, panelTop() + 20,
+                left - ScreenNavigationColumn.WIDTH - ScreenNavigationColumn.GAP, panelTop() + 20,
                 ScreenNavigationColumn.Page.RECORD,
                 this::onClose,
                 this::openInventory,

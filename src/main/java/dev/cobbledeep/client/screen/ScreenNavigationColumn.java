@@ -8,9 +8,10 @@ import net.minecraft.network.chat.Component;
 
 final class ScreenNavigationColumn
 {
-    static final int WIDTH = 92;
-    private static final int HEIGHT = 20;
-    private static final int SPACING = 22;
+    static final int WIDTH = 82;
+    static final int GAP = 4;
+    private static final int HEIGHT = 18;
+    private static final int SPACING = 20;
 
     enum Page
     {
