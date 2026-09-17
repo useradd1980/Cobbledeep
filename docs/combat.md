@@ -45,8 +45,8 @@ Until Cobbledeep accessory items are introduced, each accessory position accepts
 one item so persistence and inventory handling can be tested.
 
 The compact Inventory page uses a paper-doll layout with a live 3D player model
-surrounded by equipment and accessory positions. Four quick-weapon positions
-sit to its left, with the off-hand weapon and second ring on its right. The page
-shows only live AC and effective THAC0; armour and selected weapons update those
-figures immediately. The backpack, ammunition, and quick-item positions occupy
-the lower half.
+surrounded by equipment and accessory positions. Three ammunition slots and
+four horizontal quick-weapon positions sit to its left, with the off-hand weapon
+and second ring on its right. The page shows only live AC and effective THAC0;
+armour and selected weapons update those figures immediately. The backpack and
+two quick-item positions occupy the lower half.

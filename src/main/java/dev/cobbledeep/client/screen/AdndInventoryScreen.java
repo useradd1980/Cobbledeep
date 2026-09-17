@@ -55,15 +55,15 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         graphics.fill(leftPos + 8, topPos + 153, leftPos + imageWidth - 8, topPos + 154, 0xFF455248);
 
         InventoryScreen.renderEntityInInventoryFollowsMouse(graphics,
-                leftPos + 108, topPos + 74, leftPos + 218, topPos + 151,
-                30, 0.0625F, mouseX, mouseY, playerInventory.player);
+                leftPos + 108, topPos + 76, leftPos + 218, topPos + 132,
+                24, 0.0625F, mouseX, mouseY, playerInventory.player);
 
         for (var slot : menu.slots)
         {
-            graphics.fill(leftPos + slot.x - 1, topPos + slot.y - 1,
-                    leftPos + slot.x + 17, topPos + slot.y + 17, 0xFF667468);
             graphics.fill(leftPos + slot.x, topPos + slot.y,
-                    leftPos + slot.x + 16, topPos + slot.y + 16, 0xFF222923);
+                    leftPos + slot.x + 16, topPos + slot.y + 16, 0xFF667468);
+            graphics.fill(leftPos + slot.x + 1, topPos + slot.y + 1,
+                    leftPos + slot.x + 15, topPos + slot.y + 15, 0xFF222923);
         }
     }
 
@@ -76,8 +76,9 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         graphics.drawString(font, "HELM", 161, 48, LABEL);
         graphics.drawString(font, "NECK", 194, 48, LABEL);
 
-        graphics.drawString(font, "QUICK WEAPONS", 43, 74, HEADING);
-        graphics.drawString(font, "L RING", 53, 124, LABEL);
+        graphics.drawString(font, "AMMO", 43, 76, HEADING);
+        graphics.drawString(font, "QUICK WEAPONS", 34, 102, HEADING);
+        graphics.drawString(font, "L RING", 20, 138, LABEL);
         graphics.drawString(font, "OFF HAND", 235, 78, LABEL);
         graphics.drawString(font, "R RING", 239, 124, LABEL);
 
@@ -86,7 +87,7 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         graphics.drawString(font, "BELT", 176, 124, LABEL);
 
         graphics.drawString(font, "BACKPACK", 82, 160, HEADING);
-        graphics.drawString(font, "AMMO / QUICK ITEMS", 118, 218, LABEL);
+        graphics.drawString(font, "QUICK ITEMS", 139, 218, LABEL);
         renderCombatSummary(graphics);
     }
 

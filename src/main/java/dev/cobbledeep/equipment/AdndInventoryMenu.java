@@ -76,12 +76,15 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
         {
             if (column < 4)
             {
-                addSlot(new Slot(inventory, column,
-                        48 + (column % 2) * 22, 88 + (column / 2) * 22));
+                addSlot(new Slot(inventory, column, 34 + column * 18, 112));
+            }
+            else if (column < 7)
+            {
+                addSlot(new Slot(inventory, column, 43 + (column - 4) * 18, 86));
             }
             else
             {
-                addSlot(new Slot(inventory, column, 118 + (column - 4) * 18, 228));
+                addSlot(new Slot(inventory, column, 145 + (column - 7) * 18, 228));
             }
         }
     }
