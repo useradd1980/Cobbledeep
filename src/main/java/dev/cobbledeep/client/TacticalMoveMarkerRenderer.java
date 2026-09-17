@@ -3,6 +3,9 @@ package dev.cobbledeep.client;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.cobbledeep.Cobbledeep;
+import dev.cobbledeep.exploration.CharacterSight;
+import dev.cobbledeep.relations.CharacterDisposition;
+import dev.cobbledeep.relations.CharacterRelations;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LightTexture;
@@ -11,6 +14,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
@@ -29,6 +33,15 @@ public final class TacticalMoveMarkerRenderer
     private static final float DESTINATION_PULSE = 0.09F;
     private static final double HEIGHT_OFFSET = 0.10;
     private static final double FOLLOW_RESPONSE = 24.0;
+    private static final float PLAYER_RED = 0.32F;
+    private static final float PLAYER_GREEN = 0.82F;
+    private static final float PLAYER_BLUE = 0.45F;
+    private static final float FRIEND_RED = 0.20F;
+    private static final float FRIEND_GREEN = 0.48F;
+    private static final float FRIEND_BLUE = 1.00F;
+    private static final float ENEMY_RED = 0.92F;
+    private static final float ENEMY_GREEN = 0.16F;
+    private static final float ENEMY_BLUE = 0.13F;
     private static ResourceLocation selectionRingTexture;
     private static ResourceLocation destinationRingTexture;
     private static ResourceLocation mergedDestinationRingTexture;
@@ -54,6 +67,8 @@ public final class TacticalMoveMarkerRenderer
         Vec3 camera = event.getCamera().getPosition();
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
 
+        renderNpcRings(minecraft, buffers, event, camera);
+
         Vec3 destination = TacticalCameraController.getMovementTarget();
         if (destination != null)
         {
@@ -62,15 +77,40 @@ public final class TacticalMoveMarkerRenderer
             boolean merged = TacticalCameraController.isShowingArrivalMarker();
             renderRing(buffers, event, camera, merged ? playerTarget : destination,
                     RADIUS + pulse * DESTINATION_PULSE,
-                    (float)(0.84 + (pulse + 1.0) * 0.06), merged ? 2 : 1);
+                    (float)(0.84 + (pulse + 1.0) * 0.06), merged ? 2 : 1,
+                    PLAYER_RED, PLAYER_GREEN, PLAYER_BLUE);
         }
 
-        renderRing(buffers, event, camera, playerTarget, RADIUS, 0.92F, 0);
+        renderRing(buffers, event, camera, playerTarget, RADIUS, 0.92F, 0,
+                PLAYER_RED, PLAYER_GREEN, PLAYER_BLUE);
+    }
+
+    private static void renderNpcRings(Minecraft minecraft, MultiBufferSource.BufferSource buffers,
+                                       RenderLevelStageEvent event, Vec3 camera)
+    {
+        var area = minecraft.player.getBoundingBox().inflate(CharacterSight.RANGE);
+        for (LivingEntity entity : minecraft.level.getEntitiesOfClass(LivingEntity.class, area,
+                candidate -> candidate != minecraft.player && candidate.isAlive()))
+        {
+            CharacterDisposition disposition = CharacterRelations.disposition(entity);
+            if (!CharacterRelations.hasNpcRing(disposition)
+                    || !CharacterSight.seesEntity(minecraft.player, entity, event.getPartialTick())) continue;
+
+            float red = disposition == CharacterDisposition.HOSTILE ? ENEMY_RED
+                    : disposition == CharacterDisposition.FRIENDLY ? FRIEND_RED : PLAYER_RED;
+            float green = disposition == CharacterDisposition.HOSTILE ? ENEMY_GREEN
+                    : disposition == CharacterDisposition.FRIENDLY ? FRIEND_GREEN : PLAYER_GREEN;
+            float blue = disposition == CharacterDisposition.HOSTILE ? ENEMY_BLUE
+                    : disposition == CharacterDisposition.FRIENDLY ? FRIEND_BLUE : PLAYER_BLUE;
+            renderRing(buffers, event, camera, entity.getPosition(event.getPartialTick()),
+                    RADIUS, 0.92F, 0, red, green, blue);
+        }
     }
 
     private static void renderRing(MultiBufferSource.BufferSource buffers,
                                    RenderLevelStageEvent event, Vec3 camera, Vec3 target,
-                                   float radius, float alpha, int style)
+                                   float radius, float alpha, int style,
+                                   float red, float green, float blue)
     {
         // AFTER_LEVEL receives GameRenderer's effect pose, not the view matrix
         // supplied to LevelRenderer. Reconstruct that view from the camera;
@@ -84,23 +124,25 @@ public final class TacticalMoveMarkerRenderer
 
         RenderType renderType = RenderType.entityTranslucentEmissive(getRingTexture(style));
         VertexConsumer vertices = buffers.getBuffer(renderType);
-        ring(vertices, pose, radius, 0.0F, alpha);
+        ring(vertices, pose, radius, 0.0F, alpha, red, green, blue);
         buffers.endBatch(renderType);
     }
 
-    private static void ring(VertexConsumer vertices, Matrix4f pose, float radius, float y, float alpha)
+    private static void ring(VertexConsumer vertices, Matrix4f pose, float radius, float y, float alpha,
+                             float red, float green, float blue)
     {
-        vertex(vertices, pose, -radius, y, -radius, 0.0F, 0.0F, alpha);
-        vertex(vertices, pose, -radius, y, radius, 0.0F, 1.0F, alpha);
-        vertex(vertices, pose, radius, y, radius, 1.0F, 1.0F, alpha);
-        vertex(vertices, pose, radius, y, -radius, 1.0F, 0.0F, alpha);
+        vertex(vertices, pose, -radius, y, -radius, 0.0F, 0.0F, alpha, red, green, blue);
+        vertex(vertices, pose, -radius, y, radius, 0.0F, 1.0F, alpha, red, green, blue);
+        vertex(vertices, pose, radius, y, radius, 1.0F, 1.0F, alpha, red, green, blue);
+        vertex(vertices, pose, radius, y, -radius, 1.0F, 0.0F, alpha, red, green, blue);
     }
 
     private static void vertex(VertexConsumer vertices, Matrix4f pose,
-                               float x, float y, float z, float u, float v, float alpha)
+                               float x, float y, float z, float u, float v, float alpha,
+                               float red, float green, float blue)
     {
         vertices.addVertex(pose, x, y, z)
-                .setColor(0.32F, 0.82F, 0.45F, alpha)
+                .setColor(red, green, blue, alpha)
                 .setUv(u, v)
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(LightTexture.FULL_BRIGHT)
