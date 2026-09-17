@@ -39,20 +39,20 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
 
     private void addAccessorySlots(ItemStackHandler accessories)
     {
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.AMULET, 18, 76));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.CLOAK, 94, 76));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.LEFT_RING, 18, 112));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.RIGHT_RING, 94, 112));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.GAUNTLETS, 18, 148));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.BELT, 94, 148));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.AMULET, 12, 62));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.CLOAK, 40, 62));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.LEFT_RING, 12, 92));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.RIGHT_RING, 40, 92));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.GAUNTLETS, 12, 122));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.BELT, 40, 122));
     }
 
     private void addEquipmentSlots(Inventory inventory)
     {
-        addSlot(new EquipmentItemSlot(inventory, 39, 160, 76, EquipmentSlot.HEAD, owner));
-        addSlot(new EquipmentItemSlot(inventory, 38, 160, 112, EquipmentSlot.CHEST, owner));
-        addSlot(new EquipmentItemSlot(inventory, 36, 160, 148, EquipmentSlot.FEET, owner));
-        addSlot(new Slot(inventory, 40, 160, 184)
+        addSlot(new EquipmentItemSlot(inventory, 39, 116, 56, EquipmentSlot.HEAD, owner));
+        addSlot(new EquipmentItemSlot(inventory, 38, 88, 86, EquipmentSlot.CHEST, owner));
+        addSlot(new EquipmentItemSlot(inventory, 36, 116, 126, EquipmentSlot.FEET, owner));
+        addSlot(new Slot(inventory, 40, 184, 86)
         {
             @Override public int getMaxStackSize() { return 1; }
         });
@@ -65,7 +65,7 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
             for (int column = 0; column < 9; column++)
             {
                 addSlot(new Slot(inventory, 9 + row * 9 + column,
-                        214 + column * 18, 76 + row * 18));
+                        110 + column * 18, 166 + row * 18));
             }
         }
     }
@@ -74,7 +74,7 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
     {
         for (int column = 0; column < 9; column++)
         {
-            addSlot(new Slot(inventory, column, 214 + column * 18, 166));
+            addSlot(new Slot(inventory, column, 110 + column * 18, 226));
         }
     }
 
