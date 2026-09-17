@@ -16,6 +16,12 @@ AD&D-style rules layer while leaving Minecraft's damage amounts in place.
   also receive their Dexterity AC adjustment.
 - The action bar shows every melee roll, its target number, THAC0, AC, and the
   final hit or miss result.
+- Equipped Minecraft swords, axes, tridents, maces, bows, and crossbows map to
+  Cobbledeep weapon proficiency categories and AD&D-style damage dice. Weapon
+  proficiency penalties or specialization bonuses affect melee attack rolls;
+  specialization and Strength affect melee damage. The character record shows
+  both base and effective THAC0 so equipping a different weapon is immediately
+  visible without changing the character's underlying class progression.
 
 Minecraft weapon damage remains unchanged in this pass. Weapon damage dice,
 critical hits, experience, additional hit dice, and a dedicated character HUD

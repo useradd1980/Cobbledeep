@@ -4,6 +4,8 @@ import dev.cobbledeep.character.CharacterCapabilities;
 import dev.cobbledeep.character.CharacterData;
 import dev.cobbledeep.combat.CombatRules;
 import dev.cobbledeep.combat.DndCombatStats;
+import dev.cobbledeep.combat.WeaponCombatProfile;
+import dev.cobbledeep.combat.WeaponCombatStats;
 import dev.cobbledeep.network.OpenAdndInventoryPacket;
 import dev.cobbledeep.network.RPGNetwork;
 import net.minecraft.client.Minecraft;
@@ -126,7 +128,10 @@ public final class CharacterSheetScreen extends Screen
         drawSection(graphics, "COMBAT", rightColumn, sectionY);
         int armorClass = DndCombatStats.armorClass(Minecraft.getInstance().player);
         int thac0 = CombatRules.thac0(data.getCharacterClass(), data.getLevel());
-        int attack = CombatRules.strengthAttackAdjustment(data.getStrength(), data.getExceptionalStrength());
+        WeaponCombatProfile weapon = WeaponCombatStats.profile(Minecraft.getInstance().player.getMainHandItem());
+        int strengthAttack = CombatRules.strengthAttackAdjustment(data.getStrength(), data.getExceptionalStrength());
+        int proficiencyAttack = WeaponCombatStats.proficiencyAttackAdjustment(data, weapon);
+        int attack = strengthAttack + proficiencyAttack;
         int maximumHitPoints = DndCombatStats.maximumHitPoints(data);
         float health = Minecraft.getInstance().player.getHealth();
 
@@ -134,13 +139,13 @@ public final class CharacterSheetScreen extends Screen
         drawStat(graphics, "Hit Die", "d" + CombatRules.hitDie(data.getCharacterClass()), rightColumn, rowY + 15);
         drawStat(graphics, "THAC0", Integer.toString(thac0), rightColumn, rowY + 30);
         drawStat(graphics, "Armour Class", Integer.toString(armorClass), rightColumn, rowY + 45);
-        drawStat(graphics, "Melee Attack", signed(attack), rightColumn, rowY + 60);
-        drawStat(graphics, "Experience", "Not yet tracked", rightColumn, rowY + 75);
+        drawStat(graphics, "Effective THAC0", Integer.toString(thac0 - attack), rightColumn, rowY + 60);
+        drawStat(graphics, "Weapon", weapon.displayName(), rightColumn, rowY + 75);
+        drawStat(graphics, "Proficiency", WeaponCombatStats.proficiencyText(data, weapon), rightColumn, rowY + 90);
+        drawStat(graphics, "Attack Adjustment", signed(attack), rightColumn, rowY + 105);
+        drawStat(graphics, "Weapon Damage", WeaponCombatStats.damageText(data, weapon), rightColumn, rowY + 120);
+        drawStat(graphics, "Experience", "Not yet tracked", rightColumn, rowY + 135);
 
-        int noteY = Math.min(panelBottom() - 48, rowY + 105);
-        graphics.drawCenteredString(font,
-                "Level advancement will become available when experience rules are added.",
-                width / 2, noteY, LABEL);
     }
 
     private void openInventory()

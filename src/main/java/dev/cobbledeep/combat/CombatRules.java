@@ -66,6 +66,28 @@ public final class CombatRules
         return exceptionalStrength >= 51 ? 2 : 1;
     }
 
+    public static int weaponProficiencyAttackAdjustment(CharacterClass characterClass, int rank)
+    {
+        if (rank >= 2) return 1;
+        if (rank == 1) return 0;
+        if (isWarrior(characterClass)) return -2;
+        return characterClass == CharacterClass.MAGE ? -5 : -3;
+    }
+
+    public static int strengthDamageAdjustment(int strength, int exceptionalStrength)
+    {
+        if (strength <= 3) return -3;
+        if (strength <= 5) return -2;
+        if (strength <= 7) return -1;
+        if (strength <= 15) return 0;
+        if (strength <= 17) return 1;
+        if (exceptionalStrength >= 100) return 6;
+        if (exceptionalStrength >= 91) return 5;
+        if (exceptionalStrength >= 76) return 4;
+        if (exceptionalStrength >= 51) return 3;
+        return 2;
+    }
+
     public static int dexterityArmorClassAdjustment(int dexterity)
     {
         if (dexterity <= 3) return 4;

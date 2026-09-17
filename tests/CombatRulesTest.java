@@ -28,6 +28,14 @@ public final class CombatRulesTest
         check(CombatRules.strengthAttackAdjustment(7, 0) == -1, "low Strength penalty");
         check(CombatRules.strengthAttackAdjustment(17, 0) == 1, "high Strength bonus");
         check(CombatRules.strengthAttackAdjustment(18, 75) == 2, "exceptional Strength bonus");
+        check(CombatRules.weaponProficiencyAttackAdjustment(CharacterClass.FIGHTER, 0) == -2,
+                "warrior non-proficiency penalty");
+        check(CombatRules.weaponProficiencyAttackAdjustment(CharacterClass.MAGE, 0) == -5,
+                "mage non-proficiency penalty");
+        check(CombatRules.weaponProficiencyAttackAdjustment(CharacterClass.FIGHTER, 2) == 1,
+                "weapon specialization attack bonus");
+        check(CombatRules.strengthDamageAdjustment(18, 100) == 6,
+                "exceptional Strength damage bonus");
         check(CombatRules.dexterityArmorClassAdjustment(18) == -4, "high Dexterity improves AC");
         check(CombatRules.dexterityArmorClassAdjustment(5) == 2, "low Dexterity worsens AC");
 
