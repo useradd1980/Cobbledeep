@@ -25,7 +25,7 @@ public class RPGNetwork
                             "main"
                     )
             )
-            .networkProtocolVersion(2)
+            .networkProtocolVersion(3)
             .simpleChannel();
 
     public static void register()

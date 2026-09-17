@@ -4,6 +4,7 @@ import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.character.CharacterCapabilities;
 import dev.cobbledeep.character.CharacterData;
 import dev.cobbledeep.character.PendingCharacter;
+import dev.cobbledeep.combat.DndPlayerMechanics;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.network.CustomPayloadEvent;
@@ -40,6 +41,7 @@ public class SubmitCharacterPacket
         sender.getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresent(data ->
         {
             data.copyFrom(submittedData);
+            DndPlayerMechanics.applyCharacter(sender, data, true);
             Cobbledeep.LOGGER.info(
                     "Stored submitted Cobbledeep character: created={}, name={}, race={}, class={}, STR={}, DEX={}, proficiencies={}, mageSpells={}",
                     data.isCharacterCreated(),

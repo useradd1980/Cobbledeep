@@ -2,6 +2,7 @@ package dev.cobbledeep.character;
 
 import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.network.RPGNetwork;
+import dev.cobbledeep.combat.DndPlayerMechanics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -45,6 +46,7 @@ public class CharacterEvents
 
         serverPlayer.getCapability(CharacterCapabilities.CHARACTER_DATA).ifPresent(data ->
         {
+            DndPlayerMechanics.applyCharacter(serverPlayer, data, false);
             Cobbledeep.LOGGER.info(
                     "Cobbledeep character loaded: created={}, name={}, race={}, class={}, STR={}, DEX={}, weaponRanks={}, mageSpells={}, openLocks={}",
                     data.isCharacterCreated(),

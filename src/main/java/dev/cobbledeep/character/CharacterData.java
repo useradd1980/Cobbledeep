@@ -19,6 +19,7 @@ public class CharacterData
     private CharacterRace race;
     private CharacterClass characterClass;
     private CharacterAlignment alignment;
+    private int level = 1;
     private final CharacterAppearance appearance = new CharacterAppearance();
 
     private int strength;
@@ -60,6 +61,7 @@ public class CharacterData
     public CharacterRace getRace() { return race; }
     public CharacterClass getCharacterClass() { return characterClass; }
     public CharacterAlignment getAlignment() { return alignment; }
+    public int getLevel() { return level; }
     public CharacterAppearance getAppearance() { return appearance; }
 
     public int getStrength() { return strength; }
@@ -125,6 +127,8 @@ public class CharacterData
     {
         if (pending == null) return;
 
+        level = 1;
+
         setIdentity(
                 pending.getName(),
                 pending.getGender(),
@@ -178,6 +182,7 @@ public class CharacterData
         race = other.race;
         characterClass = other.characterClass;
         alignment = other.alignment;
+        level = other.level;
         copyAppearance(other.appearance, appearance);
 
         strength = other.strength;
@@ -218,6 +223,7 @@ public class CharacterData
         buffer.writeEnum(race);
         buffer.writeEnum(characterClass);
         buffer.writeEnum(alignment);
+        buffer.writeInt(level);
 
         buffer.writeEnum(appearance.getSkinTone());
         buffer.writeEnum(appearance.getHairStyle());
@@ -276,6 +282,7 @@ public class CharacterData
         race = buffer.readEnum(CharacterRace.class);
         characterClass = buffer.readEnum(CharacterClass.class);
         alignment = buffer.readEnum(CharacterAlignment.class);
+        level = Math.max(1, buffer.readInt());
 
         appearance.setSkinTone(buffer.readEnum(CharacterAppearance.SkinTone.class));
         appearance.setHairStyle(buffer.readEnum(CharacterAppearance.HairStyle.class));
@@ -331,6 +338,7 @@ public class CharacterData
         putEnum(tag, "race", race);
         putEnum(tag, "class", characterClass);
         putEnum(tag, "alignment", alignment);
+        tag.putInt("level", level);
 
         CompoundTag appearanceTag = new CompoundTag();
         putEnum(appearanceTag, "skinTone", appearance.getSkinTone());
@@ -403,6 +411,7 @@ public class CharacterData
         race = readEnum(tag, "race", CharacterRace.class, null);
         characterClass = readEnum(tag, "class", CharacterClass.class, null);
         alignment = readEnum(tag, "alignment", CharacterAlignment.class, null);
+        level = tag.contains("level") ? Math.max(1, tag.getInt("level")) : 1;
 
         if (tag.contains("appearance"))
         {
@@ -491,6 +500,7 @@ public class CharacterData
         race = null;
         characterClass = null;
         alignment = null;
+        level = 1;
         appearance.reset();
 
         strength = dexterity = constitution = intelligence = wisdom = charisma = 0;
