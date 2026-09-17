@@ -1,0 +1,164 @@
+package dev.cobbledeep.equipment;
+
+import dev.cobbledeep.registry.ModMenus;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.items.ItemStackHandler;
+import net.minecraftforge.items.SlotItemHandler;
+
+public final class AdndInventoryMenu extends AbstractContainerMenu
+{
+    private static final int ACCESSORY_END = 6;
+    private static final int EQUIPMENT_END = 10;
+    private static final int BACKPACK_START = 10;
+    private static final int BACKPACK_END = 37;
+    private static final int HOTBAR_START = 37;
+    private static final int HOTBAR_END = 46;
+
+    public AdndInventoryMenu(int containerId, Inventory playerInventory)
+    {
+        super(ModMenus.ADND_INVENTORY.get(), containerId);
+
+        AccessoryEquipment accessories = playerInventory.player
+                .getCapability(AccessoryEquipmentCapabilities.EQUIPMENT)
+                .resolve().orElse(null);
+        ItemStackHandler accessoryHandler = accessories == null
+                ? new ItemStackHandler(AccessoryEquipment.SLOT_COUNT) : accessories;
+
+        addAccessorySlots(accessoryHandler);
+        addEquipmentSlots(playerInventory);
+        addBackpackSlots(playerInventory);
+        addHotbarSlots(playerInventory);
+    }
+
+    private void addAccessorySlots(ItemStackHandler accessories)
+    {
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.AMULET, 18, 76));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.CLOAK, 94, 76));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.LEFT_RING, 18, 112));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.RIGHT_RING, 94, 112));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.GAUNTLETS, 18, 148));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.BELT, 94, 148));
+    }
+
+    private void addEquipmentSlots(Inventory inventory)
+    {
+        addSlot(new EquipmentItemSlot(inventory, 39, 160, 76, EquipmentSlot.HEAD));
+        addSlot(new EquipmentItemSlot(inventory, 38, 160, 112, EquipmentSlot.CHEST));
+        addSlot(new EquipmentItemSlot(inventory, 36, 160, 148, EquipmentSlot.FEET));
+        addSlot(new Slot(inventory, 40, 160, 184)
+        {
+            @Override public int getMaxStackSize() { return 1; }
+        });
+    }
+
+    private void addBackpackSlots(Inventory inventory)
+    {
+        for (int row = 0; row < 3; row++)
+        {
+            for (int column = 0; column < 9; column++)
+            {
+                addSlot(new Slot(inventory, 9 + row * 9 + column,
+                        214 + column * 18, 76 + row * 18));
+            }
+        }
+    }
+
+    private void addHotbarSlots(Inventory inventory)
+    {
+        for (int column = 0; column < 9; column++)
+        {
+            addSlot(new Slot(inventory, column, 214 + column * 18, 166));
+        }
+    }
+
+    @Override
+    public boolean stillValid(Player player)
+    {
+        return player.isAlive();
+    }
+
+    @Override
+    public ItemStack quickMoveStack(Player player, int index)
+    {
+        Slot source = slots.get(index);
+        if (!source.hasItem()) return ItemStack.EMPTY;
+
+        ItemStack sourceStack = source.getItem();
+        ItemStack original = sourceStack.copy();
+
+        if (index < EQUIPMENT_END)
+        {
+            if (!moveItemStackTo(sourceStack, BACKPACK_START, HOTBAR_END, true))
+                return ItemStack.EMPTY;
+        }
+        else
+        {
+            int equipmentIndex = equipmentMenuIndex(sourceStack);
+            if (equipmentIndex >= ACCESSORY_END && !slots.get(equipmentIndex).hasItem())
+            {
+                if (!moveItemStackTo(sourceStack, equipmentIndex, equipmentIndex + 1, false))
+                    return ItemStack.EMPTY;
+            }
+            else if (index < BACKPACK_END)
+            {
+                if (!moveItemStackTo(sourceStack, HOTBAR_START, HOTBAR_END, false))
+                    return ItemStack.EMPTY;
+            }
+            else if (!moveItemStackTo(sourceStack, BACKPACK_START, BACKPACK_END, false))
+            {
+                return ItemStack.EMPTY;
+            }
+        }
+
+        if (sourceStack.isEmpty()) source.set(ItemStack.EMPTY);
+        else source.setChanged();
+        if (sourceStack.getCount() == original.getCount()) return ItemStack.EMPTY;
+        source.onTake(player, sourceStack);
+        return original;
+    }
+
+    private int equipmentMenuIndex(ItemStack stack)
+    {
+        return switch (Mob.getEquipmentSlotForItem(stack))
+        {
+            case HEAD -> 6;
+            case CHEST -> 7;
+            case FEET -> 8;
+            default -> -1;
+        };
+    }
+
+    private static final class AccessorySlot extends SlotItemHandler
+    {
+        private AccessorySlot(ItemStackHandler handler, int index, int x, int y)
+        {
+            super(handler, index, x, y);
+        }
+
+        @Override public int getMaxStackSize() { return 1; }
+    }
+
+    private static final class EquipmentItemSlot extends Slot
+    {
+        private final EquipmentSlot equipmentSlot;
+
+        private EquipmentItemSlot(Inventory inventory, int index, int x, int y, EquipmentSlot equipmentSlot)
+        {
+            super(inventory, index, x, y);
+            this.equipmentSlot = equipmentSlot;
+        }
+
+        @Override public boolean mayPlace(ItemStack stack)
+        {
+            return Mob.getEquipmentSlotForItem(stack) == equipmentSlot;
+        }
+
+        @Override public int getMaxStackSize() { return 1; }
+    }
+}

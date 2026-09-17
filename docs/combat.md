@@ -31,5 +31,9 @@ Armour slot and has no leggings slot. If leggings
 are equipped through another interface, they are moved safely back to the
 backpack (or dropped when the backpack is full). The page reserves AD&D-style
 positions for an amulet, cloak, two rings, gauntlets, belt, ammunition, weapon
-sets, and quick items; persistent accessory storage and effects are the next
-inventory stage.
+sets, and quick items. The Minecraft inventory key opens this server-backed
+screen. Backpack and hotbar positions reference the normal player inventory,
+while accessory positions are separately persisted with the player. Items can
+be dragged, split, swapped, or shift-clicked using normal container behaviour.
+Until Cobbledeep accessory items are introduced, each accessory position accepts
+one item so persistence and inventory handling can be tested.

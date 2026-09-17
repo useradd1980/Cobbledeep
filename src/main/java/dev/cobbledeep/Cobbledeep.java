@@ -3,6 +3,7 @@ package dev.cobbledeep;
 import com.mojang.logging.LogUtils;
 
 import dev.cobbledeep.network.RPGNetwork;
+import dev.cobbledeep.registry.ModMenus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
@@ -16,6 +17,7 @@ public class Cobbledeep
 
     public Cobbledeep(FMLJavaModLoadingContext context)
     {
+        ModMenus.MENUS.register(context.getModEventBus());
         RPGNetwork.register();
 
         LOGGER.info("Cobbledeep loaded.");

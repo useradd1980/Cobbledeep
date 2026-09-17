@@ -25,7 +25,7 @@ public class RPGNetwork
                             "main"
                     )
             )
-            .networkProtocolVersion(3)
+            .networkProtocolVersion(4)
             .simpleChannel();
 
     public static void register()
@@ -61,6 +61,12 @@ public class RPGNetwork
                 .decoder(SyncExplorationPacket::new)
                 .encoder(SyncExplorationPacket::encode)
                 .consumerMainThread(SyncExplorationPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(OpenAdndInventoryPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(OpenAdndInventoryPacket::new)
+                .encoder(OpenAdndInventoryPacket::encode)
+                .consumerMainThread(OpenAdndInventoryPacket::handle)
                 .add();
     }
 
