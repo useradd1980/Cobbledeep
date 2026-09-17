@@ -46,6 +46,12 @@ public final class TacticalCameraKeys
             GLFW.GLFW_KEY_SPACE,
             CATEGORY);
 
+    public static final KeyMapping CHARACTER_SHEET = new KeyMapping(
+            "key.cobbledeep.character_sheet",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_C,
+            CATEGORY);
+
     private TacticalCameraKeys() { }
 
     @SubscribeEvent
@@ -56,5 +62,6 @@ public final class TacticalCameraKeys
         event.register(ROTATE_RIGHT);
         event.register(RECENTER);
         event.register(PLAY_PAUSE);
+        event.register(CHARACTER_SHEET);
     }
 }

@@ -20,3 +20,8 @@ AD&D-style rules layer while leaving Minecraft's damage amounts in place.
 Minecraft weapon damage remains unchanged in this pass. Weapon damage dice,
 critical hits, experience, additional hit dice, and a dedicated character HUD
 can build on the same rule layer later.
+
+Press **C** in game to open the character record. It displays identity, level,
+ability scores, current and maximum hit points, hit die, THAC0, live armour
+class, and melee attack adjustment. The level-up control is intentionally
+disabled until experience and advancement choices are implemented.

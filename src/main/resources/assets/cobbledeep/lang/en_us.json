@@ -4,5 +4,6 @@
   "key.cobbledeep.tactical_camera.rotate_left": "Rotate Tactical Camera Left",
   "key.cobbledeep.tactical_camera.rotate_right": "Rotate Tactical Camera Right",
   "key.cobbledeep.tactical_camera.recenter": "Recenter Tactical Camera",
-  "key.cobbledeep.tactical_camera.play_pause": "Play / Pause"
+  "key.cobbledeep.tactical_camera.play_pause": "Play / Pause",
+  "key.cobbledeep.character_sheet": "Open Character Sheet"
 }
