@@ -15,7 +15,8 @@ The first test mappings are:
 NPC rings use the same stationary single-band texture and dimensions as the
 player ring. They render only while tactical mode is active and the character is
 inside the player's current line of sight; remembered terrain never reveals an
-NPC ring.
+NPC ring. Each ring follows its entity through the same frame-time smoothing used
+by the player marker, including smooth vertical movement over uneven terrain.
 
 Friendly mobs cannot select a player as an attack target. Attacking one changes
 that individual entity to hostile before its retaliation target is assigned.

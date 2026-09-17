@@ -24,6 +24,9 @@ import net.minecraftforge.fml.common.Mod;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 
+import java.util.Map;
+import java.util.WeakHashMap;
+
 /** Renders tactical selection and movement-destination rings. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class TacticalMoveMarkerRenderer
@@ -48,6 +51,7 @@ public final class TacticalMoveMarkerRenderer
     private static LocalPlayer followedPlayer;
     private static Vec3 smoothedTarget;
     private static long previousFrameNanos;
+    private static final Map<LivingEntity, FollowState> NPC_TARGETS = new WeakHashMap<>();
 
     private TacticalMoveMarkerRenderer() { }
 
@@ -102,7 +106,9 @@ public final class TacticalMoveMarkerRenderer
                     : disposition == CharacterDisposition.FRIENDLY ? FRIEND_GREEN : PLAYER_GREEN;
             float blue = disposition == CharacterDisposition.HOSTILE ? ENEMY_BLUE
                     : disposition == CharacterDisposition.FRIENDLY ? FRIEND_BLUE : PLAYER_BLUE;
-            renderRing(buffers, event, camera, entity.getPosition(event.getPartialTick()),
+            Vec3 entityTarget = smoothNpcTarget(
+                    entity.getPosition(event.getPartialTick()), entity);
+            renderRing(buffers, event, camera, entityTarget,
                     RADIUS, 0.92F, 0, red, green, blue);
         }
     }
@@ -200,6 +206,41 @@ public final class TacticalMoveMarkerRenderer
         }
         previousFrameNanos = now;
         return smoothedTarget;
+    }
+
+    private static Vec3 smoothNpcTarget(Vec3 current, LivingEntity entity)
+    {
+        long now = System.nanoTime();
+        FollowState state = NPC_TARGETS.get(entity);
+        if (state == null)
+        {
+            state = new FollowState(current, now);
+            NPC_TARGETS.put(entity, state);
+            return current;
+        }
+
+        double elapsed = (now - state.previousFrameNanos) / 1_000_000_000.0;
+        if (elapsed <= 0.0 || elapsed > 0.25 || state.position.distanceToSqr(current) > 16.0)
+            state.position = current;
+        else
+        {
+            double blend = 1.0 - Math.exp(-FOLLOW_RESPONSE * elapsed);
+            state.position = state.position.lerp(current, blend);
+        }
+        state.previousFrameNanos = now;
+        return state.position;
+    }
+
+    private static final class FollowState
+    {
+        private Vec3 position;
+        private long previousFrameNanos;
+
+        private FollowState(Vec3 position, long previousFrameNanos)
+        {
+            this.position = position;
+            this.previousFrameNanos = previousFrameNanos;
+        }
     }
 
     private static double band(double innerStart, double innerEnd,
