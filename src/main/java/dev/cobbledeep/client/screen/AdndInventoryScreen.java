@@ -73,15 +73,15 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY)
     {
         graphics.drawCenteredString(font, "COBBLEDEEP INVENTORY", imageWidth / 2, 10, HEADING);
-        graphics.drawString(font, "ARM", 108, 48, LABEL);
-        graphics.drawString(font, "GLV", 136, 48, LABEL);
-        graphics.drawString(font, "HELM", 161, 48, LABEL);
-        graphics.drawString(font, "NECK", 194, 48, LABEL);
+        graphics.drawString(font, "ARM", 108, 56, LABEL);
+        graphics.drawString(font, "GLV", 136, 56, LABEL);
+        graphics.drawString(font, "HELM", 161, 56, LABEL);
+        graphics.drawString(font, "NECK", 194, 56, LABEL);
 
-        graphics.drawString(font, "QUIVER", 44, 72, HEADING);
-        graphics.drawString(font, "WEAPONS", 26, 102, HEADING);
-        graphics.drawString(font, "QUICK ITEMS", 26, 132, HEADING);
-        graphics.drawString(font, "L RING", 108, 120, LABEL);
+        graphics.drawString(font, "QUIVER", 30, 72, HEADING);
+        graphics.drawString(font, "WEAPONS", 12, 102, HEADING);
+        graphics.drawString(font, "QUICK ITEMS", 12, 132, HEADING);
+        graphics.drawString(font, "L RING", 92, 120, LABEL);
 
         graphics.drawString(font, "OFF HAND", 194, 90, LABEL);
         graphics.drawString(font, "R RING", 195, 120, LABEL);

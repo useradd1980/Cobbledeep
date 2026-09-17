@@ -43,18 +43,18 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
 
     private void addAccessorySlots(ItemStackHandler accessories)
     {
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.AMULET, 196, 58));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.AMULET, 196, 66));
         addSlot(new AccessorySlot(accessories, AccessoryEquipment.CLOAK, 122, 164));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.LEFT_RING, 112, 130));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.LEFT_RING, 96, 130));
         addSlot(new AccessorySlot(accessories, AccessoryEquipment.RIGHT_RING, 200, 130));
-        addSlot(new AccessorySlot(accessories, AccessoryEquipment.GAUNTLETS, 136, 58));
+        addSlot(new AccessorySlot(accessories, AccessoryEquipment.GAUNTLETS, 136, 66));
         addSlot(new AccessorySlot(accessories, AccessoryEquipment.BELT, 178, 164));
     }
 
     private void addEquipmentSlots(Inventory inventory)
     {
-        addSlot(new EquipmentItemSlot(inventory, 39, 164, 58, EquipmentSlot.HEAD, owner));
-        addSlot(new EquipmentItemSlot(inventory, 38, 108, 58, EquipmentSlot.CHEST, owner));
+        addSlot(new EquipmentItemSlot(inventory, 39, 164, 66, EquipmentSlot.HEAD, owner));
+        addSlot(new EquipmentItemSlot(inventory, 38, 108, 66, EquipmentSlot.CHEST, owner));
         addSlot(new EquipmentItemSlot(inventory, 36, 150, 164, EquipmentSlot.FEET, owner));
         addSlot(new Slot(inventory, 40, 200, 100)
         {
@@ -77,13 +77,13 @@ public final class AdndInventoryMenu extends AbstractContainerMenu
     private void addHotbarSlots(Inventory inventory)
     {
         for (int column = 0; column < 4; column++)
-            addSlot(new Slot(inventory, column, 26 + column * 18, 112));
+            addSlot(new Slot(inventory, column, 12 + column * 18, 112));
         for (int column = 0; column < 3; column++)
-            addSlot(new Slot(inventory, 4 + column, 44 + column * 18, 82));
+            addSlot(new Slot(inventory, 4 + column, 30 + column * 18, 82));
         for (int column = 0; column < 3; column++)
         {
             int inventoryIndex = column < 2 ? 7 + column : 25;
-            addSlot(new Slot(inventory, inventoryIndex, 26 + column * 18, 142));
+            addSlot(new Slot(inventory, inventoryIndex, 12 + column * 18, 142));
         }
     }
 
