@@ -50,3 +50,7 @@ horizontal quick-weapon positions, and three quick-item positions sit to its
 left, with the off-hand weapon and second ring close to its right. The page
 shows only live AC and effective THAC0; armour and selected weapons update those
 figures immediately. A compact two-by-eight backpack occupies the lower section.
+Beside it, a two-by-three Ground grid acts as a drop-staging area: anything left
+there is dropped at the player's feet when the screen closes. The page also
+shows carried gold above AC and THAC0, counting ingots, blocks, and complete
+groups of nine nuggets.

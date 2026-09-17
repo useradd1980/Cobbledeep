@@ -13,6 +13,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Items;
 
 public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInventoryMenu>
 {
@@ -77,18 +78,19 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         graphics.drawString(font, "HELM", 161, 48, LABEL);
         graphics.drawString(font, "NECK", 194, 48, LABEL);
 
-        graphics.drawString(font, "QUIVER", 43, 76, HEADING);
-        graphics.drawString(font, "WEAPONS", 34, 102, HEADING);
-        graphics.drawString(font, "L RING", 96, 102, LABEL);
-        graphics.drawString(font, "QUICK ITEMS", 43, 128, HEADING);
+        graphics.drawString(font, "QUIVER", 44, 72, HEADING);
+        graphics.drawString(font, "WEAPONS", 26, 102, HEADING);
+        graphics.drawString(font, "QUICK ITEMS", 26, 132, HEADING);
+        graphics.drawString(font, "L RING", 76, 120, LABEL);
 
-        graphics.drawString(font, "OFF HAND", 211, 90, LABEL);
-        graphics.drawString(font, "R RING", 215, 120, LABEL);
+        graphics.drawString(font, "OFF HAND", 194, 90, LABEL);
+        graphics.drawString(font, "R RING", 195, 120, LABEL);
         graphics.drawString(font, "CLK", 122, 154, LABEL);
         graphics.drawString(font, "BOOT", 147, 154, LABEL);
         graphics.drawString(font, "BELT", 176, 154, LABEL);
 
-        graphics.drawString(font, "BACKPACK", 91, 188, HEADING);
+        graphics.drawString(font, "BACKPACK", 54, 188, HEADING);
+        graphics.drawString(font, "GROUND", 220, 188, HEADING);
         renderCombatSummary(graphics);
     }
 
@@ -99,8 +101,9 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
                 .resolve().orElse(null);
         if (data == null || !data.isCharacterCreated())
         {
-            graphics.drawString(font, "AC --", 242, 53, LABEL);
-            graphics.drawString(font, "THAC0 --", 242, 65, LABEL);
+            graphics.drawString(font, "GOLD " + carriedGold(), 242, 53, HEADING);
+            graphics.drawString(font, "AC --", 242, 65, LABEL);
+            graphics.drawString(font, "THAC0 --", 242, 77, LABEL);
             return;
         }
 
@@ -108,10 +111,19 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
         int baseThac0 = CombatRules.thac0(data.getCharacterClass(), data.getLevel());
         int attackAdjustment = WeaponCombatStats.totalAttackAdjustment(data, weapon);
 
+        graphics.drawString(font, "GOLD " + carriedGold(), 242, 53, HEADING);
         graphics.drawString(font,
-                "AC " + DndCombatStats.armorClass(playerInventory.player), 242, 53, VALUE);
+                "AC " + DndCombatStats.armorClass(playerInventory.player), 242, 65, VALUE);
         graphics.drawString(font,
-                "THAC0 " + (baseThac0 - attackAdjustment), 242, 65, VALUE);
+                "THAC0 " + (baseThac0 - attackAdjustment), 242, 77, VALUE);
+    }
+
+    private int carriedGold()
+    {
+        int ingots = playerInventory.countItem(Items.GOLD_INGOT);
+        int blocks = playerInventory.countItem(Items.GOLD_BLOCK);
+        int nuggets = playerInventory.countItem(Items.GOLD_NUGGET);
+        return ingots + blocks * 9 + nuggets / 9;
     }
 
     @Override
