@@ -26,6 +26,7 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import dev.cobbledeep.Cobbledeep;
+import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.storage.LevelResource;
@@ -43,6 +44,12 @@ public final class GameSnapshotManager
     public record Snapshot(Path archive, String worldId, String worldName, String name,
             String characterName, long savedAt, int x, int y, int z, boolean autosave)
     {
+        public Path thumbnail()
+        {
+            String filename = archive.getFileName().toString();
+            return archive.resolveSibling(filename.substring(0, filename.length() - 4) + ".png");
+        }
+
         public String displayName()
         {
             return name + "  —  " + DISPLAY_TIME.format(Instant.ofEpochMilli(savedAt)) + "  "
@@ -53,16 +60,18 @@ public final class GameSnapshotManager
     private GameSnapshotManager() {}
 
     public static void saveCurrentWorld(Minecraft minecraft, String saveName,
-            Snapshot overwrite, BiConsumer<Boolean, String> completion)
+            Snapshot overwrite, NativeImage thumbnail, BiConsumer<Boolean, String> completion)
     {
         if (minecraft.player == null || minecraft.getSingleplayerServer() == null)
         {
+            if (thumbnail != null) thumbnail.close();
             showMessage(minecraft, "Snapshots are available in singleplayer games.");
             completion.accept(false, "Snapshots are available in singleplayer games.");
             return;
         }
         if (!SAVING.compareAndSet(false, true))
         {
+            if (thumbnail != null) thumbnail.close();
             showMessage(minecraft, "A snapshot is already being saved.");
             completion.accept(false, "A snapshot is already being saved.");
             return;
@@ -84,7 +93,7 @@ public final class GameSnapshotManager
                 Path worldDirectory = server.getWorldPath(LevelResource.ROOT)
                         .toAbsolutePath().normalize();
                 createSnapshot(gameDirectory, worldDirectory, server.getWorldData().getLevelName(),
-                        saveName, characterName, x, y, z);
+                        saveName, characterName, x, y, z, thumbnail);
                 if (overwrite != null && overwrite.worldId().equals(worldDirectory.getFileName().toString()))
                     deleteSnapshot(overwrite);
                 prune(snapshotRoot(gameDirectory).resolve(worldDirectory.getFileName().toString()));
@@ -106,6 +115,7 @@ public final class GameSnapshotManager
             }
             finally
             {
+                if (thumbnail != null) thumbnail.close();
                 SAVING.set(false);
             }
         });
@@ -200,7 +210,8 @@ public final class GameSnapshotManager
     }
 
     private static void createSnapshot(Path gameDirectory, Path worldDirectory, String worldName,
-            String saveName, String characterName, int x, int y, int z) throws IOException
+            String saveName, String characterName, int x, int y, int z,
+            NativeImage thumbnail) throws IOException
     {
         String worldId = worldDirectory.getFileName().toString();
         long savedAt = System.currentTimeMillis();
@@ -235,6 +246,18 @@ public final class GameSnapshotManager
             try (OutputStream output = Files.newOutputStream(directory.resolve(baseName + ".properties")))
             {
                 metadata.store(output, "Cobbledeep snapshot");
+            }
+            if (thumbnail != null)
+            {
+                try
+                {
+                    thumbnail.writeToFile(directory.resolve(baseName + ".png"));
+                }
+                catch (IOException exception)
+                {
+                    // A preview is optional; never invalidate a complete world snapshot for it.
+                    Cobbledeep.LOGGER.warn("Unable to write snapshot thumbnail", exception);
+                }
             }
         }
         finally
@@ -320,18 +343,13 @@ public final class GameSnapshotManager
         List<Snapshot> matching = snapshots.stream()
                 .filter(snapshot -> snapshot.archive().getParent().equals(directory)).toList();
         for (int index = MAX_SNAPSHOTS; index < matching.size(); index++)
-        {
-            Snapshot snapshot = matching.get(index);
-            Files.deleteIfExists(snapshot.archive());
-            String name = snapshot.archive().getFileName().toString();
-            Files.deleteIfExists(snapshot.archive().resolveSibling(
-                    name.substring(0, name.length() - 4) + ".properties"));
-        }
+            deleteSnapshot(matching.get(index));
     }
 
-    private static void deleteSnapshot(Snapshot snapshot) throws IOException
+    public static void deleteSnapshot(Snapshot snapshot) throws IOException
     {
         Files.deleteIfExists(snapshot.archive());
+        Files.deleteIfExists(snapshot.thumbnail());
         String name = snapshot.archive().getFileName().toString();
         Files.deleteIfExists(snapshot.archive().resolveSibling(
                 name.substring(0, name.length() - 4) + ".properties"));
