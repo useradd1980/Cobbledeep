@@ -242,8 +242,10 @@ public final class SnapshotLoadScreen extends Screen
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick)
     {
         renderBackground(graphics, mouseX, mouseY, partialTick);
-        renderSnapshotList(graphics, mouseX, mouseY);
         super.render(graphics, mouseX, mouseY, partialTick);
+        // Screen background blur is finalized while vanilla widgets render.
+        // Draw our custom rows afterwards so their text and previews stay sharp.
+        renderSnapshotList(graphics, mouseX, mouseY);
         graphics.drawCenteredString(font, title, width / 2, 12, 0xFFD7C58A);
         if (snapshots.isEmpty())
             graphics.drawCenteredString(font, "No manual saves have been created yet.",
