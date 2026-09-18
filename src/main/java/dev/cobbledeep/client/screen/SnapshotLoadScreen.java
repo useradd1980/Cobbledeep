@@ -21,9 +21,6 @@ import net.minecraft.world.level.storage.LevelResource;
 public final class SnapshotLoadScreen extends Screen
 {
     private static final int SAVES_PER_PAGE = 5;
-    private static final int TITLE_SCREEN_SETTLE_TICKS = 40;
-    private static Snapshot pendingRestore;
-    private static int pendingRestoreTicks;
     private final Screen parent;
     private final boolean allowSaving;
     private List<Snapshot> snapshots = List.of();
@@ -165,36 +162,17 @@ public final class SnapshotLoadScreen extends Screen
     private void restore(Snapshot snapshot)
     {
         Minecraft client = minecraft;
+        GenericMessageScreen progress = new GenericMessageScreen(
+                Component.literal("Loading Cobbledeep snapshot..."));
         if (client.level != null)
         {
-            pendingRestore = snapshot;
-            pendingRestoreTicks = 0;
-            client.disconnect(new TitleScreen());
-            return;
+            dev.cobbledeep.Cobbledeep.LOGGER.info("Snapshot load: disconnecting active level");
+            // Match Save and Quit: close the play connection BEFORE client teardown.
+            client.level.disconnect();
+            client.disconnect(progress);
+            dev.cobbledeep.Cobbledeep.LOGGER.info("Snapshot load: client teardown returned");
         }
-
-        client.setScreen(new GenericMessageScreen(
-                Component.literal("Restoring Cobbledeep snapshot...")));
-        restoreAfterShutdown(client, snapshot);
-    }
-
-    public static boolean hasPendingRestore()
-    {
-        return pendingRestore != null;
-    }
-
-    public static void tickPendingRestoreFromTitleScreen()
-    {
-        Snapshot snapshot = pendingRestore;
-        if (snapshot == null) return;
-        if (++pendingRestoreTicks < TITLE_SCREEN_SETTLE_TICKS) return;
-
-        pendingRestore = null;
-        pendingRestoreTicks = 0;
-
-        Minecraft client = Minecraft.getInstance();
-        client.setScreen(new GenericMessageScreen(
-                Component.literal("Restoring Cobbledeep snapshot...")));
+        client.setScreen(progress);
         restoreAfterShutdown(client, snapshot);
     }
 
@@ -204,6 +182,7 @@ public final class SnapshotLoadScreen extends Screen
         {
             try
             {
+                dev.cobbledeep.Cobbledeep.LOGGER.info("Snapshot load: restoring archive {}", snapshot.archive());
                 GameSnapshotManager.restoreSnapshot(client.gameDirectory.toPath(), snapshot);
             }
             catch (Exception exception)
@@ -214,6 +193,7 @@ public final class SnapshotLoadScreen extends Screen
         {
             if (failure != null)
             {
+                dev.cobbledeep.Cobbledeep.LOGGER.error("Snapshot load failed", failure);
                 String message = failure.getCause() == null ? failure.getMessage()
                         : failure.getCause().getMessage();
                 SnapshotLoadScreen screen = new SnapshotLoadScreen(new TitleScreen(), false);
@@ -222,6 +202,7 @@ public final class SnapshotLoadScreen extends Screen
                 client.setScreen(screen);
                 return;
             }
+            dev.cobbledeep.Cobbledeep.LOGGER.info("Snapshot load: opening restored world {}", snapshot.worldId());
             client.createWorldOpenFlows().openWorld(snapshot.worldId(),
                     () -> client.setScreen(new TitleScreen()));
         }));
