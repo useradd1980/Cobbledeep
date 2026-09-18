@@ -85,6 +85,6 @@ public class TitleScreenEvents
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null && minecraft.screen instanceof TitleScreen
                 && SnapshotLoadScreen.hasPendingRestore())
-            SnapshotLoadScreen.restorePendingFromTitleScreen();
+            SnapshotLoadScreen.tickPendingRestoreFromTitleScreen();
     }
 }

@@ -21,7 +21,9 @@ import net.minecraft.world.level.storage.LevelResource;
 public final class SnapshotLoadScreen extends Screen
 {
     private static final int SAVES_PER_PAGE = 5;
+    private static final int TITLE_SCREEN_SETTLE_TICKS = 40;
     private static Snapshot pendingRestore;
+    private static int pendingRestoreTicks;
     private final Screen parent;
     private final boolean allowSaving;
     private List<Snapshot> snapshots = List.of();
@@ -166,6 +168,7 @@ public final class SnapshotLoadScreen extends Screen
         if (client.level != null)
         {
             pendingRestore = snapshot;
+            pendingRestoreTicks = 0;
             client.disconnect(new TitleScreen());
             return;
         }
@@ -180,11 +183,14 @@ public final class SnapshotLoadScreen extends Screen
         return pendingRestore != null;
     }
 
-    public static void restorePendingFromTitleScreen()
+    public static void tickPendingRestoreFromTitleScreen()
     {
         Snapshot snapshot = pendingRestore;
         if (snapshot == null) return;
+        if (++pendingRestoreTicks < TITLE_SCREEN_SETTLE_TICKS) return;
+
         pendingRestore = null;
+        pendingRestoreTicks = 0;
 
         Minecraft client = Minecraft.getInstance();
         client.setScreen(new GenericMessageScreen(
