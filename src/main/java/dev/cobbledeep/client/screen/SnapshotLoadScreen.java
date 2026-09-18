@@ -41,7 +41,9 @@ public final class SnapshotLoadScreen extends Screen
 
     private final Screen parent;
     private final boolean allowSaving;
-    private final Map<Snapshot, ResourceLocation> thumbnails = new HashMap<>();
+    private record Thumbnail(ResourceLocation texture, int width, int height) { }
+
+    private final Map<Snapshot, Thumbnail> thumbnails = new HashMap<>();
     private List<Snapshot> snapshots = List.of();
     private Snapshot selected;
     private EditBox nameField;
@@ -273,11 +275,11 @@ public final class SnapshotLoadScreen extends Screen
 
             int thumbnailX = listLeft + 6;
             int thumbnailY = y + 4;
-            ResourceLocation texture = thumbnails.get(snapshot);
-            if (texture != null)
-                graphics.blit(texture, thumbnailX, thumbnailY, 0, 0,
+            Thumbnail thumbnail = thumbnails.get(snapshot);
+            if (thumbnail != null)
+                graphics.blit(thumbnail.texture(), thumbnailX, thumbnailY, 0, 0,
                         THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT,
-                        SnapshotThumbnailCapture.WIDTH, SnapshotThumbnailCapture.HEIGHT);
+                        thumbnail.width(), thumbnail.height());
             else
             {
                 graphics.fill(thumbnailX, thumbnailY, thumbnailX + THUMBNAIL_WIDTH,
@@ -353,8 +355,7 @@ public final class SnapshotLoadScreen extends Screen
             try (InputStream input = Files.newInputStream(snapshot.thumbnail());
                     NativeImage image = NativeImage.read(input))
             {
-                DynamicTexture texture = new DynamicTexture(
-                        SnapshotThumbnailCapture.WIDTH, SnapshotThumbnailCapture.HEIGHT, false);
+                DynamicTexture texture = new DynamicTexture(image.getWidth(), image.getHeight(), false);
                 NativeImage pixels = texture.getPixels();
                 if (pixels == null)
                 {
@@ -362,9 +363,11 @@ public final class SnapshotLoadScreen extends Screen
                     continue;
                 }
                 pixels.copyFrom(image);
+                texture.setFilter(true, false);
                 texture.upload();
-                thumbnails.put(snapshot, minecraft.getTextureManager().register(
-                        "cobbledeep_snapshot_" + snapshot.savedAt(), texture));
+                ResourceLocation location = minecraft.getTextureManager().register(
+                        "cobbledeep_snapshot_" + snapshot.savedAt(), texture);
+                thumbnails.put(snapshot, new Thumbnail(location, image.getWidth(), image.getHeight()));
             }
             catch (Exception exception)
             {
@@ -377,7 +380,8 @@ public final class SnapshotLoadScreen extends Screen
     private void releaseThumbnails()
     {
         if (minecraft != null)
-            thumbnails.values().forEach(minecraft.getTextureManager()::release);
+            thumbnails.values().forEach(thumbnail ->
+                    minecraft.getTextureManager().release(thumbnail.texture()));
         thumbnails.clear();
     }
 

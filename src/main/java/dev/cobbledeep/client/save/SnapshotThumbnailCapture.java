@@ -6,6 +6,7 @@ import dev.cobbledeep.client.save.GameSnapshotManager.Snapshot;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -15,8 +16,11 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class SnapshotThumbnailCapture
 {
-    public static final int WIDTH = 160;
-    public static final int HEIGHT = 90;
+    // Keep substantially more source detail than the on-screen save-list size.
+    // GUI scaling can make a 96 x 54 logical thumbnail several times larger in
+    // physical pixels, so a 160 x 90 source appears visibly blocky.
+    public static final int WIDTH = 480;
+    public static final int HEIGHT = 270;
 
     private record Request(String name, Snapshot overwrite, boolean previousHideGui) { }
     private static Request pending;
@@ -92,12 +96,36 @@ public final class SnapshotThumbnailCapture
         NativeImage result = new NativeImage(WIDTH, HEIGHT, false);
         for (int y = 0; y < HEIGHT; y++)
         {
-            int sourceY = cropY + Math.min(cropHeight - 1, y * cropHeight / HEIGHT);
+            double sampleY = cropY + ((y + 0.5) * cropHeight / HEIGHT) - 0.5;
+            int y0 = Mth.clamp((int) Math.floor(sampleY), cropY, cropY + cropHeight - 1);
+            int y1 = Math.min(cropY + cropHeight - 1, y0 + 1);
+            double fy = sampleY - Math.floor(sampleY);
             for (int x = 0; x < WIDTH; x++)
             {
-                int sourceX = cropX + Math.min(cropWidth - 1, x * cropWidth / WIDTH);
-                result.setPixelRGBA(x, y, source.getPixelRGBA(sourceX, sourceY));
+                double sampleX = cropX + ((x + 0.5) * cropWidth / WIDTH) - 0.5;
+                int x0 = Mth.clamp((int) Math.floor(sampleX), cropX, cropX + cropWidth - 1);
+                int x1 = Math.min(cropX + cropWidth - 1, x0 + 1);
+                double fx = sampleX - Math.floor(sampleX);
+                result.setPixelRGBA(x, y, bilinear(
+                        source.getPixelRGBA(x0, y0), source.getPixelRGBA(x1, y0),
+                        source.getPixelRGBA(x0, y1), source.getPixelRGBA(x1, y1), fx, fy));
             }
+        }
+        return result;
+    }
+
+    private static int bilinear(int topLeft, int topRight, int bottomLeft, int bottomRight,
+            double fx, double fy)
+    {
+        int result = 0;
+        for (int shift = 0; shift < 32; shift += 8)
+        {
+            double top = ((topLeft >>> shift) & 0xFF) * (1.0 - fx)
+                    + ((topRight >>> shift) & 0xFF) * fx;
+            double bottom = ((bottomLeft >>> shift) & 0xFF) * (1.0 - fx)
+                    + ((bottomRight >>> shift) & 0xFF) * fx;
+            int channel = Mth.clamp((int) Math.round(top * (1.0 - fy) + bottom * fy), 0, 255);
+            result |= channel << shift;
         }
         return result;
     }
