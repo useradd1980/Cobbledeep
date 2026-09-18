@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Properties;
+import java.util.function.BiConsumer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -36,28 +37,31 @@ public final class GameSnapshotManager
             .ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
     private static final AtomicBoolean SAVING = new AtomicBoolean();
 
-    public record Snapshot(Path archive, String worldId, String worldName,
-            String characterName, long savedAt, int x, int y, int z)
+    public record Snapshot(Path archive, String worldId, String worldName, String name,
+            String characterName, long savedAt, int x, int y, int z, boolean autosave)
     {
         public String displayName()
         {
-            return DISPLAY_TIME.format(Instant.ofEpochMilli(savedAt)) + "  "
+            return name + "  —  " + DISPLAY_TIME.format(Instant.ofEpochMilli(savedAt)) + "  "
                     + characterName + "  (" + x + ", " + y + ", " + z + ")";
         }
     }
 
     private GameSnapshotManager() {}
 
-    public static void saveCurrentWorld(Minecraft minecraft)
+    public static void saveCurrentWorld(Minecraft minecraft, String saveName,
+            Snapshot overwrite, BiConsumer<Boolean, String> completion)
     {
         if (minecraft.player == null || minecraft.getSingleplayerServer() == null)
         {
             showMessage(minecraft, "Snapshots are available in singleplayer games.");
+            completion.accept(false, "Snapshots are available in singleplayer games.");
             return;
         }
         if (!SAVING.compareAndSet(false, true))
         {
             showMessage(minecraft, "A snapshot is already being saved.");
+            completion.accept(false, "A snapshot is already being saved.");
             return;
         }
 
@@ -77,14 +81,25 @@ public final class GameSnapshotManager
                 Path worldDirectory = server.getWorldPath(LevelResource.ROOT)
                         .toAbsolutePath().normalize();
                 createSnapshot(gameDirectory, worldDirectory, server.getWorldData().getLevelName(),
-                        characterName, x, y, z);
-                minecraft.execute(() -> showMessage(minecraft, "Cobbledeep snapshot saved."));
+                        saveName, characterName, x, y, z);
+                if (overwrite != null && overwrite.worldId().equals(worldDirectory.getFileName().toString()))
+                    deleteSnapshot(overwrite);
+                prune(snapshotRoot(gameDirectory).resolve(worldDirectory.getFileName().toString()));
+                minecraft.execute(() ->
+                {
+                    showMessage(minecraft, "Cobbledeep snapshot saved.");
+                    completion.accept(true, "Snapshot saved.");
+                });
             }
             catch (Exception exception)
             {
                 Cobbledeep.LOGGER.error("Unable to save Cobbledeep snapshot", exception);
-                minecraft.execute(() -> showMessage(minecraft,
-                        "Snapshot failed: " + safeMessage(exception)));
+                minecraft.execute(() ->
+                {
+                    String message = "Snapshot failed: " + safeMessage(exception);
+                    showMessage(minecraft, message);
+                    completion.accept(false, message);
+                });
             }
             finally
             {
@@ -147,7 +162,7 @@ public final class GameSnapshotManager
     }
 
     private static void createSnapshot(Path gameDirectory, Path worldDirectory, String worldName,
-            String characterName, int x, int y, int z) throws IOException
+            String saveName, String characterName, int x, int y, int z) throws IOException
     {
         String worldId = worldDirectory.getFileName().toString();
         long savedAt = System.currentTimeMillis();
@@ -172,16 +187,17 @@ public final class GameSnapshotManager
             metadata.setProperty("version", "1");
             metadata.setProperty("worldId", worldId);
             metadata.setProperty("worldName", worldName);
+            metadata.setProperty("name", saveName.strip());
             metadata.setProperty("characterName", characterName);
             metadata.setProperty("savedAt", Long.toString(savedAt));
             metadata.setProperty("x", Integer.toString(x));
             metadata.setProperty("y", Integer.toString(y));
             metadata.setProperty("z", Integer.toString(z));
+            metadata.setProperty("autosave", "false");
             try (OutputStream output = Files.newOutputStream(directory.resolve(baseName + ".properties")))
             {
                 metadata.store(output, "Cobbledeep snapshot");
             }
-            prune(directory);
         }
         finally
         {
@@ -241,13 +257,17 @@ public final class GameSnapshotManager
             Path archive = metadataPath.resolveSibling(
                     filename.substring(0, filename.length() - ".properties".length()) + ".zip");
             if (!Files.isRegularFile(archive)) return java.util.Optional.empty();
+            long savedAt = Long.parseLong(metadata.getProperty("savedAt"));
+            String defaultName = "Save " + DISPLAY_TIME.format(Instant.ofEpochMilli(savedAt));
             return java.util.Optional.of(new Snapshot(archive,
                     metadata.getProperty("worldId"), metadata.getProperty("worldName", "Cobbledeep"),
+                    metadata.getProperty("name", defaultName),
                     metadata.getProperty("characterName", "Character"),
-                    Long.parseLong(metadata.getProperty("savedAt")),
+                    savedAt,
                     Integer.parseInt(metadata.getProperty("x", "0")),
                     Integer.parseInt(metadata.getProperty("y", "0")),
-                    Integer.parseInt(metadata.getProperty("z", "0"))));
+                    Integer.parseInt(metadata.getProperty("z", "0")),
+                    Boolean.parseBoolean(metadata.getProperty("autosave", "false"))));
         }
         catch (Exception exception)
         {
@@ -269,6 +289,14 @@ public final class GameSnapshotManager
             Files.deleteIfExists(snapshot.archive().resolveSibling(
                     name.substring(0, name.length() - 4) + ".properties"));
         }
+    }
+
+    private static void deleteSnapshot(Snapshot snapshot) throws IOException
+    {
+        Files.deleteIfExists(snapshot.archive());
+        String name = snapshot.archive().getFileName().toString();
+        Files.deleteIfExists(snapshot.archive().resolveSibling(
+                name.substring(0, name.length() - 4) + ".properties"));
     }
 
     private static Path snapshotRoot(Path gameDirectory)

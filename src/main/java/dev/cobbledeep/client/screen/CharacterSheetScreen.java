@@ -2,7 +2,6 @@ package dev.cobbledeep.client.screen;
 
 import dev.cobbledeep.character.CharacterCapabilities;
 import dev.cobbledeep.character.CharacterData;
-import dev.cobbledeep.client.save.GameSnapshotManager;
 import dev.cobbledeep.combat.CombatRules;
 import dev.cobbledeep.combat.DndCombatStats;
 import dev.cobbledeep.combat.WeaponCombatProfile;
@@ -42,7 +41,7 @@ public final class CharacterSheetScreen extends Screen
                 this::onClose,
                 this::openInventory,
                 null,
-                () -> GameSnapshotManager.saveCurrentWorld(Minecraft.getInstance())))
+                () -> Minecraft.getInstance().setScreen(new SnapshotLoadScreen(null, true))))
             addRenderableWidget(button);
 
         Button levelUp = Button.builder(Component.literal("Level Up — Unavailable"), button -> {})
