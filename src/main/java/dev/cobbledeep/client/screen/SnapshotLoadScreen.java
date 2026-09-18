@@ -2,7 +2,6 @@ package dev.cobbledeep.client.screen;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BooleanSupplier;
 
 import dev.cobbledeep.client.save.GameSnapshotManager;
 import dev.cobbledeep.client.save.GameSnapshotManager.Snapshot;
@@ -22,6 +21,7 @@ import net.minecraft.world.level.storage.LevelResource;
 public final class SnapshotLoadScreen extends Screen
 {
     private static final int SAVES_PER_PAGE = 5;
+    private static Snapshot pendingRestore;
     private final Screen parent;
     private final boolean allowSaving;
     private List<Snapshot> snapshots = List.of();
@@ -165,11 +165,8 @@ public final class SnapshotLoadScreen extends Screen
         Minecraft client = minecraft;
         if (client.level != null || client.getSingleplayerServer() != null)
         {
-            var server = client.getSingleplayerServer();
-            WaitingForShutdownScreen progress = new WaitingForShutdownScreen(
-                    () -> server == null || server.isStopped(),
-                    () -> restoreAfterShutdown(client, snapshot));
-            client.disconnect(progress);
+            pendingRestore = snapshot;
+            client.disconnect(new TitleScreen());
             return;
         }
 
@@ -178,7 +175,24 @@ public final class SnapshotLoadScreen extends Screen
         restoreAfterShutdown(client, snapshot);
     }
 
-    private void restoreAfterShutdown(Minecraft client, Snapshot snapshot)
+    public static boolean hasPendingRestore()
+    {
+        return pendingRestore != null;
+    }
+
+    public static void restorePendingFromTitleScreen()
+    {
+        Snapshot snapshot = pendingRestore;
+        if (snapshot == null) return;
+        pendingRestore = null;
+
+        Minecraft client = Minecraft.getInstance();
+        client.setScreen(new GenericMessageScreen(
+                Component.literal("Restoring Cobbledeep snapshot...")));
+        restoreAfterShutdown(client, snapshot);
+    }
+
+    private static void restoreAfterShutdown(Minecraft client, Snapshot snapshot)
     {
         CompletableFuture.runAsync(() ->
         {
@@ -205,34 +219,6 @@ public final class SnapshotLoadScreen extends Screen
             client.createWorldOpenFlows().openWorld(snapshot.worldId(),
                     () -> client.setScreen(new TitleScreen()));
         }));
-    }
-
-    private static final class WaitingForShutdownScreen extends GenericMessageScreen
-    {
-        private final BooleanSupplier shutdownComplete;
-        private final Runnable restore;
-        private boolean started;
-
-        private WaitingForShutdownScreen(BooleanSupplier shutdownComplete, Runnable restore)
-        {
-            super(Component.literal("Closing current world before restoring snapshot..."));
-            this.shutdownComplete = shutdownComplete;
-            this.restore = restore;
-        }
-
-        @Override
-        public void tick()
-        {
-            super.tick();
-            if (!started && minecraft != null && minecraft.level == null
-                    && shutdownComplete.getAsBoolean())
-            {
-                started = true;
-                minecraft.setScreen(new GenericMessageScreen(
-                        Component.literal("Restoring Cobbledeep snapshot...")));
-                restore.run();
-            }
-        }
     }
 
     @Override
