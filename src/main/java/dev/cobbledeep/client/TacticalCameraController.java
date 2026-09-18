@@ -21,6 +21,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.system.MemoryStack;
 
 /**
  * Tactical-camera prototype.
@@ -225,8 +226,16 @@ public final class TacticalCameraController
         double height = minecraft.getWindow().getScreenHeight();
         if (width <= 0.0 || height <= 0.0) return;
 
-        double mouseX = minecraft.mouseHandler.xpos();
-        double mouseY = minecraft.mouseHandler.ypos();
+        double mouseX;
+        double mouseY;
+        try (MemoryStack stack = MemoryStack.stackPush())
+        {
+            var cursorX = stack.mallocDouble(1);
+            var cursorY = stack.mallocDouble(1);
+            GLFW.glfwGetCursorPos(minecraft.getWindow().getWindow(), cursorX, cursorY);
+            mouseX = cursorX.get(0);
+            mouseY = cursorY.get(0);
+        }
 
         double horizontal = edgeStrength(mouseX, width);
         double vertical = edgeStrength(mouseY, height);
