@@ -209,7 +209,10 @@ public final class TacticalCameraController
     private static void updateEdgePan(Minecraft minecraft)
     {
         LocalPlayer player = minecraft.player;
-        if (player == null || minecraft.screen != null || rightMouseHeld || !minecraft.isWindowActive()) return;
+        // Keep evaluating the cursor after it leaves a windowed game. GLFW
+        // reports coordinates below zero or beyond the window dimensions, so
+        // the camera can continue panning until the cursor moves back inside.
+        if (player == null || minecraft.screen != null || rightMouseHeld) return;
 
         if (cameraFocus == null)
         {
