@@ -162,11 +162,21 @@ public final class SnapshotLoadScreen extends Screen
     private void restore(Snapshot snapshot)
     {
         Minecraft client = minecraft;
-        GenericMessageScreen progress = new GenericMessageScreen(
-                Component.literal("Restoring Cobbledeep snapshot..."));
-        if (client.level != null) client.disconnect(progress);
-        else client.setScreen(progress);
+        if (client.level != null || client.getSingleplayerServer() != null)
+        {
+            WaitingForShutdownScreen progress = new WaitingForShutdownScreen(
+                    () -> restoreAfterShutdown(client, snapshot));
+            client.disconnect(progress);
+            return;
+        }
 
+        client.setScreen(new GenericMessageScreen(
+                Component.literal("Restoring Cobbledeep snapshot...")));
+        restoreAfterShutdown(client, snapshot);
+    }
+
+    private void restoreAfterShutdown(Minecraft client, Snapshot snapshot)
+    {
         CompletableFuture.runAsync(() ->
         {
             try
@@ -192,6 +202,32 @@ public final class SnapshotLoadScreen extends Screen
             client.createWorldOpenFlows().openWorld(snapshot.worldId(),
                     () -> client.setScreen(new TitleScreen()));
         }));
+    }
+
+    private static final class WaitingForShutdownScreen extends GenericMessageScreen
+    {
+        private final Runnable restore;
+        private boolean started;
+
+        private WaitingForShutdownScreen(Runnable restore)
+        {
+            super(Component.literal("Closing current world before restoring snapshot..."));
+            this.restore = restore;
+        }
+
+        @Override
+        public void tick()
+        {
+            super.tick();
+            if (!started && minecraft != null && minecraft.level == null
+                    && minecraft.getSingleplayerServer() == null)
+            {
+                started = true;
+                minecraft.setScreen(new GenericMessageScreen(
+                        Component.literal("Restoring Cobbledeep snapshot...")));
+                restore.run();
+            }
+        }
     }
 
     @Override
