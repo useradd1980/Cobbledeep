@@ -68,6 +68,7 @@ public final class TacticalCameraController
     private static boolean rightMouseDragged;
     private static double rightMouseLastX;
     private static double rightMousePendingDelta;
+    private static LocalPlayer cameraPlayer;
 
     // Tactical camera focus includes eye height captured only on activation or
     // explicit recenter. It is an absolute world-space point, independent from
@@ -101,6 +102,19 @@ public final class TacticalCameraController
     {
         Minecraft minecraft = Minecraft.getInstance();
 
+        // A restored world creates a new LocalPlayer while tactical-camera
+        // state remains alive on the client. Re-anchor immediately so the old
+        // world's absolute focus point is never carried into the new snapshot.
+        if (minecraft.player == null)
+        {
+            cameraPlayer = null;
+        }
+        else if (minecraft.player != cameraPlayer)
+        {
+            cameraPlayer = minecraft.player;
+            recenterCamera(cameraPlayer);
+        }
+
         if (gamePaused && (minecraft.player == null || minecraft.level == null))
             gamePaused = false;
 
@@ -116,9 +130,7 @@ public final class TacticalCameraController
                 previousViewBobbing = minecraft.options.bobView().get();
                 minecraft.options.bobView().set(false);
                 minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-                cameraFocus = minecraft.player.position().add(0.0, minecraft.player.getEyeHeight(), 0.0);
-                previousCameraFocus = cameraFocus;
-                terrainFocusY = Double.NaN;
+                recenterCamera(minecraft.player);
                 if (minecraft.screen == null)
                 {
                     minecraft.mouseHandler.releaseMouse();
@@ -160,9 +172,7 @@ public final class TacticalCameraController
         {
             if (minecraft.player != null)
             {
-                cameraFocus = minecraft.player.position().add(0.0, minecraft.player.getEyeHeight(), 0.0);
-                previousCameraFocus = cameraFocus;
-                terrainFocusY = Double.NaN;
+                recenterCamera(minecraft.player);
             }
         }
 
@@ -190,6 +200,14 @@ public final class TacticalCameraController
         previousCameraFocus = cameraFocus;
         updateEdgePan(minecraft);
         if (!gamePaused) updateClickMovement(minecraft);
+    }
+
+    private static void recenterCamera(LocalPlayer player)
+    {
+        cameraFocus = player.position().add(0.0, player.getEyeHeight(), 0.0);
+        previousCameraFocus = cameraFocus;
+        terrainFocusY = Double.NaN;
+        resetCameraDrag();
     }
 
     private static void setGamePaused(Minecraft minecraft, boolean paused)
