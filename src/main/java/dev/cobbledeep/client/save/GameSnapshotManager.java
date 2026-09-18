@@ -8,7 +8,10 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -134,6 +137,8 @@ public final class GameSnapshotManager
         if (!activeWorld.getParent().equals(saves))
             throw new IOException("Invalid snapshot world directory");
 
+        waitForWorldUnlock(activeWorld);
+
         Path rollback = saves.resolve(snapshot.worldId() + ".cobbledeep-rollback-"
                 + System.currentTimeMillis());
         boolean movedActiveWorld = false;
@@ -159,6 +164,39 @@ public final class GameSnapshotManager
             if (exception instanceof IOException ioException) throw ioException;
             throw new IOException("Unable to restore snapshot", exception);
         }
+    }
+
+    private static void waitForWorldUnlock(Path worldDirectory) throws IOException
+    {
+        Path sessionLock = worldDirectory.resolve("session.lock");
+        if (!Files.isRegularFile(sessionLock)) return;
+
+        long deadline = System.nanoTime() + 30_000_000_000L;
+        while (System.nanoTime() < deadline)
+        {
+            try (FileChannel channel = FileChannel.open(sessionLock, StandardOpenOption.WRITE))
+            {
+                try (var lock = channel.tryLock())
+                {
+                    if (lock != null) return;
+                }
+            }
+            catch (OverlappingFileLockException exception)
+            {
+                // The integrated server in this JVM still owns the world.
+            }
+
+            try
+            {
+                Thread.sleep(50L);
+            }
+            catch (InterruptedException exception)
+            {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while waiting for the world to close", exception);
+            }
+        }
+        throw new IOException("The current world did not finish closing within 30 seconds");
     }
 
     private static void createSnapshot(Path gameDirectory, Path worldDirectory, String worldName,

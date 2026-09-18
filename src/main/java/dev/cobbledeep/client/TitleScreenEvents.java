@@ -83,9 +83,7 @@ public class TitleScreenEvents
     public static void onClientTick(TickEvent.ClientTickEvent.Post event)
     {
         Minecraft minecraft = Minecraft.getInstance();
-        var server = minecraft.getSingleplayerServer();
         if (minecraft.level == null && minecraft.screen instanceof TitleScreen
-                && (server == null || server.isStopped())
                 && SnapshotLoadScreen.hasPendingRestore())
             SnapshotLoadScreen.restorePendingFromTitleScreen();
     }

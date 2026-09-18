@@ -163,7 +163,7 @@ public final class SnapshotLoadScreen extends Screen
     private void restore(Snapshot snapshot)
     {
         Minecraft client = minecraft;
-        if (client.level != null || client.getSingleplayerServer() != null)
+        if (client.level != null)
         {
             pendingRestore = snapshot;
             client.disconnect(new TitleScreen());
