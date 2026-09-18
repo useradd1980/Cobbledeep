@@ -2,6 +2,7 @@ package dev.cobbledeep.client.screen;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
 
 import dev.cobbledeep.client.save.GameSnapshotManager;
 import dev.cobbledeep.client.save.GameSnapshotManager.Snapshot;
@@ -164,7 +165,9 @@ public final class SnapshotLoadScreen extends Screen
         Minecraft client = minecraft;
         if (client.level != null || client.getSingleplayerServer() != null)
         {
+            var server = client.getSingleplayerServer();
             WaitingForShutdownScreen progress = new WaitingForShutdownScreen(
+                    () -> server == null || server.isStopped(),
                     () -> restoreAfterShutdown(client, snapshot));
             client.disconnect(progress);
             return;
@@ -206,12 +209,14 @@ public final class SnapshotLoadScreen extends Screen
 
     private static final class WaitingForShutdownScreen extends GenericMessageScreen
     {
+        private final BooleanSupplier shutdownComplete;
         private final Runnable restore;
         private boolean started;
 
-        private WaitingForShutdownScreen(Runnable restore)
+        private WaitingForShutdownScreen(BooleanSupplier shutdownComplete, Runnable restore)
         {
             super(Component.literal("Closing current world before restoring snapshot..."));
+            this.shutdownComplete = shutdownComplete;
             this.restore = restore;
         }
 
@@ -220,7 +225,7 @@ public final class SnapshotLoadScreen extends Screen
         {
             super.tick();
             if (!started && minecraft != null && minecraft.level == null
-                    && minecraft.getSingleplayerServer() == null)
+                    && shutdownComplete.getAsBoolean())
             {
                 started = true;
                 minecraft.setScreen(new GenericMessageScreen(
