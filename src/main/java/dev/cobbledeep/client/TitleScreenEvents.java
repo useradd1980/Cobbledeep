@@ -4,11 +4,11 @@ import java.util.ArrayList;
 
 import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.client.screen.CharacterCreationScreen;
+import dev.cobbledeep.client.screen.SnapshotLoadScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ScreenEvent;
@@ -66,7 +66,7 @@ public class TitleScreenEvents
 
         Button loadGameButton = Button.builder(
                 Component.literal("Cobbledeep: Load Game"),
-                button -> Minecraft.getInstance().setScreen(new SelectWorldScreen(titleScreen)))
+                button -> Minecraft.getInstance().setScreen(new SnapshotLoadScreen(titleScreen)))
                 .bounds(
                         centerX - buttonWidth / 2,
                         firstY + buttonHeight + gap,

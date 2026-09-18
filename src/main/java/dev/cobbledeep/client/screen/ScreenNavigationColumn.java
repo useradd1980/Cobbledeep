@@ -22,7 +22,8 @@ final class ScreenNavigationColumn
     private ScreenNavigationColumn() {}
 
     static List<Button> create(int x, int y, Page currentPage,
-            Runnable returnAction, Runnable inventoryAction, Runnable recordAction)
+            Runnable returnAction, Runnable inventoryAction, Runnable recordAction,
+            Runnable saveAction)
     {
         List<Button> buttons = new ArrayList<>();
         add(buttons, x, y, "Return", null, returnAction, currentPage);
@@ -32,7 +33,7 @@ final class ScreenNavigationColumn
         add(buttons, x, y + SPACING * 4, "Record", Page.RECORD, recordAction, currentPage);
         add(buttons, x, y + SPACING * 5, "Mages Spells", null, null, currentPage);
         add(buttons, x, y + SPACING * 6, "Divine Spells", null, null, currentPage);
-        add(buttons, x, y + SPACING * 7, "Save", null, null, currentPage);
+        add(buttons, x, y + SPACING * 7, "Save", null, saveAction, currentPage);
         add(buttons, x, y + SPACING * 8, "Sleep", null, null, currentPage);
         return buttons;
     }

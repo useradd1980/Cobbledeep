@@ -7,6 +7,7 @@ import dev.cobbledeep.combat.DndCombatStats;
 import dev.cobbledeep.combat.WeaponCombatProfile;
 import dev.cobbledeep.combat.WeaponCombatStats;
 import dev.cobbledeep.equipment.AdndInventoryMenu;
+import dev.cobbledeep.client.save.GameSnapshotManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -43,7 +44,8 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
                 ScreenNavigationColumn.Page.INVENTORY,
                 this::onClose,
                 null,
-                this::openRecord))
+                this::openRecord,
+                () -> GameSnapshotManager.saveCurrentWorld(minecraft)))
             addRenderableWidget(button);
     }
 
