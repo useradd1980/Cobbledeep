@@ -59,12 +59,8 @@ public final class GiantRatEntity extends PathfinderMob {
 
     @Override
     public void die(DamageSource source) {
-        if (isCorpse()) {
-            // The normal death method guards duplicate drops; don't restart the animation.
-            super.die(source);
-            return;
-        }
-        if (!level().isClientSide) {
+        // The dead flag is set by super.die(); health is already zero on the first hit.
+        if (!dead && !level().isClientSide) {
             getNavigation().stop();
             setNoAi(true);
             setDeltaMovement(Vec3.ZERO);
