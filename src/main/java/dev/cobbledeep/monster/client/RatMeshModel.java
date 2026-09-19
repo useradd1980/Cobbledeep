@@ -81,7 +81,8 @@ final class RatMeshModel {
             float[] translation = channel == null ? ZERO : sample(channel.position, time, ZERO);
             float[] rotation = channel == null ? ZERO : sample(channel.rotation, time, ZERO);
             float[] scale = channel == null ? ONE : sample(channel.scale, time, ONE);
-            // Exported mesh vertices are in model-global Blockbench coordinates.
+            // Bone pivots use model-global Blockbench coordinates. Moving back by the
+            // pivot after rotation keeps parent/child joints attached during animation.
             pose.translate(bone.origin[0] + translation[0], bone.origin[1] + translation[1],
                     bone.origin[2] + translation[2]);
             rotate(pose, bone.rotation[0] + rotation[0], bone.rotation[1] + rotation[1],
@@ -92,9 +93,13 @@ final class RatMeshModel {
         if (node.mesh != null) {
             Mesh mesh = node.mesh;
             pose.pushPose();
+            // Unlike bone pivots, a Blockbench free-model mesh origin is its actual
+            // element translation. The previous translate(+origin)/translate(-origin)
+            // cancelled that translation for unrotated meshes. The torso, legs and
+            // paws in this project have different Y origins; cancelling them left
+            // the pieces suspended apart even though their rig hierarchy was right.
             pose.translate(mesh.origin[0], mesh.origin[1], mesh.origin[2]);
             rotate(pose, mesh.rotation[0], mesh.rotation[1], mesh.rotation[2]);
-            pose.translate(-mesh.origin[0], -mesh.origin[1], -mesh.origin[2]);
             for (Face face : mesh.faces) {
                 // The entity render type expects quads. Duplicate a triangle's last corner.
                 for (int corner = 0; corner < 4; corner++) {
