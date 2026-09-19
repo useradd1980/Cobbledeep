@@ -64,16 +64,22 @@ final class RatMeshModel {
 
     void render(PoseStack pose, VertexConsumer output, int light, int overlay,
                 String animation, float elapsedSeconds) {
+        render(pose, output, light, overlay, animation, elapsedSeconds, 0xFFFFFFFF);
+    }
+
+    /** Render the same posed meshes with a per-vertex ARGB tint for optional highlights. */
+    void render(PoseStack pose, VertexConsumer output, int light, int overlay,
+                String animation, float elapsedSeconds, int color) {
         Clip clip = clips.get(animation);
         float time = clip == null ? 0 : clip.loop && clip.length > 0
                 ? elapsedSeconds % clip.length : Math.min(elapsedSeconds, clip.length);
         for (Node root : roots) {
-            renderNode(root, clip, time, pose, output, light, overlay);
+            renderNode(root, clip, time, pose, output, light, overlay, color);
         }
     }
 
     private void renderNode(Node node, Clip clip, float time, PoseStack pose,
-                            VertexConsumer output, int light, int overlay) {
+                            VertexConsumer output, int light, int overlay, int color) {
         pose.pushPose();
         if (node.bone != null) {
             Bone bone = node.bone;
@@ -94,10 +100,7 @@ final class RatMeshModel {
             Mesh mesh = node.mesh;
             pose.pushPose();
             // Unlike bone pivots, a Blockbench free-model mesh origin is its actual
-            // element translation. The previous translate(+origin)/translate(-origin)
-            // cancelled that translation for unrotated meshes. The torso, legs and
-            // paws in this project have different Y origins; cancelling them left
-            // the pieces suspended apart even though their rig hierarchy was right.
+            // element translation. Cancelling it would separate the legs and torso.
             pose.translate(mesh.origin[0], mesh.origin[1], mesh.origin[2]);
             rotate(pose, mesh.rotation[0], mesh.rotation[1], mesh.rotation[2]);
             for (Face face : mesh.faces) {
@@ -107,7 +110,7 @@ final class RatMeshModel {
                     float[] point = face.positions[index];
                     float[] uv = face.uvs[index];
                     output.addVertex(pose.last().pose(), point[0], point[1], point[2])
-                            .setColor(0xFFFFFFFF)
+                            .setColor(color)
                             .setUv(uv[0] / textureWidth, uv[1] / textureHeight)
                             .setOverlay(overlay)
                             .setLight(light)
@@ -117,7 +120,7 @@ final class RatMeshModel {
             pose.popPose();
         }
         for (Node child : node.children) {
-            renderNode(child, clip, time, pose, output, light, overlay);
+            renderNode(child, clip, time, pose, output, light, overlay, color);
         }
         pose.popPose();
     }
