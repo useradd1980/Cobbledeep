@@ -17,6 +17,7 @@ import net.minecraft.world.item.Items;
 
 public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInventoryMenu>
 {
+    private static final float UI_SCALE = 0.8F;
     private static final int PANEL = 0xF0101512;
     private static final int BORDER = 0xFF607766;
     private static final int HEADING = 0xFFD7C58A;
@@ -144,7 +145,50 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick)
     {
         renderBackground(graphics, mouseX, mouseY, partialTick);
-        super.render(graphics, mouseX, mouseY, partialTick);
-        renderTooltip(graphics, mouseX, mouseY);
+        double scaledMouseX = unscaledX(mouseX);
+        double scaledMouseY = unscaledY(mouseY);
+        graphics.pose().pushPose();
+        graphics.pose().translate(width / 2.0F, height / 2.0F, 0.0F);
+        graphics.pose().scale(UI_SCALE, UI_SCALE, 1.0F);
+        graphics.pose().translate(-width / 2.0F, -height / 2.0F, 0.0F);
+        super.render(graphics, (int) scaledMouseX, (int) scaledMouseY, partialTick);
+        renderTooltip(graphics, (int) scaledMouseX, (int) scaledMouseY);
+        graphics.pose().popPose();
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button)
+    {
+        return super.mouseClicked(unscaledX(mouseX), unscaledY(mouseY), button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button)
+    {
+        return super.mouseReleased(unscaledX(mouseX), unscaledY(mouseY), button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button,
+            double dragX, double dragY)
+    {
+        return super.mouseDragged(unscaledX(mouseX), unscaledY(mouseY), button,
+                dragX / UI_SCALE, dragY / UI_SCALE);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY)
+    {
+        return super.mouseScrolled(unscaledX(mouseX), unscaledY(mouseY), scrollX, scrollY);
+    }
+
+    private double unscaledX(double mouseX)
+    {
+        return width / 2.0 + (mouseX - width / 2.0) / UI_SCALE;
+    }
+
+    private double unscaledY(double mouseY)
+    {
+        return height / 2.0 + (mouseY - height / 2.0) / UI_SCALE;
     }
 }
