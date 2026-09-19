@@ -112,7 +112,10 @@ public final class TacticalCameraController
         else if (minecraft.player != cameraPlayer)
         {
             cameraPlayer = minecraft.player;
-            recenterCamera(cameraPlayer);
+            if (!enabled)
+                enableTacticalCamera(minecraft);
+            else
+                recenterCamera(cameraPlayer);
         }
 
         if (gamePaused && (minecraft.player == null || minecraft.level == null))
@@ -126,15 +129,7 @@ public final class TacticalCameraController
             enabled = !enabled;
             if (enabled)
             {
-                previousCameraType = minecraft.options.getCameraType();
-                previousViewBobbing = minecraft.options.bobView().get();
-                minecraft.options.bobView().set(false);
-                minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
-                recenterCamera(minecraft.player);
-                if (minecraft.screen == null)
-                {
-                    minecraft.mouseHandler.releaseMouse();
-                }
+                enableTacticalCamera(minecraft);
             }
             else
             {
@@ -200,6 +195,18 @@ public final class TacticalCameraController
         previousCameraFocus = cameraFocus;
         updateEdgePan(minecraft);
         if (!gamePaused) updateClickMovement(minecraft);
+    }
+
+    private static void enableTacticalCamera(Minecraft minecraft)
+    {
+        enabled = true;
+        previousCameraType = minecraft.options.getCameraType();
+        previousViewBobbing = minecraft.options.bobView().get();
+        minecraft.options.bobView().set(false);
+        minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+        recenterCamera(minecraft.player);
+        if (minecraft.screen == null)
+            minecraft.mouseHandler.releaseMouse();
     }
 
     private static void recenterCamera(LocalPlayer player)
