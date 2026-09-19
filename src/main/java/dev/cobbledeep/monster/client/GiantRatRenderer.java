@@ -2,6 +2,7 @@ package dev.cobbledeep.monster.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import dev.cobbledeep.client.LootHighlightClient;
 import dev.cobbledeep.monster.GiantRatEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -22,6 +23,7 @@ public final class GiantRatRenderer extends EntityRenderer<GiantRatEntity> {
     private static final String WALK = "animation.giant_rat.walk";
     private static final String IDLE = "animation.giant_rat_movements";
     private static final String DEATH = "animation.giant_rat_death";
+    private static final int LOOT_HIGHLIGHT_COLOR = 0xC048B8FF;
     private RatMeshModel model;
 
     public GiantRatRenderer(EntityRendererProvider.Context context) {
@@ -68,6 +70,19 @@ public final class GiantRatRenderer extends EntityRenderer<GiantRatEntity> {
 
         model.render(pose, output, packedLight, OverlayTexture.NO_OVERLAY,
                 animation, animationTime);
+
+        // Hold Tab to mark lootable corpses. Render an additional slightly expanded,
+        // translucent blue pass over the actual animated mesh, rather than drawing
+        // a box around the rat or modifying the permanent model texture. It is
+        // depth-tested by the normal entity render type and disappears on key release.
+        if (rat.isCorpse() && LootHighlightClient.isHeld()) {
+            pose.pushPose();
+            pose.scale(1.018f, 1.018f, 1.018f);
+            VertexConsumer highlight = buffers.getBuffer(RenderType.entityTranslucent(TEXTURE));
+            model.render(pose, highlight, 0x00F000F0, OverlayTexture.NO_OVERLAY,
+                    animation, animationTime, LOOT_HIGHLIGHT_COLOR);
+            pose.popPose();
+        }
         pose.popPose();
         super.render(rat, yaw, partialTick, pose, buffers, packedLight);
     }
