@@ -1,9 +1,12 @@
 package dev.cobbledeep.client.screen;
 
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 /** Client-side tactical action wheel. Actions are placeholders for now. */
 public final class TacticalRadialMenuScreen extends Screen
@@ -11,24 +14,32 @@ public final class TacticalRadialMenuScreen extends Screen
     private static final String[] ACTIONS = {
             "Attack", "Spells", "Defend", "Use Item", "Inspect", "Talk"
     };
-    private static final int INNER_RADIUS = 30;
-    private static final int OUTER_RADIUS = 94;
-    private static final int CELL_SIZE = 2;
+    private static final int INNER_RADIUS = 11;
+    private static final int OUTER_RADIUS = 34;
+    private static final int CELL_SIZE = 1;
+    private static final float LABEL_SCALE = 0.55F;
+    private static final float TARGET_SCALE = 0.5F;
+    private static final float TACTICAL_FOV = 50.0F;
 
     private final Component targetName;
+    private final double anchorX;
+    private final double anchorY;
     private int hovered = -1;
 
     public TacticalRadialMenuScreen(LivingEntity target)
     {
         super(Component.literal("Tactical Actions"));
         targetName = target.getDisplayName().copy();
+        double[] anchor = projectTarget(target);
+        anchorX = anchor[0];
+        anchorY = anchor[1];
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick)
     {
-        int centerX = width / 2;
-        int centerY = height / 2;
+        int centerX = (int)Math.round(anchorX * width);
+        int centerY = (int)Math.round(anchorY * height);
         hovered = segmentAt(mouseX, mouseY, centerX, centerY);
 
         int innerSquared = INNER_RADIUS * INNER_RADIUS;
@@ -47,21 +58,26 @@ public final class TacticalRadialMenuScreen extends Screen
             }
         }
 
-        graphics.fill(centerX - 27, centerY - 14, centerX + 27, centerY + 14, 0xE0121814);
-        graphics.drawCenteredString(font, targetName, centerX, centerY - 9, 0xE8D9A8);
-        graphics.drawCenteredString(font, "Choose action", centerX, centerY + 2, 0xAAB5AA);
+        graphics.fill(centerX - INNER_RADIUS, centerY - INNER_RADIUS,
+                centerX + INNER_RADIUS, centerY + INNER_RADIUS, 0xE0121814);
+        graphics.pose().pushPose();
+        graphics.pose().translate(centerX, centerY - 2, 0.0F);
+        graphics.pose().scale(TARGET_SCALE, TARGET_SCALE, 1.0F);
+        graphics.drawCenteredString(font, targetName, 0, 0, 0xE8D9A8);
+        graphics.pose().popPose();
 
         for (int index = 0; index < ACTIONS.length; index++)
         {
             double angle = index * Math.PI * 2.0 / ACTIONS.length - Math.PI / 2.0;
-            int labelX = centerX + (int)Math.round(Math.cos(angle) * 65.0);
-            int labelY = centerY + (int)Math.round(Math.sin(angle) * 65.0) - 4;
-            graphics.drawCenteredString(font, ACTIONS[index], labelX, labelY,
+            int labelX = centerX + (int)Math.round(Math.cos(angle) * 23.0);
+            int labelY = centerY + (int)Math.round(Math.sin(angle) * 23.0);
+            graphics.pose().pushPose();
+            graphics.pose().translate(labelX, labelY - 2, 0.0F);
+            graphics.pose().scale(LABEL_SCALE, LABEL_SCALE, 1.0F);
+            graphics.drawCenteredString(font, ACTIONS[index], 0, 0,
                     index == hovered ? 0xFFF1B8 : 0xE8E1C5);
+            graphics.pose().popPose();
         }
-
-        graphics.drawCenteredString(font, "Right-click or Esc to close",
-                centerX, centerY + OUTER_RADIUS + 10, 0xA0A0A0);
     }
 
     @Override
@@ -74,7 +90,8 @@ public final class TacticalRadialMenuScreen extends Screen
         }
         if (button == 0)
         {
-            int segment = segmentAt(mouseX, mouseY, width / 2, height / 2);
+            int segment = segmentAt(mouseX, mouseY,
+                    (int)Math.round(anchorX * width), (int)Math.round(anchorY * height));
             if (segment >= 0)
             {
                 Component action = Component.literal(ACTIONS[segment] + " — ")
@@ -101,6 +118,39 @@ public final class TacticalRadialMenuScreen extends Screen
         if (clockwiseFromTop < 0.0) clockwiseFromTop += Math.PI * 2.0;
         return (int)Math.floor((clockwiseFromTop + Math.PI / ACTIONS.length)
                 / (Math.PI * 2.0 / ACTIONS.length)) % ACTIONS.length;
+    }
+
+    private static double[] projectTarget(LivingEntity target)
+    {
+        Minecraft minecraft = Minecraft.getInstance();
+        Camera camera = minecraft.gameRenderer.getMainCamera();
+        double screenWidth = minecraft.getWindow().getScreenWidth();
+        double screenHeight = minecraft.getWindow().getScreenHeight();
+        if (!camera.isInitialized() || screenWidth <= 0.0 || screenHeight <= 0.0)
+            return cursorAnchor(minecraft, screenWidth, screenHeight);
+
+        Vec3 targetPoint = target.position().add(0.0, target.getBbHeight() * 0.5, 0.0);
+        Vec3 relative = targetPoint.subtract(camera.getPosition());
+        Vec3 forward = new Vec3(camera.getLookVector());
+        Vec3 left = new Vec3(camera.getLeftVector());
+        Vec3 up = new Vec3(camera.getUpVector());
+        double depth = relative.dot(forward);
+        if (depth <= 0.001)
+            return cursorAnchor(minecraft, screenWidth, screenHeight);
+
+        double tanHalfFov = Math.tan(Math.toRadians(TACTICAL_FOV * 0.5));
+        double aspect = screenWidth / screenHeight;
+        double ndcX = -relative.dot(left) / (depth * tanHalfFov * aspect);
+        double ndcY = relative.dot(up) / (depth * tanHalfFov);
+        return new double[] {(ndcX + 1.0) * 0.5, (1.0 - ndcY) * 0.5};
+    }
+
+    private static double[] cursorAnchor(Minecraft minecraft, double width, double height)
+    {
+        return new double[] {
+                width <= 0.0 ? 0.5 : minecraft.mouseHandler.xpos() / width,
+                height <= 0.0 ? 0.5 : minecraft.mouseHandler.ypos() / height
+        };
     }
 
     @Override
