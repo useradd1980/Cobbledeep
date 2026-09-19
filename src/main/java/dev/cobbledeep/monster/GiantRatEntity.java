@@ -85,15 +85,22 @@ public final class GiantRatEntity extends PathfinderMob {
         corpseLoot.setItem(0, new ItemStack(Items.BONE));
     }
 
+    /** Called on the server. The client cannot open a live or distant creature's loot. */
+    public void openCorpseLoot(ServerPlayer player) {
+        if (level().isClientSide || player.level() != level() || !player.isAlive()
+                || !isCorpse() || isRemoved() || player.distanceToSqr(this) > 36.0) return;
+        createCorpseLoot(); // Also handles corpses saved before loot support existed.
+        player.openMenu(new SimpleMenuProvider(
+                (containerId, inventory, viewer) ->
+                        ChestMenu.threeRows(containerId, inventory, corpseLoot),
+                Component.literal("Giant Rat — Remains")));
+    }
+
     @Override
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (!isCorpse()) return super.mobInteract(player, hand);
         if (!level().isClientSide && player instanceof ServerPlayer serverPlayer) {
-            createCorpseLoot(); // Also handles corpses saved before loot support existed.
-            serverPlayer.openMenu(new SimpleMenuProvider(
-                    (containerId, inventory, viewer) ->
-                            ChestMenu.threeRows(containerId, inventory, corpseLoot),
-                    Component.literal("Giant Rat — Remains")));
+            openCorpseLoot(serverPlayer);
         }
         return InteractionResult.sidedSuccess(level().isClientSide);
     }
@@ -121,7 +128,7 @@ public final class GiantRatEntity extends PathfinderMob {
 
     @Override
     public boolean isPickable() {
-        // Dead rats must remain raycastable, so the player can open their loot.
+        // Dead rats remain selectable while lying on the ground.
         return isCorpse() || super.isPickable();
     }
 
