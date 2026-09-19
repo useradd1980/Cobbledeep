@@ -39,8 +39,7 @@ public final class GiantRatEntity extends PathfinderMob {
     private final SimpleContainer corpseLoot = new SimpleContainer(27) {
         @Override
         public boolean stillValid(Player player) {
-            return GiantRatEntity.this.isCorpse() && !GiantRatEntity.this.isRemoved()
-                    && player.distanceToSqr(GiantRatEntity.this) <= 64.0;
+            return GiantRatEntity.this.canLootFrom(player);
         }
     };
     private boolean lootCreated;
@@ -64,6 +63,19 @@ public final class GiantRatEntity extends PathfinderMob {
         return isDeadOrDying() || getDeathAnimationTicks() > 0;
     }
 
+    /** Loot can only be opened/used from the corpse's block or a neighbouring block.
+     * Both the client approach controller and server use this exact rule.
+     */
+    public boolean canLootFrom(Player player) {
+        if (player == null || player.level() != level() || !player.isAlive()
+                || !isCorpse() || isRemoved()) return false;
+        var playerBlock = player.blockPosition();
+        var corpseBlock = blockPosition();
+        return Math.abs(playerBlock.getX() - corpseBlock.getX()) <= 1
+                && Math.abs(playerBlock.getZ() - corpseBlock.getZ()) <= 1
+                && Math.abs(playerBlock.getY() - corpseBlock.getY()) <= 1;
+    }
+
     public static AttributeSupplier.Builder createAttributes() {
         return createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 4.0)
@@ -85,10 +97,9 @@ public final class GiantRatEntity extends PathfinderMob {
         corpseLoot.setItem(0, new ItemStack(Items.BONE));
     }
 
-    /** Called on the server. The client cannot open a live or distant creature's loot. */
+    /** Called on the server. A distant player cannot open a corpse through a packet. */
     public void openCorpseLoot(ServerPlayer player) {
-        if (level().isClientSide || player.level() != level() || !player.isAlive()
-                || !isCorpse() || isRemoved() || player.distanceToSqr(this) > 36.0) return;
+        if (level().isClientSide || !canLootFrom(player)) return;
         createCorpseLoot(); // Also handles corpses saved before loot support existed.
         player.openMenu(new SimpleMenuProvider(
                 (containerId, inventory, viewer) ->
