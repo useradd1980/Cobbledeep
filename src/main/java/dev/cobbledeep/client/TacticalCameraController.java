@@ -1,6 +1,7 @@
 package dev.cobbledeep.client;
 
 import dev.cobbledeep.Cobbledeep;
+import dev.cobbledeep.client.screen.TacticalRadialMenuScreen;
 import net.minecraft.client.Camera;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
@@ -10,6 +11,9 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -355,7 +359,14 @@ public final class TacticalCameraController
             if (worldInput)
             {
                 updateCameraDrag(minecraft);
-                if (!rightMouseDragged) stopClickMovement(minecraft);
+                if (!rightMouseDragged)
+                {
+                    LivingEntity target = raycastCursorToLivingEntity(minecraft);
+                    if (target != null)
+                        minecraft.setScreen(new TacticalRadialMenuScreen(target));
+                    else
+                        stopClickMovement(minecraft);
+                }
                 event.setCanceled(true);
             }
             resetCameraDrag();
@@ -471,6 +482,55 @@ public final class TacticalCameraController
         }
 
         return null;
+    }
+
+    private static LivingEntity raycastCursorToLivingEntity(Minecraft minecraft)
+    {
+        Camera camera = minecraft.gameRenderer.getMainCamera();
+        if (!camera.isInitialized()) return null;
+
+        double width = minecraft.getWindow().getScreenWidth();
+        double height = minecraft.getWindow().getScreenHeight();
+        if (width <= 0.0 || height <= 0.0) return null;
+
+        double mouseX = minecraft.mouseHandler.xpos();
+        double mouseY = minecraft.mouseHandler.ypos();
+        double ndcX = (mouseX / width) * 2.0 - 1.0;
+        double ndcY = 1.0 - (mouseY / height) * 2.0;
+        double aspect = width / height;
+        double tanHalfFov = Math.tan(Math.toRadians(TACTICAL_FOV * 0.5));
+
+        Vec3 forward = new Vec3(camera.getLookVector());
+        Vec3 left = new Vec3(camera.getLeftVector());
+        Vec3 up = new Vec3(camera.getUpVector());
+        Vec3 direction = forward
+                .add(left.scale(-ndcX * tanHalfFov * aspect))
+                .add(up.scale(ndcY * tanHalfFov))
+                .normalize();
+
+        Vec3 start = camera.getPosition();
+        Vec3 end = start.add(direction.scale(CLICK_RAY_DISTANCE));
+        HitResult blockHit = minecraft.level.clip(new ClipContext(start, end,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, minecraft.player));
+        double closestDistance = blockHit.getType() == HitResult.Type.MISS
+                ? CLICK_RAY_DISTANCE : start.distanceTo(blockHit.getLocation());
+        LivingEntity closest = null;
+
+        AABB searchBox = new AABB(start, end).inflate(1.0);
+        for (Entity entity : minecraft.level.getEntities(minecraft.player, searchBox,
+                candidate -> candidate instanceof LivingEntity && candidate.isPickable()))
+        {
+            AABB bounds = entity.getBoundingBox().inflate(entity.getPickRadius());
+            var intersection = bounds.clip(start, end);
+            if (intersection.isEmpty()) continue;
+            double distance = start.distanceTo(intersection.get());
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closest = (LivingEntity)entity;
+            }
+        }
+        return closest;
     }
 
     @SubscribeEvent
