@@ -144,7 +144,10 @@ public final class AdndInventoryScreen extends AbstractContainerScreen<AdndInven
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick)
     {
-        renderBackground(graphics, mouseX, mouseY, partialTick);
+        // The vanilla blur samples the previous framebuffer. Once this screen
+        // is scaled that creates a visible, unscaled ghost of the panel and
+        // paper doll behind the current frame. Dim the live world directly.
+        graphics.fill(0, 0, width, height, 0xA0000000);
         double scaledMouseX = unscaledX(mouseX);
         double scaledMouseY = unscaledY(mouseY);
         graphics.pose().pushPose();
