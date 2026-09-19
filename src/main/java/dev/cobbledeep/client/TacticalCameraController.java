@@ -541,7 +541,14 @@ public final class TacticalCameraController
     @SubscribeEvent
     public static void onCameraAngles(ViewportEvent.ComputeCameraAngles event)
     {
-        if (!enabled) return;
+        ClientCriticalHitShake.Offset shake = ClientCriticalHitShake.sample();
+        if (!enabled)
+        {
+            event.setYaw(event.getYaw() + shake.yaw());
+            event.setPitch(event.getPitch() + shake.pitch());
+            event.setRoll(event.getRoll() + shake.roll());
+            return;
+        }
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) return;
 
@@ -554,9 +561,9 @@ public final class TacticalCameraController
 
         // Sample mouse motion each rendered frame, not at the 20 Hz game tick.
         updateCameraDrag(Minecraft.getInstance());
-        event.setYaw(yaw);
-        event.setPitch(TACTICAL_PITCH);
-        event.setRoll(0.0F);
+        event.setYaw(yaw + shake.yaw());
+        event.setPitch(TACTICAL_PITCH + shake.pitch());
+        event.setRoll(shake.roll());
 
         // This hook runs after vanilla Camera.setup(), before frustum/world
         // rendering. Replace its player-relative position outright; never try

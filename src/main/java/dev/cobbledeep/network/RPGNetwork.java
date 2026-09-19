@@ -25,7 +25,7 @@ public class RPGNetwork
                             "main"
                     )
             )
-            .networkProtocolVersion(4)
+            .networkProtocolVersion(5)
             .simpleChannel();
 
     public static void register()
@@ -67,6 +67,12 @@ public class RPGNetwork
                 .decoder(OpenAdndInventoryPacket::new)
                 .encoder(OpenAdndInventoryPacket::encode)
                 .consumerMainThread(OpenAdndInventoryPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(CriticalHitShakePacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(CriticalHitShakePacket::new)
+                .encoder(CriticalHitShakePacket::encode)
+                .consumerMainThread(CriticalHitShakePacket::handle)
                 .add();
     }
 
