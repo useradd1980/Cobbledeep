@@ -25,7 +25,7 @@ public class RPGNetwork
                             "main"
                     )
             )
-            .networkProtocolVersion(5)
+            .networkProtocolVersion(6)
             .simpleChannel();
 
     public static void register()
@@ -73,6 +73,12 @@ public class RPGNetwork
                 .decoder(CriticalHitShakePacket::new)
                 .encoder(CriticalHitShakePacket::encode)
                 .consumerMainThread(CriticalHitShakePacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(OpenCorpseLootPacket.class, nextId(), NetworkDirection.PLAY_TO_SERVER)
+                .decoder(OpenCorpseLootPacket::new)
+                .encoder(OpenCorpseLootPacket::encode)
+                .consumerMainThread(OpenCorpseLootPacket::handle)
                 .add();
     }
 
