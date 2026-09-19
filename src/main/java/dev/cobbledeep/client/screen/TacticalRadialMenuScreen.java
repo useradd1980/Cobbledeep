@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /** Client-side tactical action wheel. Actions are placeholders for now. */
@@ -20,11 +21,16 @@ public final class TacticalRadialMenuScreen extends Screen
     private static final float LABEL_SCALE = 0.55F;
     private static final float TARGET_SCALE = 0.5F;
     private static final float TACTICAL_FOV = 50.0F;
+    private static final int QUICK_WEAPON_COUNT = 4;
+    private static final int WEAPON_SLOT_SIZE = 18;
+    private static int lastWeaponSlot;
 
     private final Component targetName;
     private final double anchorX;
     private final double anchorY;
     private int hovered = -1;
+    private int hoveredWeapon = -1;
+    private boolean attackSubmenuOpen;
 
     public TacticalRadialMenuScreen(LivingEntity target)
     {
@@ -41,6 +47,9 @@ public final class TacticalRadialMenuScreen extends Screen
         int centerX = (int)Math.round(anchorX * width);
         int centerY = (int)Math.round(anchorY * height);
         hovered = segmentAt(mouseX, mouseY, centerX, centerY);
+        if (hovered == 0) attackSubmenuOpen = true;
+        hoveredWeapon = attackSubmenuOpen
+                ? weaponSlotAt(mouseX, mouseY, centerX, centerY) : -1;
 
         int innerSquared = INNER_RADIUS * INNER_RADIUS;
         int outerSquared = OUTER_RADIUS * OUTER_RADIUS;
@@ -78,6 +87,9 @@ public final class TacticalRadialMenuScreen extends Screen
                     index == hovered ? 0xFFF1B8 : 0xE8E1C5);
             graphics.pose().popPose();
         }
+
+        if (attackSubmenuOpen)
+            renderWeaponSubmenu(graphics, mouseX, mouseY, centerX, centerY);
     }
 
     @Override
@@ -90,10 +102,29 @@ public final class TacticalRadialMenuScreen extends Screen
         }
         if (button == 0)
         {
-            int segment = segmentAt(mouseX, mouseY,
-                    (int)Math.round(anchorX * width), (int)Math.round(anchorY * height));
+            int centerX = (int)Math.round(anchorX * width);
+            int centerY = (int)Math.round(anchorY * height);
+            int weaponSlot = attackSubmenuOpen
+                    ? weaponSlotAt(mouseX, mouseY, centerX, centerY) : -1;
+            if (weaponSlot >= 0 && minecraft.player != null)
+            {
+                ItemStack weapon = minecraft.player.getInventory().getItem(weaponSlot);
+                if (!weapon.isEmpty())
+                {
+                    lastWeaponSlot = weaponSlot;
+                    showAttackPlaceholder(weapon);
+                    return true;
+                }
+            }
+
+            int segment = segmentAt(mouseX, mouseY, centerX, centerY);
             if (segment >= 0)
             {
+                if (segment == 0)
+                {
+                    showAttackPlaceholder(selectedWeapon());
+                    return true;
+                }
                 Component action = Component.literal(ACTIONS[segment] + " — ")
                         .append(targetName).append(" (coming soon)");
                 onClose();
@@ -103,6 +134,76 @@ public final class TacticalRadialMenuScreen extends Screen
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private void renderWeaponSubmenu(GuiGraphics graphics, int mouseX, int mouseY,
+                                     int centerX, int centerY)
+    {
+        int left = centerX - QUICK_WEAPON_COUNT * WEAPON_SLOT_SIZE / 2;
+        int top = centerY - OUTER_RADIUS - WEAPON_SLOT_SIZE - 3;
+        for (int slot = 0; slot < QUICK_WEAPON_COUNT; slot++)
+        {
+            int x = left + slot * WEAPON_SLOT_SIZE;
+            int background = slot == hoveredWeapon ? 0xE0A07732
+                    : slot == lastWeaponSlot ? 0xD06D793E : 0xD0202822;
+            graphics.fill(x, top, x + 17, top + 17, background);
+            ItemStack weapon = minecraft.player == null
+                    ? ItemStack.EMPTY : minecraft.player.getInventory().getItem(slot);
+            if (!weapon.isEmpty())
+            {
+                graphics.renderItem(weapon, x, top);
+                graphics.renderItemDecorations(font, weapon, x, top);
+            }
+        }
+
+        if (hoveredWeapon >= 0 && minecraft.player != null)
+        {
+            ItemStack weapon = minecraft.player.getInventory().getItem(hoveredWeapon);
+            Component label = weapon.isEmpty() ? Component.literal("Empty") : weapon.getHoverName();
+            graphics.pose().pushPose();
+            graphics.pose().translate(centerX, top - 7, 0.0F);
+            graphics.pose().scale(LABEL_SCALE, LABEL_SCALE, 1.0F);
+            graphics.drawCenteredString(font, label, 0, 0, 0xFFF1B8);
+            graphics.pose().popPose();
+        }
+    }
+
+    private ItemStack selectedWeapon()
+    {
+        if (minecraft.player == null) return ItemStack.EMPTY;
+        ItemStack selected = minecraft.player.getInventory().getItem(lastWeaponSlot);
+        if (!selected.isEmpty()) return selected;
+        for (int slot = 0; slot < QUICK_WEAPON_COUNT; slot++)
+        {
+            ItemStack candidate = minecraft.player.getInventory().getItem(slot);
+            if (!candidate.isEmpty())
+            {
+                lastWeaponSlot = slot;
+                return candidate;
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private void showAttackPlaceholder(ItemStack weapon)
+    {
+        Component weaponName = weapon.isEmpty()
+                ? Component.literal("Unarmed") : weapon.getHoverName();
+        Component action = Component.literal("Attack with ").append(weaponName)
+                .append(" — ").append(targetName).append(" (coming soon)");
+        onClose();
+        if (minecraft.player != null)
+            minecraft.player.displayClientMessage(action, true);
+    }
+
+    private static int weaponSlotAt(double mouseX, double mouseY, int centerX, int centerY)
+    {
+        int left = centerX - QUICK_WEAPON_COUNT * WEAPON_SLOT_SIZE / 2;
+        int top = centerY - OUTER_RADIUS - WEAPON_SLOT_SIZE - 3;
+        if (mouseX < left || mouseX >= left + QUICK_WEAPON_COUNT * WEAPON_SLOT_SIZE
+                || mouseY < top || mouseY >= top + 17)
+            return -1;
+        return (int)(mouseX - left) / WEAPON_SLOT_SIZE;
     }
 
     private static int segmentAt(double mouseX, double mouseY, int centerX, int centerY)
