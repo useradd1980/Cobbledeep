@@ -19,16 +19,13 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
-/** Click-to-loot uses the tactical movement system for distant corpses. */
+/** Click-to-loot walks to an adjacent block before asking the server for loot. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class CorpseLootClient {
-    // The server allows six blocks; stop a little closer to allow for client/server lag.
-    private static final double REACH_SQR = 25.0;
     private static final double RAY_DISTANCE = 256.0;
     private static final double TACTICAL_FOV = 50.0;
     private static final double CORPSE_HALF_WIDTH = 0.95;
     private static final double CORPSE_HEIGHT = 0.85;
-    private static final double APPROACH_OFFSET = 3.0;
 
     /** The corpse selected by the player's most recent loot command. */
     private static GiantRatEntity pendingCorpse;
@@ -69,25 +66,35 @@ public final class CorpseLootClient {
         event.setCanceled(true);
         cancel(mc);
         if (mc.gameMode == null) return;
-        if (mc.player.distanceToSqr(corpse) <= REACH_SQR) {
+        if (corpse.canLootFrom(mc.player)) {
             requestLoot(corpse);
             return;
         }
 
-        // Reuse the existing A* click-to-move controller. Aim at walkable ground
-        // on the player's side of the body, rather than trying to stand inside it.
-        // The tick handler opens the loot as soon as the player enters reach;
-        // it does not require reaching the exact route endpoint.
-        Vec3 away = mc.player.position().subtract(corpse.position());
-        Vec3 horizontal = new Vec3(away.x, 0.0, away.z);
-        Vec3 direction = horizontal.lengthSqr() > 1.0e-6
-                ? horizontal.normalize() : new Vec3(1.0, 0.0, 0.0);
-        Vec3 destination = corpse.position().add(direction.scale(APPROACH_OFFSET));
+        // Walk to the centre of a block directly beside the corpse rather than
+        // stopping several blocks away or trying to stand inside the creature.
+        // Choose the side facing the player; the existing A* controller plans
+        // a safe route to that block, including around intervening obstacles.
+        Vec3 destination = adjacentBlockOnPlayerSide(mc, corpse);
         pendingCorpse = corpse;
         TacticalCombatController.cancel(mc);
         TacticalPathMovement.start(mc, destination);
-        // start() clears its target on an invalid destination or a failed route.
         if (TacticalPathMovement.target() == null) pendingCorpse = null;
+    }
+
+    private static Vec3 adjacentBlockOnPlayerSide(Minecraft mc, GiantRatEntity corpse) {
+        var corpseBlock = corpse.blockPosition();
+        double deltaX = mc.player.getX() - corpse.getX();
+        double deltaZ = mc.player.getZ() - corpse.getZ();
+        int dx = 0;
+        int dz = 0;
+        if (Math.abs(deltaX) >= Math.abs(deltaZ)) {
+            dx = deltaX >= 0.0 ? 1 : -1;
+        } else {
+            dz = deltaZ >= 0.0 ? 1 : -1;
+        }
+        return new Vec3(corpseBlock.getX() + dx + 0.5,
+                corpse.getY(), corpseBlock.getZ() + dz + 0.5);
     }
 
     /** Manual keyboard movement takes precedence over an unfinished loot order. */
@@ -118,15 +125,15 @@ public final class CorpseLootClient {
             cancel(mc);
             return;
         }
-        if (mc.player.distanceToSqr(corpse) <= REACH_SQR) {
+        if (corpse.canLootFrom(mc.player)) {
             // Clear before opening the menu: opening a screen ends walking.
             pendingCorpse = null;
             TacticalPathMovement.stop(mc);
             requestLoot(corpse);
             return;
         }
-        // Another action or a failed/finished route must not leave an armed
-        // loot request that opens unexpectedly after the player moves manually.
+        // A replaced, failed or finished route must not leave an armed loot
+        // request that opens later after unrelated player movement.
         if (TacticalPathMovement.target() == null) pendingCorpse = null;
     }
 
