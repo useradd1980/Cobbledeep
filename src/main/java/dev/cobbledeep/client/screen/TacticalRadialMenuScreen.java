@@ -48,6 +48,7 @@ public final class TacticalRadialMenuScreen extends Screen
         int centerY = (int)Math.round(anchorY * height);
         hovered = segmentAt(mouseX, mouseY, centerX, centerY);
         if (hovered == 0) attackSubmenuOpen = true;
+        else if (hovered > 0) attackSubmenuOpen = false;
         hoveredWeapon = attackSubmenuOpen
                 ? weaponSlotAt(mouseX, mouseY, centerX, centerY) : -1;
 
