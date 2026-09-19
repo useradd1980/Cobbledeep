@@ -15,6 +15,7 @@ import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.client.save.GameSnapshotManager;
 import dev.cobbledeep.client.save.GameSnapshotManager.Snapshot;
 import dev.cobbledeep.client.save.SnapshotThumbnailCapture;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -56,6 +57,8 @@ public final class SnapshotLoadScreen extends Screen
     private int listBottom;
     private double scroll;
     private String status = "";
+    private Snapshot lastClickedSnapshot;
+    private long lastSnapshotClick;
 
     public SnapshotLoadScreen(Screen parent)
     {
@@ -99,7 +102,7 @@ public final class SnapshotLoadScreen extends Screen
         overwriteButton = addRenderableWidget(Button.builder(Component.literal("Overwrite"),
                 button -> save(selected)).bounds(listLeft, actionsY, 82, 20).build());
         loadButton = addRenderableWidget(Button.builder(Component.literal("Load"),
-                button -> confirmRestore(selected)).bounds(listLeft + 88, actionsY, 72, 20).build());
+                button -> restore(selected)).bounds(listLeft + 88, actionsY, 72, 20).build());
         deleteButton = addRenderableWidget(Button.builder(Component.literal("Delete"),
                 button -> confirmDelete(selected)).bounds(listLeft + 166, actionsY, 72, 20).build());
 
@@ -176,24 +179,9 @@ public final class SnapshotLoadScreen extends Screen
                 Component.literal("Delete"), CommonComponents.GUI_CANCEL));
     }
 
-    private void confirmRestore(Snapshot snapshot)
-    {
-        if (snapshot == null) return;
-        minecraft.setScreen(new ConfirmScreen(confirmed ->
-        {
-            if (!confirmed)
-            {
-                minecraft.setScreen(this);
-                return;
-            }
-            restore(snapshot);
-        }, Component.literal("Restore this Cobbledeep save?"), Component.literal(
-                "Progress made after this snapshot will be replaced."),
-                Component.literal("Restore"), CommonComponents.GUI_CANCEL));
-    }
-
     private void restore(Snapshot snapshot)
     {
+        if (snapshot == null) return;
         Minecraft client = minecraft;
         GenericMessageScreen progress = new GenericMessageScreen(
                 Component.literal("Loading Cobbledeep snapshot..."));
@@ -321,7 +309,21 @@ public final class SnapshotLoadScreen extends Screen
                 && mouseY >= listTop && mouseY < listBottom)
         {
             int index = (int) ((mouseY - listTop + scroll) / ROW_HEIGHT);
-            if (index >= 0 && index < snapshots.size()) select(snapshots.get(index));
+            if (index >= 0 && index < snapshots.size())
+            {
+                Snapshot clicked = snapshots.get(index);
+                long now = Util.getMillis();
+                boolean doubleClick = clicked.equals(lastClickedSnapshot)
+                        && now - lastSnapshotClick <= 300L;
+                select(clicked);
+                lastClickedSnapshot = clicked;
+                lastSnapshotClick = now;
+                if (doubleClick)
+                {
+                    lastClickedSnapshot = null;
+                    restore(clicked);
+                }
+            }
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
