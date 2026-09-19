@@ -145,7 +145,7 @@ public final class GiantRatEntity extends PathfinderMob {
         super.addAdditionalSaveData(tag);
         tag.putBoolean(CORPSE_TAG, isCorpse());
         tag.putBoolean(LOOT_CREATED_TAG, lootCreated);
-        tag.put(LOOT_ITEMS_TAG, corpseLoot.createTag(registryAccess()));
+        tag.put(LOOT_ITEMS_TAG, corpseLoot.createTag(level().registryAccess()));
     }
 
     @Override
@@ -154,7 +154,7 @@ public final class GiantRatEntity extends PathfinderMob {
         lootCreated = tag.getBoolean(LOOT_CREATED_TAG);
         corpseLoot.clearContent();
         if (tag.contains(LOOT_ITEMS_TAG, 9)) {
-            corpseLoot.fromTag(tag.getList(LOOT_ITEMS_TAG, 10), registryAccess());
+            corpseLoot.fromTag(tag.getList(LOOT_ITEMS_TAG, 10), level().registryAccess());
         }
         if (tag.getBoolean(CORPSE_TAG)) {
             // Reloading a killed rat restores its final death pose and saved loot.
