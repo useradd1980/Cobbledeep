@@ -277,8 +277,9 @@ public final class SnapshotLoadScreen extends Screen
             int thumbnailY = y + 4;
             Thumbnail thumbnail = thumbnails.get(snapshot);
             if (thumbnail != null)
-                graphics.blit(thumbnail.texture(), thumbnailX, thumbnailY, 0, 0,
-                        THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT,
+                graphics.blit(thumbnail.texture(), thumbnailX, thumbnailY,
+                        THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, 0, 0,
+                        thumbnail.width(), thumbnail.height(),
                         thumbnail.width(), thumbnail.height());
             else
             {
