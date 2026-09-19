@@ -62,6 +62,19 @@ public final class GameSnapshotManager
     public static void saveCurrentWorld(Minecraft minecraft, String saveName,
             Snapshot overwrite, NativeImage thumbnail, BiConsumer<Boolean, String> completion)
     {
+        save(minecraft, saveName, overwrite, thumbnail, false, completion);
+    }
+
+    public static void saveQuicksave(Minecraft minecraft, NativeImage thumbnail,
+            BiConsumer<Boolean, String> completion)
+    {
+        save(minecraft, "Quicksave-1", null, thumbnail, true, completion);
+    }
+
+    private static void save(Minecraft minecraft, String saveName,
+            Snapshot overwrite, NativeImage thumbnail, boolean quicksave,
+            BiConsumer<Boolean, String> completion)
+    {
         if (minecraft.player == null || minecraft.getSingleplayerServer() == null)
         {
             if (thumbnail != null) thumbnail.close();
@@ -83,7 +96,8 @@ public final class GameSnapshotManager
         int x = minecraft.player.blockPosition().getX();
         int y = minecraft.player.blockPosition().getY();
         int z = minecraft.player.blockPosition().getZ();
-        showMessage(minecraft, "Saving Cobbledeep snapshot...");
+        showMessage(minecraft, quicksave ? "Creating quicksave..."
+                : "Saving Cobbledeep snapshot...");
 
         server.execute(() ->
         {
@@ -92,15 +106,20 @@ public final class GameSnapshotManager
                 server.saveEverything(false, true, false);
                 Path worldDirectory = server.getWorldPath(LevelResource.ROOT)
                         .toAbsolutePath().normalize();
-                createSnapshot(gameDirectory, worldDirectory, server.getWorldData().getLevelName(),
-                        saveName, characterName, x, y, z, thumbnail);
-                if (overwrite != null && overwrite.worldId().equals(worldDirectory.getFileName().toString()))
+                Snapshot created = createSnapshot(gameDirectory, worldDirectory,
+                        server.getWorldData().getLevelName(), saveName, characterName,
+                        x, y, z, thumbnail, quicksave);
+                if (quicksave)
+                    rotateQuicksaves(gameDirectory, created);
+                else if (overwrite != null
+                        && overwrite.worldId().equals(worldDirectory.getFileName().toString()))
                     deleteSnapshot(overwrite);
                 prune(snapshotRoot(gameDirectory).resolve(worldDirectory.getFileName().toString()));
                 minecraft.execute(() ->
                 {
-                    showMessage(minecraft, "Cobbledeep snapshot saved.");
-                    completion.accept(true, "Snapshot saved.");
+                    String message = quicksave ? "Quicksave complete." : "Cobbledeep snapshot saved.";
+                    showMessage(minecraft, message);
+                    completion.accept(true, message);
                 });
             }
             catch (Exception exception)
@@ -209,9 +228,9 @@ public final class GameSnapshotManager
         throw new IOException("The current world did not finish closing within 30 seconds");
     }
 
-    private static void createSnapshot(Path gameDirectory, Path worldDirectory, String worldName,
+    private static Snapshot createSnapshot(Path gameDirectory, Path worldDirectory, String worldName,
             String saveName, String characterName, int x, int y, int z,
-            NativeImage thumbnail) throws IOException
+            NativeImage thumbnail, boolean autosave) throws IOException
     {
         String worldId = worldDirectory.getFileName().toString();
         long savedAt = System.currentTimeMillis();
@@ -242,7 +261,7 @@ public final class GameSnapshotManager
             metadata.setProperty("x", Integer.toString(x));
             metadata.setProperty("y", Integer.toString(y));
             metadata.setProperty("z", Integer.toString(z));
-            metadata.setProperty("autosave", "false");
+            metadata.setProperty("autosave", Boolean.toString(autosave));
             try (OutputStream output = Files.newOutputStream(directory.resolve(baseName + ".properties")))
             {
                 metadata.store(output, "Cobbledeep snapshot");
@@ -259,6 +278,8 @@ public final class GameSnapshotManager
                     Cobbledeep.LOGGER.warn("Unable to write snapshot thumbnail", exception);
                 }
             }
+            return new Snapshot(archive, worldId, worldName, saveName.strip(), characterName,
+                    savedAt, x, y, z, autosave);
         }
         finally
         {
@@ -341,18 +362,54 @@ public final class GameSnapshotManager
     {
         List<Snapshot> snapshots = listSnapshots(directory.getParent().getParent());
         List<Snapshot> matching = snapshots.stream()
-                .filter(snapshot -> snapshot.archive().getParent().equals(directory)).toList();
+                .filter(snapshot -> snapshot.archive().getParent().equals(directory))
+                .filter(snapshot -> !snapshot.autosave()).toList();
         for (int index = MAX_SNAPSHOTS; index < matching.size(); index++)
             deleteSnapshot(matching.get(index));
+    }
+
+    private static void rotateQuicksaves(Path gameDirectory, Snapshot newest) throws IOException
+    {
+        List<Snapshot> older = listSnapshots(gameDirectory).stream()
+                .filter(Snapshot::autosave)
+                .filter(snapshot -> snapshot.worldId().equals(newest.worldId()))
+                .filter(snapshot -> !snapshot.archive().equals(newest.archive()))
+                .sorted(Comparator.comparingLong(Snapshot::savedAt).reversed())
+                .toList();
+        for (int index = 0; index < older.size(); index++)
+        {
+            if (index < 3) renameSnapshot(older.get(index), "Quicksave-" + (index + 2));
+            else deleteSnapshot(older.get(index));
+        }
+    }
+
+    private static void renameSnapshot(Snapshot snapshot, String name) throws IOException
+    {
+        Path metadataPath = metadataPath(snapshot);
+        Properties metadata = new Properties();
+        try (InputStream input = Files.newInputStream(metadataPath))
+        {
+            metadata.load(input);
+        }
+        metadata.setProperty("name", name);
+        try (OutputStream output = Files.newOutputStream(metadataPath))
+        {
+            metadata.store(output, "Cobbledeep snapshot");
+        }
     }
 
     public static void deleteSnapshot(Snapshot snapshot) throws IOException
     {
         Files.deleteIfExists(snapshot.archive());
         Files.deleteIfExists(snapshot.thumbnail());
+        Files.deleteIfExists(metadataPath(snapshot));
+    }
+
+    private static Path metadataPath(Snapshot snapshot)
+    {
         String name = snapshot.archive().getFileName().toString();
-        Files.deleteIfExists(snapshot.archive().resolveSibling(
-                name.substring(0, name.length() - 4) + ".properties"));
+        return snapshot.archive().resolveSibling(
+                name.substring(0, name.length() - 4) + ".properties");
     }
 
     private static Path snapshotRoot(Path gameDirectory)

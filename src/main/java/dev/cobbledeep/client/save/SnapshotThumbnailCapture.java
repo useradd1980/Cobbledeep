@@ -22,7 +22,8 @@ public final class SnapshotThumbnailCapture
     public static final int WIDTH = 480;
     public static final int HEIGHT = 270;
 
-    private record Request(String name, Snapshot overwrite, boolean previousHideGui) { }
+    private record Request(String name, Snapshot overwrite, boolean quicksave,
+            boolean previousHideGui) { }
     private static Request pending;
 
     private SnapshotThumbnailCapture() { }
@@ -39,9 +40,27 @@ public final class SnapshotThumbnailCapture
         if (minecraft.level == null || minecraft.player == null)
             return false;
 
-        pending = new Request(name, overwrite, minecraft.options.hideGui);
+        pending = new Request(name, overwrite, false, minecraft.options.hideGui);
         minecraft.options.hideGui = true;
         minecraft.setScreen(null);
+        return true;
+    }
+
+    public static boolean requestQuicksave(Minecraft minecraft)
+    {
+        if (pending != null)
+        {
+            if (minecraft.player != null)
+                minecraft.player.displayClientMessage(Component.literal(
+                        "A snapshot capture is already in progress."), true);
+            return false;
+        }
+        if (minecraft.level == null || minecraft.player == null
+                || minecraft.getSingleplayerServer() == null)
+            return false;
+
+        pending = new Request("Quicksave-1", null, true, minecraft.options.hideGui);
+        minecraft.options.hideGui = true;
         return true;
     }
 
@@ -75,8 +94,11 @@ public final class SnapshotThumbnailCapture
             minecraft.options.hideGui = request.previousHideGui();
         }
 
-        GameSnapshotManager.saveCurrentWorld(minecraft, request.name(), request.overwrite(),
-                thumbnail, (success, message) -> { });
+        if (request.quicksave())
+            GameSnapshotManager.saveQuicksave(minecraft, thumbnail, (success, message) -> { });
+        else
+            GameSnapshotManager.saveCurrentWorld(minecraft, request.name(), request.overwrite(),
+                    thumbnail, (success, message) -> { });
     }
 
     private static NativeImage resizeAndCrop(NativeImage source)
