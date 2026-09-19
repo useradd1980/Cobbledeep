@@ -4,6 +4,7 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import dev.cobbledeep.client.TacticalCombatController;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
@@ -26,6 +27,7 @@ public final class TacticalRadialMenuScreen extends Screen
     private static int lastWeaponSlot;
 
     private final Component targetName;
+    private final LivingEntity target;
     private final double anchorX;
     private final double anchorY;
     private int hovered = -1;
@@ -35,6 +37,7 @@ public final class TacticalRadialMenuScreen extends Screen
     public TacticalRadialMenuScreen(LivingEntity target)
     {
         super(Component.literal("Tactical Actions"));
+        this.target = target;
         targetName = target.getDisplayName().copy();
         double[] anchor = projectTarget(target);
         anchorX = anchor[0];
@@ -113,7 +116,7 @@ public final class TacticalRadialMenuScreen extends Screen
                 if (!weapon.isEmpty())
                 {
                     lastWeaponSlot = weaponSlot;
-                    showAttackPlaceholder(weapon);
+                    startAttack(weaponSlot);
                     return true;
                 }
             }
@@ -123,9 +126,10 @@ public final class TacticalRadialMenuScreen extends Screen
             {
                 if (segment == 0)
                 {
-                    showAttackPlaceholder(selectedWeapon());
+                    startAttack(selectedWeaponSlot());
                     return true;
                 }
+                TacticalCombatController.cancel(minecraft);
                 Component action = Component.literal(ACTIONS[segment] + " — ")
                         .append(targetName).append(" (coming soon)");
                 onClose();
@@ -169,32 +173,27 @@ public final class TacticalRadialMenuScreen extends Screen
         }
     }
 
-    private ItemStack selectedWeapon()
+    private int selectedWeaponSlot()
     {
-        if (minecraft.player == null) return ItemStack.EMPTY;
+        if (minecraft.player == null) return lastWeaponSlot;
         ItemStack selected = minecraft.player.getInventory().getItem(lastWeaponSlot);
-        if (!selected.isEmpty()) return selected;
+        if (!selected.isEmpty()) return lastWeaponSlot;
         for (int slot = 0; slot < QUICK_WEAPON_COUNT; slot++)
         {
             ItemStack candidate = minecraft.player.getInventory().getItem(slot);
             if (!candidate.isEmpty())
             {
                 lastWeaponSlot = slot;
-                return candidate;
+                return slot;
             }
         }
-        return ItemStack.EMPTY;
+        return lastWeaponSlot;
     }
 
-    private void showAttackPlaceholder(ItemStack weapon)
+    private void startAttack(int selectedWeaponSlot)
     {
-        Component weaponName = weapon.isEmpty()
-                ? Component.literal("Unarmed") : weapon.getHoverName();
-        Component action = Component.literal("Attack with ").append(weaponName)
-                .append(" — ").append(targetName).append(" (coming soon)");
+        TacticalCombatController.startAttack(minecraft, target, selectedWeaponSlot);
         onClose();
-        if (minecraft.player != null)
-            minecraft.player.displayClientMessage(action, true);
     }
 
     private static int weaponSlotAt(double mouseX, double mouseY, int centerX, int centerY)

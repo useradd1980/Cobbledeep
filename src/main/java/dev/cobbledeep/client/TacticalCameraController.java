@@ -138,6 +138,7 @@ public final class TacticalCameraController
             else
             {
                 setGamePaused(minecraft, false);
+                TacticalCombatController.cancel(minecraft);
                 stopClickMovement(minecraft);
                 cameraFocus = null;
                 previousCameraFocus = cameraFocus;
@@ -198,7 +199,11 @@ public final class TacticalCameraController
         // settles at the target instead of replaying the previous movement.
         previousCameraFocus = cameraFocus;
         updateEdgePan(minecraft);
-        if (!gamePaused) updateClickMovement(minecraft);
+        if (!gamePaused)
+        {
+            TacticalCombatController.tick(minecraft);
+            updateClickMovement(minecraft);
+        }
     }
 
     private static void enableTacticalCamera(Minecraft minecraft)
@@ -333,12 +338,11 @@ public final class TacticalCameraController
             return;
         }
         if (event.getAction() != GLFW.GLFW_PRESS) return;
-        if (TacticalPathMovement.markerTarget(mc) == null) return;
         for (var key : new net.minecraft.client.KeyMapping[] {mc.options.keyUp, mc.options.keyDown,
                 mc.options.keyLeft, mc.options.keyRight, mc.options.keyJump, mc.options.keyShift})
             if (key.matches(event.getKey(), event.getScanCode()))
             {
-                stopClickMovement(mc);
+                TacticalCombatController.cancel(mc);
                 key.setDown(true);
                 break;
             }
@@ -380,6 +384,7 @@ public final class TacticalCameraController
         {
             if (!rightMouseHeld)
             {
+                TacticalCombatController.cancel(minecraft);
                 Vec3 target = raycastCursorToWorld(minecraft);
                 if (target != null) TacticalPathMovement.start(minecraft, target);
             }

@@ -71,6 +71,24 @@ final class TacticalPathMovement
         plan(mc);
     }
 
+    /** Replans toward a moving target while continuing along the current safe route. */
+    static void retarget(Minecraft mc, Vec3 destination)
+    {
+        if (target == null || world == null || route.isEmpty())
+        {
+            start(mc, destination);
+            return;
+        }
+        TacticalWalkWorld updatedWorld = new TacticalWalkWorld(mc.player);
+        Node destinationNode = updatedWorld.nearest(destination);
+        if (destinationNode == null) return;
+        Vec3 updatedTarget = TacticalWalkWorld.point(destinationNode);
+        if (updatedTarget.distanceToSqr(target) < 0.25) return;
+
+        target = updatedTarget;
+        beginSearch(mc, true, "");
+    }
+
     private static void plan(Minecraft mc)
     {
         input(mc, false, false);
