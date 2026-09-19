@@ -32,9 +32,18 @@ public final class PauseMenuEvents
                     || !returnButton.getMessage().getString().equals(returnLabel))
                 continue;
 
+            int insertionY = returnButton.getY();
+            // Preserve the title's normal reserved space: move the complete
+            // vanilla button stack down one row and insert our button where
+            // Back to Game originally began.
+            for (GuiEventListener menuListener : event.getListenersList())
+                if (menuListener instanceof Button menuButton
+                        && menuButton.getY() >= insertionY)
+                    menuButton.setY(menuButton.getY() + 24);
+
             Button saveLoad = Button.builder(Component.literal("Load / Save Game"), button ->
                     Minecraft.getInstance().setScreen(new SnapshotLoadScreen(pauseScreen, true)))
-                    .bounds(returnButton.getX(), Math.max(8, returnButton.getY() - 24),
+                    .bounds(returnButton.getX(), insertionY,
                             returnButton.getWidth(), returnButton.getHeight())
                     .build();
             event.addListener(saveLoad);
