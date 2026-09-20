@@ -5,11 +5,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.character.CharacterCapabilities;
 import dev.cobbledeep.character.CharacterData;
+import dev.cobbledeep.client.TacticalConsoleOverlay;
 import dev.cobbledeep.monster.GiantRatEntity;
+import dev.cobbledeep.network.ConsoleMessagePacket;
 import dev.cobbledeep.network.CriticalHitShakePacket;
 import dev.cobbledeep.network.RPGNetwork;
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
@@ -29,9 +29,7 @@ public final class DndCombatEvents
         if (!(event.getSource().getEntity() instanceof ServerPlayer attacker)) return;
         if (event.getSource().getDirectEntity() != attacker) return;
 
-        // The server owns the rat encounter's initiative and one-attack-per-round
-        // budget. Consume the opportunity before rolling THAC0 so even a miss
-        // counts as the player's action; premature/repeated swings do no damage.
+        // Every permitted attack, including a miss, costs one round's action.
         if (event.getEntity() instanceof GiantRatEntity rat
                 && !rat.tryPlayerMeleeAttack(attacker)) {
             event.setCanceled(true);
@@ -56,13 +54,13 @@ public final class DndCombatEvents
         boolean critical = roll == 20 && hit;
 
         String adjustment = attackAdjustment >= 0 ? "+" + attackAdjustment : Integer.toString(attackAdjustment);
-        Component message = Component.literal(
-                "Attack: d20 " + roll + " " + adjustment + " = " + total + " vs " + target
-                        + "  (" + weapon.displayName() + ", THAC0 " + thac0
-                        + ", AC " + armorClass + ")  "
-                        + (critical ? "CRITICAL HIT" : hit ? "HIT" : "MISS"))
-                .withStyle(hit ? ChatFormatting.GREEN : ChatFormatting.RED);
-        attacker.displayClientMessage(message, true);
+        String message = "Attack: d20 " + roll + " " + adjustment + " = " + total + " vs " + target
+                + "  (" + weapon.displayName() + ", THAC0 " + thac0
+                + ", AC " + armorClass + ")  "
+                + (critical ? "CRITICAL HIT" : hit ? "HIT" : "MISS");
+        RPGNetwork.CHANNEL.send(new ConsoleMessagePacket(message,
+                        TacticalConsoleOverlay.Category.COMBAT, hit ? 0xFF55FF55 : 0xFFFF5555),
+                PacketDistributor.PLAYER.with(attacker));
 
         if (critical)
             RPGNetwork.CHANNEL.send(new CriticalHitShakePacket(),
