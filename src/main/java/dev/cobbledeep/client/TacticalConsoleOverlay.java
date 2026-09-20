@@ -27,9 +27,10 @@ public final class TacticalConsoleOverlay {
     private static final int COMPACT_HEIGHT = 66;
     private static final int PADDING = 3;
     private static final int HEADER_HEIGHT = 14;
-    // The new ~half-sized font has a small but legible gap between rows.
+    // Native-size Gelasio glyphs do not need any pose downscaling. Keep a
+    // little leading while fitting at least five lines into the compact panel.
     private static final int TEXT_LINE_STEP = 8;
-    private static final int TEXT_VISUAL_HEIGHT = 6;
+    private static final int TEXT_VISUAL_HEIGHT = 7;
     private static final int TRACK_WIDTH = 4;
     private static final int MAX_ENTRIES = 400;
     private static final int EDGE_COLOR = 0xFF718171;
@@ -94,9 +95,10 @@ public final class TacticalConsoleOverlay {
 
     private static List<FormattedCharSequence> lines(Minecraft mc, int maxWidth) {
         List<FormattedCharSequence> result = new ArrayList<>();
-        // Split with the custom font AND in unscaled coordinates. Splitting at
-        // the default font's width would clip text and desynchronise scrolling.
-        int fontSpaceWidth = Math.max(20, (int) (maxWidth / FantasyUiFont.SCALE));
+        // The replacement font draws at its native GUI size. The usable width
+        // for splitting is therefore the actual console width, not a width
+        // divided by a scaled pose factor. Keep component combat colours.
+        int fontSpaceWidth = Math.max(20, maxWidth);
         for (Entry entry : entries) {
             if (filter != null && filter != entry.category()) continue;
             Component formatted = showTimes
@@ -181,7 +183,7 @@ public final class TacticalConsoleOverlay {
                                int x, int y) {
         int width = FantasyUiFont.width(mc, name) + 7;
         g.fill(x, y, x + width, y + 11, selected ? 0xFF465D4E : 0xFF161F19);
-        FantasyUiFont.draw(g, mc, name, x + 3, y + 3,
+        FantasyUiFont.draw(g, mc, name, x + 3, y + 2,
                 selected ? 0xFFFFFFFF : 0xFFB6C3B8);
         return x + width + 3;
     }
