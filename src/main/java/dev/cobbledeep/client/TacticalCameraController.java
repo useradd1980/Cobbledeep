@@ -55,9 +55,7 @@ public final class TacticalCameraController
     private static final float CAMERA_DISTANCE_STEP = 2.0F;
 
     private static final double CLICK_RAY_DISTANCE = 256.0;
-
     private static final double EDGE_PAN_MAX_SPEED = 0.42;
-
     private static final double TERRAIN_FOCUS_OFFSET = 1.6;
     private static final double TERRAIN_CAMERA_CLEARANCE = 1.0;
     private static final double TERRAIN_HEIGHT_RESPONSE = 6.0;
@@ -74,15 +72,10 @@ public final class TacticalCameraController
     private static double rightMousePendingDelta;
     private static LocalPlayer cameraPlayer;
 
-    // Tactical camera focus includes eye height captured only on activation or
-    // explicit recenter. It is an absolute world-space point, independent from
-    // the player's current position. This is what allows edge-panning to leave
-    // the player off-centre while the character continues moving underneath it.
     private static Vec3 cameraFocus;
     private static Vec3 previousCameraFocus;
     private static double terrainFocusY = Double.NaN;
     private static long terrainFrameNanos;
-
 
     private TacticalCameraController() { }
 
@@ -105,10 +98,6 @@ public final class TacticalCameraController
     public static void onClientTick(TickEvent.ClientTickEvent.Post event)
     {
         Minecraft minecraft = Minecraft.getInstance();
-
-        // A restored world creates a new LocalPlayer while tactical-camera
-        // state remains alive on the client. Re-anchor immediately so the old
-        // world's absolute focus point is never carried into the new snapshot.
         if (minecraft.player == null)
         {
             cameraPlayer = null;
@@ -128,7 +117,6 @@ public final class TacticalCameraController
         while (TacticalCameraKeys.TOGGLE.consumeClick())
         {
             if (minecraft.player == null) return;
-
             resetCameraDrag();
             enabled = !enabled;
             if (enabled)
@@ -162,12 +150,10 @@ public final class TacticalCameraController
         {
             yaw = Mth.wrapDegrees(yaw - ROTATION_STEP);
         }
-
         while (TacticalCameraKeys.ROTATE_RIGHT.consumeClick())
         {
             yaw = Mth.wrapDegrees(yaw + ROTATION_STEP);
         }
-
         while (TacticalCameraKeys.RECENTER.consumeClick())
         {
             if (minecraft.player != null)
@@ -175,7 +161,6 @@ public final class TacticalCameraController
                 recenterCamera(minecraft.player);
             }
         }
-
         while (TacticalCameraKeys.PLAY_PAUSE.consumeClick())
         {
             if (minecraft.player != null && minecraft.level != null
@@ -187,16 +172,11 @@ public final class TacticalCameraController
         {
             minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
         }
-
-        // Tactical mode uses a visible/free cursor. Vanilla will try to grab the
-        // mouse whenever the world is clicked, so release it again immediately.
         if (minecraft.screen == null && minecraft.mouseHandler.isMouseGrabbed())
         {
             minecraft.mouseHandler.releaseMouse();
         }
 
-        // Save the tick start even when no pan input is present, so stopping
-        // settles at the target instead of replaying the previous movement.
         previousCameraFocus = cameraFocus;
         updateEdgePan(minecraft);
         if (!gamePaused)
@@ -231,7 +211,6 @@ public final class TacticalCameraController
         if (gamePaused == paused) return;
         var server = minecraft.getSingleplayerServer();
         if (server == null) return;
-
         gamePaused = paused;
         TacticalPathMovement.suspendInputs(minecraft);
         minecraft.options.keyJump.setDown(false);
@@ -244,9 +223,9 @@ public final class TacticalCameraController
     private static void updateEdgePan(Minecraft minecraft)
     {
         LocalPlayer player = minecraft.player;
-        // The party sidebar owns the right edge; it is not a world camera-pan zone.
-        if (player == null || minecraft.screen != null || rightMouseHeld
-                || PartyPortraitBar.isOverBar(minecraft)) return;
+        // The sidebar blocks mouse *orders*, not camera motion. Keeping this
+        // independent restores panning at the physical right edge of the window.
+        if (player == null || minecraft.screen != null || rightMouseHeld) return;
 
         if (cameraFocus == null)
         {
@@ -272,17 +251,12 @@ public final class TacticalCameraController
 
         double horizontal = edgeStrength(mouseX, width);
         double vertical = edgeStrength(mouseY, height);
-
         if (horizontal == 0.0 && vertical == 0.0) return;
 
-        // Camera yaw defines screen-space directions on the X/Z plane.
         double radians = Math.toRadians(yaw);
         Vec3 forward = new Vec3(-Math.sin(radians), 0.0, Math.cos(radians));
-        // Screen-right is forward cross world-up; the opposite points left.
         Vec3 right = new Vec3(-Math.cos(radians), 0.0, -Math.sin(radians));
-
-        Vec3 pan = right.scale(horizontal)
-                .add(forward.scale(-vertical));
+        Vec3 pan = right.scale(horizontal).add(forward.scale(-vertical));
         if (pan.lengthSqr() > 1.0)
         {
             pan = pan.normalize();
@@ -348,7 +322,6 @@ public final class TacticalCameraController
             return;
         }
 
-        // Always clear the gesture on release, including releases over a menu.
         if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT
                 && event.getAction() == GLFW.GLFW_RELEASE && rightMouseHeld)
         {
@@ -457,7 +430,6 @@ public final class TacticalCameraController
         Vec3 forward = new Vec3(camera.getLookVector());
         Vec3 left = new Vec3(camera.getLeftVector());
         Vec3 up = new Vec3(camera.getUpVector());
-
         Vec3 direction = forward
                 .add(left.scale(-ndcX * tanHalfFov * aspect))
                 .add(up.scale(ndcY * tanHalfFov))
@@ -476,7 +448,6 @@ public final class TacticalCameraController
         {
             return blockHit.getLocation();
         }
-
         return null;
     }
 
@@ -658,7 +629,6 @@ public final class TacticalCameraController
     public static void onMouseScroll(InputEvent.MouseScrollingEvent event)
     {
         if (!enabled) return;
-
         if (event.getDeltaY() > 0.0)
         {
             cameraDistance = Math.max(MIN_CAMERA_DISTANCE, cameraDistance - CAMERA_DISTANCE_STEP);
@@ -671,7 +641,6 @@ public final class TacticalCameraController
         {
             return;
         }
-
         event.setCanceled(true);
     }
 }
