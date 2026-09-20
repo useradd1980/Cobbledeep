@@ -20,7 +20,11 @@ public final class TacticalConsoleSystemEvents {
     @SubscribeEvent
     public static void onSystemMessage(SystemMessageReceivedEvent event) {
         if (!TacticalCameraController.isEnabled()) return;
-        TacticalConsoleOverlay.addMessage(TacticalConsoleOverlay.Category.SYSTEM, event.getMessage());
+        String text = event.getMessage().getString();
+        // Progress updates are transient and recur on nearly every movement
+        // request. Preserve actual route failures and other useful messages.
+        if (!text.startsWith("Finding route") && !text.startsWith("Updating route"))
+            TacticalConsoleOverlay.addMessage(TacticalConsoleOverlay.Category.SYSTEM, event.getMessage());
         // The vanilla chat/overlay layers are suppressed while in tactical mode.
         event.setCanceled(true);
     }
