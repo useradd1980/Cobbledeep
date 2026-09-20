@@ -25,7 +25,7 @@ public class RPGNetwork
                             "main"
                     )
             )
-            .networkProtocolVersion(6)
+            .networkProtocolVersion(7)
             .simpleChannel();
 
     public static void register()
@@ -79,6 +79,12 @@ public class RPGNetwork
                 .decoder(OpenCorpseLootPacket::new)
                 .encoder(OpenCorpseLootPacket::encode)
                 .consumerMainThread(OpenCorpseLootPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(ConsoleMessagePacket.class, nextId(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(ConsoleMessagePacket::new)
+                .encoder(ConsoleMessagePacket::encode)
+                .consumerMainThread(ConsoleMessagePacket::handle)
                 .add();
     }
 
