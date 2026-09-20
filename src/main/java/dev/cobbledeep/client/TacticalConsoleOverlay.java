@@ -5,6 +5,7 @@ import dev.cobbledeep.client.screen.TacticalRadialMenuScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
@@ -27,13 +28,15 @@ public final class TacticalConsoleOverlay {
     private static final int COMPACT_HEIGHT = 66;
     private static final int PADDING = 3;
     private static final int HEADER_HEIGHT = 14;
-    // Native-size Gelasio glyphs do not need any pose downscaling. Keep a
-    // little leading while fitting at least five lines into the compact panel.
-    private static final int TEXT_LINE_STEP = 8;
-    private static final int TEXT_VISUAL_HEIGHT = 7;
+    // Gelasio is rasterised at 4.2 rather than 7 GUI pixels for console history.
+    // Keep a pixel of leading and calculate capacity from the actual row height.
+    private static final int TEXT_LINE_STEP = 6;
+    private static final int TEXT_VISUAL_HEIGHT = 5;
     private static final int TRACK_WIDTH = 4;
     private static final int MAX_ENTRIES = 400;
     private static final int EDGE_COLOR = 0xFF718171;
+    private static final ResourceLocation CONSOLE_FONT =
+            ResourceLocation.fromNamespaceAndPath(Cobbledeep.MODID, "fantasy_console");
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final List<Entry> entries = new ArrayList<>();
     private static Category filter;
@@ -93,11 +96,15 @@ public final class TacticalConsoleOverlay {
         addMessage(category, Component.literal(text).withStyle(style -> style.withColor(rgb)));
     }
 
+    /** Apply the console-only font to each line without overriding combat colours. */
+    private static Component consoleText(Component text) {
+        return Component.empty().withStyle(style -> style.withFont(CONSOLE_FONT)).append(text.copy());
+    }
+
     private static List<FormattedCharSequence> lines(Minecraft mc, int maxWidth) {
         List<FormattedCharSequence> result = new ArrayList<>();
-        // The replacement font draws at its native GUI size. The usable width
-        // for splitting is therefore the actual console width, not a width
-        // divided by a scaled pose factor. Keep component combat colours.
+        // Wrap using the same native-size font used for drawing, not the larger
+        // menu font. Both calculations use real GUI coordinates, with no pose scale.
         int fontSpaceWidth = Math.max(20, maxWidth);
         for (Entry entry : entries) {
             if (filter != null && filter != entry.category()) continue;
@@ -105,7 +112,7 @@ public final class TacticalConsoleOverlay {
                     ? Component.literal("[" + entry.time() + "] ")
                         .withStyle(net.minecraft.ChatFormatting.GRAY).append(entry.message().copy())
                     : entry.message();
-            result.addAll(mc.font.split(FantasyUiFont.style(formatted), fontSpaceWidth));
+            result.addAll(mc.font.split(consoleText(formatted), fontSpaceWidth));
         }
         return result;
     }
@@ -145,7 +152,7 @@ public final class TacticalConsoleOverlay {
         for (Category category : Category.values())
             tabX = drawTab(graphics, mc, category.name(), filter == category, tabX, y0 + 2);
 
-        // Keep the height switch immediately to the right of the timestamp switch.
+        // Keep the controls at their previous, comfortably clickable size.
         int sizeWidth = FantasyUiFont.width(mc, sizeLabel()) + 7;
         int sizeX = x1 - PADDING - sizeWidth;
         int timeWidth = FantasyUiFont.width(mc, timeLabel()) + 7;
@@ -164,7 +171,7 @@ public final class TacticalConsoleOverlay {
         int end = Math.min(wrapped.size(), start + count);
         int y = y0 + HEADER_HEIGHT + PADDING;
         for (int i = start; i < end; i++) {
-            FantasyUiFont.drawLine(graphics, mc, wrapped.get(i), x0 + PADDING, y);
+            graphics.drawString(mc.font, wrapped.get(i), x0 + PADDING, y, 0xFFFFFFFF, false);
             y += TEXT_LINE_STEP;
         }
 
