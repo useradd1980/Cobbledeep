@@ -33,8 +33,15 @@ public final class PartyPortraitBar {
         return mc.getWindow().getGuiScaledWidth() - WIDTH;
     }
 
-    /** World input is forbidden anywhere in the sidebar, not just on a portrait. */
+    /** Shared UI exclusion used by movement, corpse looting, and enemy picking.
+     * Both full-height sidebars block world clicks, but neither blocks edge panning.
+     */
     static boolean isOverBar(Minecraft mc) {
+        return isOverPortraitBar(mc) || PartyActionBar.isOverBar(mc);
+    }
+
+    /** Portrait actions must only handle the right sidebar, never left menu clicks. */
+    private static boolean isOverPortraitBar(Minecraft mc) {
         if (!visible(mc)) return false;
         double screenWidth = mc.getWindow().getScreenWidth();
         double screenHeight = mc.getWindow().getScreenHeight();
@@ -49,6 +56,9 @@ public final class PartyPortraitBar {
     public static void onHud(GuiGraphics graphics) {
         Minecraft mc = Minecraft.getInstance();
         if (!visible(mc)) return;
+        // Both strips share the same HUD layer so they are drawn once per frame.
+        PartyActionBar.onHud(graphics);
+
         int x = left(mc);
         int right = mc.getWindow().getGuiScaledWidth();
         int bottom = mc.getWindow().getGuiScaledHeight();
@@ -83,7 +93,7 @@ public final class PartyPortraitBar {
         if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && event.getButton() != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return;
         Minecraft mc = Minecraft.getInstance();
-        if (!mc.isWindowActive() || !isOverBar(mc)) return;
+        if (!mc.isWindowActive() || !isOverPortraitBar(mc)) return;
 
         // Consume sidebar presses before movement/looting/targeting handlers.
         // Let releases reach TacticalCameraController, which resets a right-drag
