@@ -62,7 +62,7 @@ public final class PartyActionBar {
         int height = mc.getWindow().getGuiScaledHeight();
         graphics.fill(0, 0, WIDTH, height, 0xE0101718);
         graphics.fill(WIDTH - 1, 0, WIDTH, height, 0xFF718171);
-        graphics.drawCenteredString(mc.font, "MENU", WIDTH / 2, 6, GOLD);
+        FantasyUiFont.drawCentered(graphics, mc, "MENU", WIDTH / 2.0F, 7, GOLD);
 
         double windowWidth = mc.getWindow().getScreenWidth();
         double windowHeight = mc.getWindow().getScreenHeight();
@@ -82,15 +82,10 @@ public final class PartyActionBar {
             graphics.fill(BUTTON_X + 1, y + 1,
                     BUTTON_X + BUTTON_WIDTH - 1, y + BUTTON_HEIGHT - 1,
                     active ? (hovered ? 0xFF3A5846 : 0xFF26382E) : 0xFF19221F);
-            int textWidth = mc.font.width(ACTIONS[i]);
-            float textScale = textWidth > BUTTON_WIDTH - 4
-                    ? (BUTTON_WIDTH - 4.0F) / textWidth : 1.0F;
-            graphics.pose().pushPose();
-            graphics.pose().translate(WIDTH / 2.0F, y + 5.0F, 0.0F);
-            graphics.pose().scale(textScale, textScale, 1.0F);
-            graphics.drawCenteredString(mc.font, ACTIONS[i], 0, 0,
+            // The measured fantasy text is small enough for the narrow button;
+            // retain original button geometry and its click/hover regions.
+            FantasyUiFont.drawCentered(graphics, mc, ACTIONS[i], WIDTH / 2.0F, y + 7,
                     active ? (hovered ? 0xFFFFFFFF : 0xFFE3E8DB) : 0xFF7A8880);
-            graphics.pose().popPose();
         }
     }
 
