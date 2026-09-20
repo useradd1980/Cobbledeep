@@ -27,8 +27,9 @@ public final class TacticalConsoleOverlay {
     private static final int COMPACT_HEIGHT = 66;
     private static final int PADDING = 3;
     private static final int HEADER_HEIGHT = 14;
-    // Minecraft's font already has enough built-in leading for adjacent rows.
-    private static final int LINE_SPACING = 0;
+    // The new ~half-sized font has a small but legible gap between rows.
+    private static final int TEXT_LINE_STEP = 8;
+    private static final int TEXT_VISUAL_HEIGHT = 6;
     private static final int TRACK_WIDTH = 4;
     private static final int MAX_ENTRIES = 400;
     private static final int EDGE_COLOR = 0xFF718171;
@@ -82,7 +83,6 @@ public final class TacticalConsoleOverlay {
             scrollFromBottom = 0;
             currentWorld = mc.level;
         }
-        // Preserve the reader's position rather than snapping to new messages.
         if (scrollFromBottom > 0) scrollFromBottom++;
         entries.add(new Entry(category, message.copy(), LocalTime.now().format(CLOCK)));
         if (entries.size() > MAX_ENTRIES) entries.remove(0);
@@ -94,23 +94,23 @@ public final class TacticalConsoleOverlay {
 
     private static List<FormattedCharSequence> lines(Minecraft mc, int maxWidth) {
         List<FormattedCharSequence> result = new ArrayList<>();
+        // Split with the custom font AND in unscaled coordinates. Splitting at
+        // the default font's width would clip text and desynchronise scrolling.
+        int fontSpaceWidth = Math.max(20, (int) (maxWidth / FantasyUiFont.SCALE));
         for (Entry entry : entries) {
             if (filter != null && filter != entry.category()) continue;
             Component formatted = showTimes
                     ? Component.literal("[" + entry.time() + "] ")
                         .withStyle(net.minecraft.ChatFormatting.GRAY).append(entry.message().copy())
                     : entry.message();
-            result.addAll(mc.font.split(formatted, Math.max(20, maxWidth)));
+            result.addAll(mc.font.split(FantasyUiFont.style(formatted), fontSpaceWidth));
         }
         return result;
     }
 
     private static int visibleLines(Minecraft mc) {
-        // Count from the actual first text row down to the bottom border.
-        // At normal GUI scale: 66 - 14 header - 3 top padding - 1 border
-        // leaves 48px, enough for five 9px Minecraft font rows.
-        return Math.max(1, (bottom(mc) - top(mc) - HEADER_HEIGHT - PADDING - 1)
-                / (mc.font.lineHeight + LINE_SPACING));
+        int room = bottom(mc) - top(mc) - HEADER_HEIGHT - PADDING - 1;
+        return Math.max(1, 1 + Math.max(0, room - TEXT_VISUAL_HEIGHT) / TEXT_LINE_STEP);
     }
 
     private static int maxScroll(Minecraft mc) {
@@ -143,10 +143,10 @@ public final class TacticalConsoleOverlay {
         for (Category category : Category.values())
             tabX = drawTab(graphics, mc, category.name(), filter == category, tabX, y0 + 2);
 
-        // Keep the height switch to the right of the timestamp switch.
-        int sizeWidth = mc.font.width(sizeLabel()) + 7;
+        // Keep the height switch immediately to the right of the timestamp switch.
+        int sizeWidth = FantasyUiFont.width(mc, sizeLabel()) + 7;
         int sizeX = x1 - PADDING - sizeWidth;
-        int timeWidth = mc.font.width(timeLabel()) + 7;
+        int timeWidth = FantasyUiFont.width(mc, timeLabel()) + 7;
         int timeX = sizeX - 3 - timeWidth;
         if (tabX + PADDING <= timeX) {
             drawTab(graphics, mc, timeLabel(), showTimes, timeX, y0 + 2);
@@ -162,8 +162,8 @@ public final class TacticalConsoleOverlay {
         int end = Math.min(wrapped.size(), start + count);
         int y = y0 + HEADER_HEIGHT + PADDING;
         for (int i = start; i < end; i++) {
-            graphics.drawString(mc.font, wrapped.get(i), x0 + PADDING, y, 0xFFFFFFFF, false);
-            y += mc.font.lineHeight + LINE_SPACING;
+            FantasyUiFont.drawLine(graphics, mc, wrapped.get(i), x0 + PADDING, y);
+            y += TEXT_LINE_STEP;
         }
 
         if (wrapped.size() > count) {
@@ -179,9 +179,10 @@ public final class TacticalConsoleOverlay {
 
     private static int drawTab(GuiGraphics g, Minecraft mc, String name, boolean selected,
                                int x, int y) {
-        int width = mc.font.width(name) + 7;
+        int width = FantasyUiFont.width(mc, name) + 7;
         g.fill(x, y, x + width, y + 11, selected ? 0xFF465D4E : 0xFF161F19);
-        g.drawString(mc.font, name, x + 3, y + 1, selected ? 0xFFFFFFFF : 0xFFB6C3B8, false);
+        FantasyUiFont.draw(g, mc, name, x + 3, y + 3,
+                selected ? 0xFFFFFFFF : 0xFFB6C3B8);
         return x + width + 3;
     }
 
@@ -218,17 +219,17 @@ public final class TacticalConsoleOverlay {
         double x = mouseX(mc), y = mouseY(mc);
         if (y >= y0 + 2 && y < y0 + 13) {
             int tx = x0 + PADDING;
-            int allWidth = mc.font.width("ALL") + 7;
+            int allWidth = FantasyUiFont.width(mc, "ALL") + 7;
             if (x >= tx && x < tx + allWidth) { filter = null; scrollFromBottom = 0; return; }
             tx += allWidth + 3;
             for (Category category : Category.values()) {
-                int width = mc.font.width(category.name()) + 7;
+                int width = FantasyUiFont.width(mc, category.name()) + 7;
                 if (x >= tx && x < tx + width) { filter = category; scrollFromBottom = 0; return; }
                 tx += width + 3;
             }
-            int sizeWidth = mc.font.width(sizeLabel()) + 7;
+            int sizeWidth = FantasyUiFont.width(mc, sizeLabel()) + 7;
             int sizeX = x1 - PADDING - sizeWidth;
-            int timeWidth = mc.font.width(timeLabel()) + 7;
+            int timeWidth = FantasyUiFont.width(mc, timeLabel()) + 7;
             int timeX = sizeX - 3 - timeWidth;
             if (tx + PADDING <= timeX) {
                 if (x >= timeX && x < timeX + timeWidth) {
@@ -238,7 +239,6 @@ public final class TacticalConsoleOverlay {
                 }
                 if (x >= sizeX && x < sizeX + sizeWidth) {
                     expanded = !expanded;
-                    // Keep the reader's place if scrolled up; follow newest if already at bottom.
                     scrollFromBottom = Math.min(scrollFromBottom, maxScroll(mc));
                     return;
                 }
