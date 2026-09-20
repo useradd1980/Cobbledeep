@@ -3,6 +3,7 @@ package dev.cobbledeep.monster.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.cobbledeep.client.LootHighlightClient;
+import dev.cobbledeep.exploration.CharacterSight;
 import dev.cobbledeep.monster.GiantRatEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -12,6 +13,7 @@ import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 
 /** Renders the authored polygon meshes and selects synchronized combat animations. */
@@ -46,8 +48,24 @@ public final class GiantRatRenderer extends EntityRenderer<GiantRatEntity> {
     @Override
     public void render(GiantRatEntity rat, float yaw, float partialTick, PoseStack pose,
                        MultiBufferSource buffers, int packedLight) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null) {
+            // Terrain can remain explored after the character moves away, but
+            // creatures and corpses must only be visible in the character's
+            // *current* sight. Use the same 24-block radius and LoS check as
+            // tactical NPC rings; the camera's much longer view is not sight.
+            Vec3 observer = minecraft.player.getPosition(partialTick);
+            Vec3 target = rat.getPosition(partialTick);
+            double dx = target.x - observer.x;
+            double dz = target.z - observer.z;
+            if (dx * dx + dz * dz > CharacterSight.RANGE * CharacterSight.RANGE
+                    || !CharacterSight.seesEntity(minecraft.player, rat, partialTick)) {
+                return; // Also suppresses corpse Tab highlight and entity shadow.
+            }
+        }
+
         if (model == null) {
-            model = RatMeshModel.load(Minecraft.getInstance().getResourceManager(), GEOMETRY);
+            model = RatMeshModel.load(minecraft.getResourceManager(), GEOMETRY);
         }
         pose.pushPose();
         float bodyYaw = Mth.rotLerp(partialTick, rat.yBodyRotO, rat.yBodyRot);
