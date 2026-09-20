@@ -337,6 +337,11 @@ final class TacticalPathMovement
     }
     private static void message(Minecraft mc, String text)
     {
+        // Replanning is an internal progress detail, not a player-facing event.
+        // Keep route failures and actionable guidance, but do not repeatedly
+        // flood the screen or tactical console with search notifications.
+        if (text == null || text.isEmpty() || text.startsWith("Finding route")
+                || text.startsWith("Updating route")) return;
         if (mc.player != null) mc.player.displayClientMessage(Component.literal(text), true);
     }
 }
