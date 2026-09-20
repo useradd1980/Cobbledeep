@@ -1,8 +1,8 @@
 package dev.cobbledeep.client;
 
 import dev.cobbledeep.Cobbledeep;
+import dev.cobbledeep.client.screen.TacticalRadialMenuScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -24,7 +24,8 @@ public final class TacticalConsoleOverlay {
     public enum Category { COMBAT, DIALOGUE, SYSTEM }
 
     private record Entry(Category category, Component message, String time) { }
-    private static final int HEIGHT = 110;
+    // 60% of the former 110-pixel console, including its border and controls.
+    private static final int HEIGHT = 66;
     private static final int PADDING = 5;
     private static final int HEADER_HEIGHT = 16;
     private static final int TRACK_WIDTH = 4;
@@ -42,7 +43,8 @@ public final class TacticalConsoleOverlay {
 
     private static boolean visible(Minecraft mc) {
         return TacticalCameraController.isEnabled() && mc.player != null && mc.level != null
-                && mc.screen == null && !mc.options.hideGui;
+                && (mc.screen == null || mc.screen instanceof TacticalRadialMenuScreen)
+                && !mc.options.hideGui;
     }
 
     private static int left() { return PartyActionBar.width(); }
@@ -75,7 +77,6 @@ public final class TacticalConsoleOverlay {
             scrollFromBottom = 0;
             currentWorld = mc.level;
         }
-        // Preserve the place the reader was looking at as new lines arrive.
         if (scrollFromBottom > 0) scrollFromBottom++;
         entries.add(new Entry(category, message.copy(), LocalTime.now().format(CLOCK)));
         if (entries.size() > MAX_ENTRIES) entries.remove(0);
@@ -108,7 +109,7 @@ public final class TacticalConsoleOverlay {
                 - visibleLines(mc));
     }
 
-    /** Added to the existing tactical HUD layer, between the two sidebars. */
+    /** Drawn alongside the two sidebars, including while the tactical radial menu is open. */
     public static void onHud(GuiGraphics graphics) {
         Minecraft mc = Minecraft.getInstance();
         if (!visible(mc)) return;
@@ -120,7 +121,7 @@ public final class TacticalConsoleOverlay {
         int x0 = left(), x1 = right(mc), y0 = top(mc), y1 = bottom(mc);
         if (x1 - x0 < 70 || y1 - y0 < 35) return;
         graphics.fill(x0, y0, x1, y1, 0xF9000000);
-        // Draw only horizontal console borders: the sidebar borders remain the sole vertical dividers.
+        // The sidebar borders remain the sole vertical dividers.
         graphics.fill(x0, y0, x1, y0 + 1, EDGE_COLOR);
         graphics.fill(x0, y1 - 1, x1, y1, EDGE_COLOR);
         graphics.fill(x0, y0 + HEADER_HEIGHT, x1, y0 + HEADER_HEIGHT + 1, 0xFF3C5144);
@@ -166,13 +167,26 @@ public final class TacticalConsoleOverlay {
         return x + width + 3;
     }
 
+    private static void scroll(Minecraft mc, double delta) {
+        int max = maxScroll(mc);
+        if (delta > 0) scrollFromBottom = Math.min(max, scrollFromBottom + 3);
+        if (delta < 0) scrollFromBottom = Math.max(0, scrollFromBottom - 3);
+    }
+
+    /** Screens receive their own wheel events; retain console scrolling behind the radial menu. */
+    public static boolean scrollOnRadialScreen(double x, double y, double delta) {
+        Minecraft mc = Minecraft.getInstance();
+        if (!(mc.screen instanceof TacticalRadialMenuScreen) || !visible(mc)
+                || x < left() || x >= right(mc) || y < top(mc) || y >= bottom(mc)) return false;
+        scroll(mc, delta);
+        return true;
+    }
+
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onScroll(InputEvent.MouseScrollingEvent event) {
         Minecraft mc = Minecraft.getInstance();
         if (!isOverConsole(mc)) return;
-        int max = maxScroll(mc);
-        if (event.getDeltaY() > 0) scrollFromBottom = Math.min(max, scrollFromBottom + 3);
-        if (event.getDeltaY() < 0) scrollFromBottom = Math.max(0, scrollFromBottom - 3);
+        scroll(mc, event.getDeltaY());
         event.setCanceled(true);
     }
 
@@ -201,7 +215,6 @@ public final class TacticalConsoleOverlay {
             }
             return;
         }
-        // Clicking the track moves to the corresponding place in the log.
         int trackX = x1 - PADDING - TRACK_WIDTH;
         int trackY = y0 + HEADER_HEIGHT + PADDING;
         int trackHeight = bottom(mc) - PADDING - trackY;
