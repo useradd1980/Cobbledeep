@@ -41,6 +41,9 @@ public final class TacticalConsoleOverlay {
 
     private TacticalConsoleOverlay() { }
 
+    /** Keep other UI hit regions in sync with the console's actual height. */
+    public static int height() { return HEIGHT; }
+
     private static boolean visible(Minecraft mc) {
         return TacticalCameraController.isEnabled() && mc.player != null && mc.level != null
                 && (mc.screen == null || mc.screen instanceof TacticalRadialMenuScreen)
