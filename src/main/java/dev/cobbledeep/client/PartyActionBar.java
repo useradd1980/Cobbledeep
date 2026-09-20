@@ -82,7 +82,7 @@ public final class PartyActionBar {
         }
     }
 
-    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    @SubscribeEvent(priority = EventPriority.HIGHEST, receiveCanceled = true)
     public static void onMouse(InputEvent.MouseButton.Pre event) {
         if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && event.getButton() != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return;
