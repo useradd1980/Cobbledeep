@@ -211,7 +211,7 @@ public final class TacticalCameraController
         enabled = true;
         previousCameraType = minecraft.options.getCameraType();
         previousViewBobbing = minecraft.options.bobView().get();
-        minecraft.options.bobViewing().set(false);
+        minecraft.options.bobView().set(false);
         minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
         recenterCamera(minecraft.player);
         if (minecraft.screen == null)
