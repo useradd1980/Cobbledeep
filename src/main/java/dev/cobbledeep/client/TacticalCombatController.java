@@ -1,5 +1,6 @@
 package dev.cobbledeep.client;
 
+import dev.cobbledeep.monster.GiantRatEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
@@ -63,6 +64,13 @@ public final class TacticalCombatController
 
         TacticalPathMovement.stop(minecraft);
         faceTarget(minecraft);
+        // Waiting for initiative or the next six-second round is not an attack.
+        // The rat publishes this window so the client does not animate futile
+        // swings every time Minecraft's much shorter weapon cooldown expires.
+        // Server-side combat rules independently enforce the same action budget.
+        if (target instanceof GiantRatEntity rat
+                && !rat.playerAttackWindowOpen(minecraft.player)) return;
+
         if (minecraft.player.getAttackStrengthScale(0.0F) >= 0.99F)
         {
             minecraft.gameMode.attack(minecraft.player, target);
