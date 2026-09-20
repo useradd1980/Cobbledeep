@@ -68,10 +68,17 @@ public final class PortraitPickerScreen extends Screen {
                 .bounds(left + panelWidth - 93, top + 229, 81, 20).build());
     }
 
+    /** Screen.render() calls renderBackground() again through super.render().
+     * Keeping that method empty avoids blurring the panel and labels already
+     * drawn by our render() method, while preserving vanilla widget rendering.
+     */
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // This screen draws its own opaque backdrop in render().
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // Screen.renderBackground() applies Minecraft's menu blur. Draw our own
-        // opaque backdrop instead, so text and portrait controls remain sharp.
         graphics.fill(0, 0, width, height, 0xFF101716);
         int left = (width - panelWidth()) / 2;
         int top = panelTop();
