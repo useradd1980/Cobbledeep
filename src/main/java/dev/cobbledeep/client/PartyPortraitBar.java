@@ -13,7 +13,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
-/** Full-height, right-edge party sidebar. Only actual party members occupy portrait slots. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class PartyPortraitBar {
     private static final int WIDTH = 50;
@@ -23,6 +22,7 @@ public final class PartyPortraitBar {
     private static final int GOLD = 0xFFDECB88;
 
     private PartyPortraitBar() { }
+    public static int width() { return WIDTH; }
 
     private static boolean visible(Minecraft mc) {
         return TacticalCameraController.isEnabled() && mc.player != null
@@ -33,14 +33,11 @@ public final class PartyPortraitBar {
         return mc.getWindow().getGuiScaledWidth() - WIDTH;
     }
 
-    /** Shared UI exclusion used by movement, corpse looting, and enemy picking.
-     * Both full-height sidebars block world clicks, but neither blocks edge panning.
-     */
     static boolean isOverBar(Minecraft mc) {
-        return isOverPortraitBar(mc) || PartyActionBar.isOverBar(mc);
+        return isOverPortraitBar(mc) || PartyActionBar.isOverBar(mc)
+                || TacticalConsoleOverlay.isOverConsole(mc);
     }
 
-    /** Portrait actions must only handle the right sidebar, never left menu clicks. */
     private static boolean isOverPortraitBar(Minecraft mc) {
         if (!visible(mc)) return false;
         double screenWidth = mc.getWindow().getScreenWidth();
@@ -52,11 +49,10 @@ public final class PartyPortraitBar {
                 && mouseY >= 0.0 && mouseY < mc.getWindow().getGuiScaledHeight();
     }
 
-    /** Called by the Forge GUI layer registered in CobbledeepClientRenderSetup. */
     public static void onHud(GuiGraphics graphics) {
         Minecraft mc = Minecraft.getInstance();
         if (!visible(mc)) return;
-        // Both strips share the same HUD layer so they are drawn once per frame.
+        TacticalConsoleOverlay.onHud(graphics);
         PartyActionBar.onHud(graphics);
 
         int x = left(mc);
@@ -67,7 +63,6 @@ public final class PartyPortraitBar {
         graphics.fill(x, 0, x + 1, bottom, 0xFF718171);
         graphics.drawCenteredString(mc.font, "PARTY", x + WIDTH / 2, TOP - 13, GOLD);
 
-        // Only the current player exists in the party so far; no empty slots.
         graphics.fill(x + 2, TOP, right - 2, TOP + SLOT_HEIGHT, GOLD);
         graphics.fill(x + 3, TOP + 2, right - 3, TOP + SLOT_HEIGHT - 2, 0xFF253B32);
         drawPlayer(mc, graphics, x, TOP);
@@ -94,10 +89,6 @@ public final class PartyPortraitBar {
                 && event.getButton() != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return;
         Minecraft mc = Minecraft.getInstance();
         if (!mc.isWindowActive() || !isOverPortraitBar(mc)) return;
-
-        // Consume sidebar presses before movement/looting/targeting handlers.
-        // Let releases reach TacticalCameraController, which resets a right-drag
-        // that may have begun in the world before entering the party sidebar.
         if (event.getAction() != GLFW.GLFW_PRESS) return;
         event.setCanceled(true);
 
