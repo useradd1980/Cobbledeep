@@ -21,9 +21,16 @@ public final class TacticalConsoleSystemEvents {
     public static void onSystemMessage(SystemMessageReceivedEvent event) {
         if (!TacticalCameraController.isEnabled()) return;
         String text = event.getMessage().getString();
+        // Space sends an immediate PAUSED/PLAYING action-bar notification, while
+        // onClientTick below logs the corresponding actual freeze-state change.
+        // Only the state-change entry belongs in the console; otherwise each
+        // space-bar press produces the same message twice.
+        boolean redundantPauseOverlay = event.isOverlay()
+                && ("PAUSED".equals(text) || "PLAYING".equals(text));
         // Progress updates are transient and recur on nearly every movement
         // request. Preserve actual route failures and other useful messages.
-        if (!text.startsWith("Finding route") && !text.startsWith("Updating route"))
+        if (!redundantPauseOverlay && !text.startsWith("Finding route")
+                && !text.startsWith("Updating route"))
             TacticalConsoleOverlay.addMessage(TacticalConsoleOverlay.Category.SYSTEM, event.getMessage());
         // The vanilla chat/overlay layers are suppressed while in tactical mode.
         event.setCanceled(true);
