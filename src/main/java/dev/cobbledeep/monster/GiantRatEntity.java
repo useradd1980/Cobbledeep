@@ -1,5 +1,6 @@
 package dev.cobbledeep.monster;
 
+import dev.cobbledeep.combat.GiantRatCombatRounds;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -50,6 +51,13 @@ public final class GiantRatEntity extends PathfinderMob {
             SynchedEntityData.defineId(GiantRatEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> HIT_TICKS =
             SynchedEntityData.defineId(GiantRatEntity.class, EntityDataSerializers.INT);
+    // Client rendering/auto-attack reads these as hints; the server alone spends actions.
+    private static final EntityDataAccessor<Integer> COMBAT_PLAYER_ID =
+            SynchedEntityData.defineId(GiantRatEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> NEXT_PLAYER_ATTACK_AT =
+            SynchedEntityData.defineId(GiantRatEntity.class, EntityDataSerializers.INT);
+
+    private final GiantRatCombatRounds combatRounds = new GiantRatCombatRounds();
 
     // Each corpse owns its own server-authoritative, persistent inventory.
     private final SimpleContainer corpseLoot = new SimpleContainer(27) {
@@ -72,6 +80,8 @@ public final class GiantRatEntity extends PathfinderMob {
         builder.define(DETECTION_TICKS, 0);
         builder.define(ATTACK_TICKS, 0);
         builder.define(HIT_TICKS, 0);
+        builder.define(COMBAT_PLAYER_ID, 0);
+        builder.define(NEXT_PLAYER_ATTACK_AT, 0);
     }
 
     public int getDeathAnimationTicks() {
@@ -88,6 +98,27 @@ public final class GiantRatEntity extends PathfinderMob {
 
     public int getHitAnimationTicks() {
         return entityData.get(HIT_TICKS);
+    }
+
+    /** Server-only update of the active opponent and their next attack opportunity. */
+    public void setCombatPlayerWindow(int playerId, int earliestTick) {
+        if (level().isClientSide) return;
+        entityData.set(COMBAT_PLAYER_ID, playerId);
+        entityData.set(NEXT_PLAYER_ATTACK_AT, earliestTick);
+    }
+
+    /** Cosmetic client-side gate: do not swing repeatedly while waiting for the round. */
+    public boolean playerAttackWindowOpen(Player player) {
+        int opponentId = entityData.get(COMBAT_PLAYER_ID);
+        if (opponentId == 0) return true; // First contact creates the encounter on the server.
+        if (player == null || opponentId != player.getId()) return false;
+        int due = entityData.get(NEXT_PLAYER_ATTACK_AT);
+        return due != Integer.MAX_VALUE && level().getGameTime() >= (long) due;
+    }
+
+    /** Server-owned action gate; invoked before the THAC0 hit roll, including misses. */
+    public boolean tryPlayerMeleeAttack(ServerPlayer attacker) {
+        return combatRounds.tryPlayerAttack(this, attacker);
     }
 
     public boolean isCorpse() {
@@ -160,6 +191,8 @@ public final class GiantRatEntity extends PathfinderMob {
             } else if (target == null) {
                 entityData.set(DETECTION_TICKS, 0);
             }
+            if (target instanceof Player player) combatRounds.begin(this, player);
+            else if (target != previous) combatRounds.clear(this);
         }
     }
 
@@ -167,6 +200,7 @@ public final class GiantRatEntity extends PathfinderMob {
     public void aiStep() {
         super.aiStep();
         if (level().isClientSide || isCorpse()) return;
+        combatRounds.tick(this);
         // A single server-owned countdown is synchronized to every client, so
         // keyframe animations do not restart when the entity renderer is rebuilt.
         decrement(DETECTION_TICKS);
@@ -187,11 +221,10 @@ public final class GiantRatEntity extends PathfinderMob {
 
     @Override
     public boolean doHurtTarget(Entity target) {
-        if (isCorpse()) return false;
+        if (isCorpse() || !combatRounds.tryRatAttack(this, target)) return false;
         boolean damaged = super.doHurtTarget(target);
         if (damaged && !level().isClientSide) {
-            // One attack clip per successful melee strike (vanilla attack cooldown
-            // remains controlled by MeleeAttackGoal).
+            // One synchronized attack animation per permitted melee attempt.
             entityData.set(ATTACK_TICKS, ATTACK_ANIMATION_TICKS);
             entityData.set(DETECTION_TICKS, 0);
         }
@@ -236,6 +269,7 @@ public final class GiantRatEntity extends PathfinderMob {
     @Override
     public void die(DamageSource source) {
         if (!dead && !level().isClientSide) {
+            combatRounds.clear(this);
             getNavigation().stop();
             setNoAi(true);
             setDeltaMovement(Vec3.ZERO);
