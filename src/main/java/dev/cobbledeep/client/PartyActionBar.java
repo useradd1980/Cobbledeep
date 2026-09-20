@@ -3,6 +3,7 @@ package dev.cobbledeep.client;
 import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.client.screen.CharacterSheetScreen;
 import dev.cobbledeep.client.screen.SnapshotLoadScreen;
+import dev.cobbledeep.client.screen.TacticalRadialMenuScreen;
 import dev.cobbledeep.network.OpenAdndInventoryPacket;
 import dev.cobbledeep.network.RPGNetwork;
 import net.minecraft.client.Minecraft;
@@ -18,7 +19,6 @@ import org.lwjgl.glfw.GLFW;
 /** In-world counterpart of the navigation buttons in Cobbledeep's inventory. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class PartyActionBar {
-    // 80% of the original 90-pixel sidebar, flush against the left edge.
     private static final int WIDTH = 72;
     private static final int BUTTON_X = 3;
     private static final int BUTTON_WIDTH = 66;
@@ -37,7 +37,9 @@ public final class PartyActionBar {
 
     private static boolean visible(Minecraft mc) {
         return TacticalCameraController.isEnabled() && mc.player != null
-                && mc.level != null && mc.screen == null && !mc.options.hideGui;
+                && mc.level != null
+                && (mc.screen == null || mc.screen instanceof TacticalRadialMenuScreen)
+                && !mc.options.hideGui;
     }
 
     /** This is a UI hit region only; edge panning is handled independently. */
@@ -80,8 +82,6 @@ public final class PartyActionBar {
             graphics.fill(BUTTON_X + 1, y + 1,
                     BUTTON_X + BUTTON_WIDTH - 1, y + BUTTON_HEIGHT - 1,
                     active ? (hovered ? 0xFF3A5846 : 0xFF26382E) : 0xFF19221F);
-            // Preserve the full menu labels, scaling only text that would
-            // otherwise overflow the narrower button (e.g. Divine Spells).
             int textWidth = mc.font.width(ACTIONS[i]);
             float textScale = textWidth > BUTTON_WIDTH - 4
                     ? (BUTTON_WIDTH - 4.0F) / textWidth : 1.0F;
@@ -100,9 +100,6 @@ public final class PartyActionBar {
                 && event.getButton() != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return;
         Minecraft mc = Minecraft.getInstance();
         if (!mc.isWindowActive() || !isOverBar(mc)) return;
-
-        // A release over the sidebar still reaches the camera controller so a
-        // right-drag begun in the world can be reset. Never issue world orders.
         if (event.getAction() != GLFW.GLFW_PRESS) return;
         event.setCanceled(true);
         if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT) return;
