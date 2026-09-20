@@ -33,6 +33,8 @@ public final class PartyActionBar {
 
     private PartyActionBar() { }
 
+    public static int width() { return WIDTH; }
+
     private static boolean visible(Minecraft mc) {
         return TacticalCameraController.isEnabled() && mc.player != null
                 && mc.level != null && mc.screen == null && !mc.options.hideGui;
