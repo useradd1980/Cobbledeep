@@ -11,13 +11,18 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
@@ -25,17 +30,28 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
-/** A placed Cobbledeep creature whose corpse and remaining loot survive world saves. */
+/** A placed, hostile Cobbledeep creature whose corpse and loot survive world saves. */
 public final class GiantRatEntity extends PathfinderMob {
     public static final int DEATH_ANIMATION_TICKS = 8;
+    // Durations correspond to the non-looping detection, attack and hit clips
+    // exported from the Giant Rat Blockbench project (20 game ticks per second).
+    public static final int DETECTION_ANIMATION_TICKS = 9;
+    public static final int ATTACK_ANIMATION_TICKS = 13;
+    public static final int HIT_ANIMATION_TICKS = 9;
+
     private static final String CORPSE_TAG = "CobbledeepGiantRatCorpse";
     private static final String LOOT_CREATED_TAG = "CobbledeepGiantRatLootCreated";
     private static final String LOOT_ITEMS_TAG = "CobbledeepGiantRatLoot";
     private static final EntityDataAccessor<Integer> DEATH_TICKS =
             SynchedEntityData.defineId(GiantRatEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DETECTION_TICKS =
+            SynchedEntityData.defineId(GiantRatEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> ATTACK_TICKS =
+            SynchedEntityData.defineId(GiantRatEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> HIT_TICKS =
+            SynchedEntityData.defineId(GiantRatEntity.class, EntityDataSerializers.INT);
 
-    // A separate, server-owned inventory for each corpse. The ordinary chest menu
-    // gives us working item transfer without changing Cobbledeep's player inventory.
+    // Each corpse owns its own server-authoritative, persistent inventory.
     private final SimpleContainer corpseLoot = new SimpleContainer(27) {
         @Override
         public boolean stillValid(Player player) {
@@ -53,17 +69,32 @@ public final class GiantRatEntity extends PathfinderMob {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(DEATH_TICKS, 0);
+        builder.define(DETECTION_TICKS, 0);
+        builder.define(ATTACK_TICKS, 0);
+        builder.define(HIT_TICKS, 0);
     }
 
     public int getDeathAnimationTicks() {
         return entityData.get(DEATH_TICKS);
     }
 
+    public int getDetectionAnimationTicks() {
+        return entityData.get(DETECTION_TICKS);
+    }
+
+    public int getAttackAnimationTicks() {
+        return entityData.get(ATTACK_TICKS);
+    }
+
+    public int getHitAnimationTicks() {
+        return entityData.get(HIT_TICKS);
+    }
+
     public boolean isCorpse() {
         return isDeadOrDying() || getDeathAnimationTicks() > 0;
     }
 
-    /** Loot can only be opened/used from the corpse's block or a neighbouring block.
+    /** Loot is allowed only from the corpse's block or a neighbouring block.
      * Both the client approach controller and server use this exact rule.
      */
     public boolean canLootFrom(Player player) {
@@ -80,14 +111,100 @@ public final class GiantRatEntity extends PathfinderMob {
         return createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 4.0)
                 .add(Attributes.MOVEMENT_SPEED, 0.20)
-                .add(Attributes.FOLLOW_RANGE, 12.0);
+                .add(Attributes.FOLLOW_RANGE, 12.0)
+                .add(Attributes.ATTACK_DAMAGE, 2.0);
     }
 
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new FloatGoal(this));
-        goalSelector.addGoal(5, new RandomStrollGoal(this, 0.65, 45));
+        // Acquiring a target triggers a short detection animation before pursuit.
+        goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.1, false) {
+            @Override
+            public boolean canUse() {
+                return getDetectionAnimationTicks() == 0 && super.canUse();
+            }
+
+            @Override
+            public boolean canContinueToUse() {
+                return getDetectionAnimationTicks() == 0 && super.canContinueToUse();
+            }
+        });
+        goalSelector.addGoal(5, new RandomStrollGoal(this, 0.65, 45) {
+            @Override
+            public boolean canUse() {
+                return getTarget() == null && super.canUse();
+            }
+
+            @Override
+            public boolean canContinueToUse() {
+                return getTarget() == null && super.canContinueToUse();
+            }
+        });
         goalSelector.addGoal(6, new RandomLookAroundGoal(this));
+        targetSelector.addGoal(1, new HurtByTargetGoal(this));
+        // Vanilla's target goal handles line-of-sight and excludes untargetable
+        // players; FOLLOW_RANGE controls how far the rat can notice a player.
+        targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
+    }
+
+    @Override
+    public void setTarget(LivingEntity target) {
+        LivingEntity previous = getTarget();
+        super.setTarget(target);
+        if (!level().isClientSide && !isCorpse()) {
+            if (target != null && target != previous) {
+                entityData.set(DETECTION_TICKS, DETECTION_ANIMATION_TICKS);
+                entityData.set(ATTACK_TICKS, 0);
+                getNavigation().stop();
+            } else if (target == null) {
+                entityData.set(DETECTION_TICKS, 0);
+            }
+        }
+    }
+
+    @Override
+    public void aiStep() {
+        super.aiStep();
+        if (level().isClientSide || isCorpse()) return;
+        // A single server-owned countdown is synchronized to every client, so
+        // keyframe animations do not restart when the entity renderer is rebuilt.
+        decrement(DETECTION_TICKS);
+        decrement(ATTACK_TICKS);
+        decrement(HIT_TICKS);
+        if (getDetectionAnimationTicks() > 0) {
+            getNavigation().stop();
+            // Stop horizontal wandering during the alert pose; leave gravity alone.
+            Vec3 movement = getDeltaMovement();
+            setDeltaMovement(0.0, movement.y, 0.0);
+        }
+    }
+
+    private void decrement(EntityDataAccessor<Integer> accessor) {
+        int remaining = entityData.get(accessor);
+        if (remaining > 0) entityData.set(accessor, remaining - 1);
+    }
+
+    @Override
+    public boolean doHurtTarget(Entity target) {
+        if (isCorpse()) return false;
+        boolean damaged = super.doHurtTarget(target);
+        if (damaged && !level().isClientSide) {
+            // One attack clip per successful melee strike (vanilla attack cooldown
+            // remains controlled by MeleeAttackGoal).
+            entityData.set(ATTACK_TICKS, ATTACK_ANIMATION_TICKS);
+            entityData.set(DETECTION_TICKS, 0);
+        }
+        return damaged;
+    }
+
+    @Override
+    public boolean hurt(DamageSource source, float damage) {
+        boolean hurt = super.hurt(source, damage);
+        if (hurt && !level().isClientSide && !isCorpse()) {
+            entityData.set(HIT_TICKS, HIT_ANIMATION_TICKS);
+        }
+        return hurt;
     }
 
     private void createCorpseLoot() {
@@ -123,6 +240,9 @@ public final class GiantRatEntity extends PathfinderMob {
             setNoAi(true);
             setDeltaMovement(Vec3.ZERO);
             entityData.set(DEATH_TICKS, 0);
+            entityData.set(DETECTION_TICKS, 0);
+            entityData.set(ATTACK_TICKS, 0);
+            entityData.set(HIT_TICKS, 0);
             createCorpseLoot();
         }
         super.die(source);
@@ -180,6 +300,9 @@ public final class GiantRatEntity extends PathfinderMob {
             setNoAi(true);
             deathTime = DEATH_ANIMATION_TICKS;
             entityData.set(DEATH_TICKS, DEATH_ANIMATION_TICKS);
+            entityData.set(DETECTION_TICKS, 0);
+            entityData.set(ATTACK_TICKS, 0);
+            entityData.set(HIT_TICKS, 0);
             createCorpseLoot();
         }
     }
