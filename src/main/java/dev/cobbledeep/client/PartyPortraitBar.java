@@ -13,14 +13,13 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
-/** Compact, right-edge party strip. Only actual party members occupy slots. */
+/** Full-height, right-edge party sidebar. Only actual party members occupy portrait slots. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class PartyPortraitBar {
     private static final int WIDTH = 50;
     private static final int SLOT_HEIGHT = 60;
     private static final int PADDING = 3;
     private static final int TOP = 20;
-    private static final int HEADER_TOP = TOP - 17;
     private static final int GOLD = 0xFFDECB88;
 
     private PartyPortraitBar() { }
@@ -31,11 +30,10 @@ public final class PartyPortraitBar {
     }
 
     private static int left(Minecraft mc) {
-        // The panel touches the right edge, with no horizontal screen margin.
         return mc.getWindow().getGuiScaledWidth() - WIDTH;
     }
 
-    /** All input handlers use the exact same bounds as the visible panel. */
+    /** World input is forbidden anywhere in the sidebar, not just on a portrait. */
     static boolean isOverBar(Minecraft mc) {
         if (!visible(mc)) return false;
         double screenWidth = mc.getWindow().getScreenWidth();
@@ -44,7 +42,7 @@ public final class PartyPortraitBar {
         double mouseX = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / screenWidth;
         double mouseY = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / screenHeight;
         return mouseX >= left(mc) && mouseX < mc.getWindow().getGuiScaledWidth()
-                && mouseY >= HEADER_TOP && mouseY < TOP + SLOT_HEIGHT;
+                && mouseY >= 0.0 && mouseY < mc.getWindow().getGuiScaledHeight();
     }
 
     /** Called by the Forge GUI layer registered in CobbledeepClientRenderSetup. */
@@ -53,12 +51,17 @@ public final class PartyPortraitBar {
         if (!visible(mc)) return;
         int x = left(mc);
         int right = mc.getWindow().getGuiScaledWidth();
-        // Draw only the existing player portrait. Companions will add slots
-        // when they actually join the party, rather than showing placeholders.
-        graphics.fill(x, HEADER_TOP, right, TOP + SLOT_HEIGHT, 0xB80C1515);
+        int bottom = mc.getWindow().getGuiScaledHeight();
+
+        // The full-height backdrop and left border separate party controls from
+        // the world, while leaving the portrait itself compact and flush right.
+        graphics.fill(x, 0, right, bottom, 0xE0101718);
+        graphics.fill(x, 0, x + 1, bottom, 0xFF718171);
         graphics.drawCenteredString(mc.font, "PARTY", x + WIDTH / 2, TOP - 13, GOLD);
-        graphics.fill(x, TOP, right, TOP + SLOT_HEIGHT, GOLD);
-        graphics.fill(x + 1, TOP + 2, right - 1, TOP + SLOT_HEIGHT - 2, 0xFF253B32);
+
+        // Only the current player exists in the party so far; no empty slots.
+        graphics.fill(x + 2, TOP, right - 2, TOP + SLOT_HEIGHT, GOLD);
+        graphics.fill(x + 3, TOP + 2, right - 3, TOP + SLOT_HEIGHT - 2, 0xFF253B32);
         drawPlayer(mc, graphics, x, TOP);
     }
 
@@ -79,24 +82,26 @@ public final class PartyPortraitBar {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onMouse(InputEvent.MouseButton.Pre event) {
-        if (event.getAction() != GLFW.GLFW_PRESS
-                || (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT
-                && event.getButton() != GLFW.GLFW_MOUSE_BUTTON_RIGHT)) return;
+        if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT
+                && event.getButton() != GLFW.GLFW_MOUSE_BUTTON_RIGHT) return;
         Minecraft mc = Minecraft.getInstance();
         if (!mc.isWindowActive() || !isOverBar(mc)) return;
 
-        // Consume clicks on the entire visible bar, including the title/frame.
-        // They must not become movement, loot, combat, or camera-drag orders.
+        // Block even the unused space below the portrait. Consuming mouse
+        // releases also prevents a world-initiated right drag from selecting an
+        // enemy when its button is released over the party UI.
         event.setCanceled(true);
+        if (event.getAction() != GLFW.GLFW_PRESS) return;
+
         double screenHeight = mc.getWindow().getScreenHeight();
         double mouseY = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / screenHeight;
-        if (mouseY < TOP) return; // The header isn't an action button.
+        if (mouseY < TOP || mouseY >= TOP + SLOT_HEIGHT) return;
         if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT || mouseY >= TOP + 51) {
             mc.setScreen(new PortraitPickerScreen());
             return;
         }
 
-        // For now the player is the only party member, and remains selected.
+        // The player is the only selectable party member until companions exist.
         String name = mc.player.getCapability(CharacterCapabilities.CHARACTER_DATA)
                 .map(data -> data.isCharacterCreated() ? data.getName() : mc.player.getName().getString())
                 .orElse(mc.player.getName().getString());
