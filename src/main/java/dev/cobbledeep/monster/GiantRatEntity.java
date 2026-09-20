@@ -1,6 +1,7 @@
 package dev.cobbledeep.monster;
 
 import dev.cobbledeep.combat.GiantRatCombatRounds;
+import dev.cobbledeep.equipment.CorpseBackpackMenu;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -25,7 +26,6 @@ import net.minecraft.world.entity.ai.goal.RandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -253,7 +253,7 @@ public final class GiantRatEntity extends PathfinderMob {
         createCorpseLoot(); // Also handles corpses saved before loot support existed.
         player.openMenu(new SimpleMenuProvider(
                 (containerId, inventory, viewer) ->
-                        ChestMenu.threeRows(containerId, inventory, corpseLoot),
+                        new CorpseBackpackMenu(containerId, inventory, corpseLoot),
                 Component.literal("Giant Rat — Remains")));
     }
 
