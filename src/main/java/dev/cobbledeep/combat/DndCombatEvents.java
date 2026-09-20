@@ -5,7 +5,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.character.CharacterCapabilities;
 import dev.cobbledeep.character.CharacterData;
-import dev.cobbledeep.client.TacticalConsoleOverlay;
 import dev.cobbledeep.monster.GiantRatEntity;
 import dev.cobbledeep.network.ConsoleMessagePacket;
 import dev.cobbledeep.network.CriticalHitShakePacket;
@@ -29,7 +28,6 @@ public final class DndCombatEvents
         if (!(event.getSource().getEntity() instanceof ServerPlayer attacker)) return;
         if (event.getSource().getDirectEntity() != attacker) return;
 
-        // Every permitted attack, including a miss, costs one round's action.
         if (event.getEntity() instanceof GiantRatEntity rat
                 && !rat.tryPlayerMeleeAttack(attacker)) {
             event.setCanceled(true);
@@ -59,7 +57,7 @@ public final class DndCombatEvents
                 + ", AC " + armorClass + ")  "
                 + (critical ? "CRITICAL HIT" : hit ? "HIT" : "MISS");
         RPGNetwork.CHANNEL.send(new ConsoleMessagePacket(message,
-                        TacticalConsoleOverlay.Category.COMBAT, hit ? 0xFF55FF55 : 0xFFFF5555),
+                        ConsoleMessagePacket.COMBAT, hit ? 0xFF55FF55 : 0xFFFF5555),
                 PacketDistributor.PLAYER.with(attacker));
 
         if (critical)
