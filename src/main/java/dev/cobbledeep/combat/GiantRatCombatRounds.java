@@ -1,11 +1,13 @@
 package dev.cobbledeep.combat;
 
+import dev.cobbledeep.client.TacticalConsoleOverlay;
 import dev.cobbledeep.monster.GiantRatEntity;
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
+import dev.cobbledeep.network.ConsoleMessagePacket;
+import dev.cobbledeep.network.RPGNetwork;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.network.PacketDistributor;
 
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -30,7 +32,6 @@ public final class GiantRatCombatRounds {
     private boolean playerActed;
     private boolean ratActed;
 
-    /** Start a new encounter only when the opponent actually changes. */
     public void begin(GiantRatEntity rat, Player player) {
         if (rat.level().isClientSide || rat.isCorpse()) return;
         if (opponent != null && opponent.equals(player.getUUID())) return;
@@ -38,15 +39,15 @@ public final class GiantRatCombatRounds {
         roundStart = rat.level().getGameTime();
         rollRound(rat, player);
         if (player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.sendSystemMessage(Component.literal(
+            RPGNetwork.CHANNEL.send(new ConsoleMessagePacket(
                     "Initiative: You d10 " + playerInitiative + ", Giant Rat d10 "
                             + ratInitiative + " — "
-                            + (playerInitiative < ratInitiative ? "you act first" : "rat acts first"))
-                    .withStyle(ChatFormatting.GOLD));
+                            + (playerInitiative < ratInitiative ? "you act first" : "rat acts first"),
+                    TacticalConsoleOverlay.Category.COMBAT, 0xFFFFAA00),
+                    PacketDistributor.PLAYER.with(serverPlayer));
         }
     }
 
-    /** Retiring a target also retires any unspent attacks from that encounter. */
     public void clear(GiantRatEntity rat) {
         opponent = null;
         playerActed = false;
@@ -54,7 +55,6 @@ public final class GiantRatCombatRounds {
         rat.setCombatPlayerWindow(0, 0);
     }
 
-    /** Called only from the rat's server tick; the tactical pause freezes this clock. */
     public void tick(GiantRatEntity rat) {
         if (opponent == null || rat.isCorpse()) return;
         if (!(rat.getTarget() instanceof Player player) || !opponent.equals(player.getUUID())
@@ -64,17 +64,15 @@ public final class GiantRatCombatRounds {
         }
         long now = rat.level().getGameTime();
         if (now >= roundStart + ROUND_TICKS) {
-            // New round, new initiative. Movement and orders never consume an action.
             roundStart += ((now - roundStart) / ROUND_TICKS) * ROUND_TICKS;
             rollRound(rat, player);
         }
     }
 
-    /** A rejected/early swing is not an action; a miss after initiative is. */
     public boolean tryPlayerAttack(GiantRatEntity rat, ServerPlayer player) {
         if (rat.level().isClientSide || rat.isCorpse() || !player.isAlive()) return false;
         if (opponent == null || !opponent.equals(player.getUUID())) {
-            rat.setTarget(player); // Also starts the encounter and its detection animation.
+            rat.setTarget(player);
             begin(rat, player);
         }
         tick(rat);
@@ -85,9 +83,8 @@ public final class GiantRatCombatRounds {
         return true;
     }
 
-    /** Rat melee uses the same round and consumes its one opportunity on contact. */
     public boolean tryRatAttack(GiantRatEntity rat, Entity target) {
-        if (!(target instanceof Player player)) return true; // Non-player targets use their existing rules.
+        if (!(target instanceof Player player)) return true;
         if (rat.level().isClientSide || rat.isCorpse() || !player.isAlive()) return false;
         if (opponent == null || !opponent.equals(player.getUUID())) begin(rat, player);
         tick(rat);
@@ -100,7 +97,6 @@ public final class GiantRatCombatRounds {
     private void rollRound(GiantRatEntity rat, Player player) {
         playerInitiative = ThreadLocalRandom.current().nextInt(1, 11);
         ratInitiative = ThreadLocalRandom.current().nextInt(1, 11);
-        // Ties are resolved with another opposed roll so the first window is unambiguous.
         while (playerInitiative == ratInitiative) {
             playerInitiative = ThreadLocalRandom.current().nextInt(1, 11);
             ratInitiative = ThreadLocalRandom.current().nextInt(1, 11);
@@ -109,8 +105,6 @@ public final class GiantRatCombatRounds {
         ratOffset = ratInitiative < playerInitiative ? FIRST_ATTACK_TICK : SECOND_ATTACK_TICK;
         playerActed = false;
         ratActed = false;
-        // The client uses this replicated window to avoid rapid, futile swing animations;
-        // the server still validates every actual hit independently.
         rat.setCombatPlayerWindow(player.getId(), (int) (roundStart + playerOffset));
     }
 }
