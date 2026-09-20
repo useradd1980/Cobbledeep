@@ -1,5 +1,6 @@
 package dev.cobbledeep.relations;
 
+import dev.cobbledeep.monster.GiantRatEntity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Skeleton;
@@ -36,6 +37,10 @@ public final class CharacterRelations
         }
 
         if (entity instanceof Player) return CharacterDisposition.PLAYER;
+        // Giant Rats use the existing hostile relationship and red NPC ring.
+        // Dead rats are filtered by the ring renderer, so their persistent
+        // corpses remain lootable without displaying a hostile ring.
+        if (entity instanceof GiantRatEntity) return CharacterDisposition.HOSTILE;
         if (entity instanceof Creeper) return CharacterDisposition.HOSTILE;
         if (entity instanceof Skeleton) return CharacterDisposition.FRIENDLY;
         return CharacterDisposition.NEUTRAL;
