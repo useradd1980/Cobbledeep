@@ -8,6 +8,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * One real-time-with-pause encounter between a giant rat and its current player target.
@@ -97,12 +98,12 @@ public final class GiantRatCombatRounds {
     }
 
     private void rollRound(GiantRatEntity rat, Player player) {
-        playerInitiative = rat.getRandom().nextInt(10) + 1;
-        ratInitiative = rat.getRandom().nextInt(10) + 1;
+        playerInitiative = ThreadLocalRandom.current().nextInt(1, 11);
+        ratInitiative = ThreadLocalRandom.current().nextInt(1, 11);
         // Ties are resolved with another opposed roll so the first window is unambiguous.
         while (playerInitiative == ratInitiative) {
-            playerInitiative = rat.getRandom().nextInt(10) + 1;
-            ratInitiative = rat.getRandom().nextInt(10) + 1;
+            playerInitiative = ThreadLocalRandom.current().nextInt(1, 11);
+            ratInitiative = ThreadLocalRandom.current().nextInt(1, 11);
         }
         playerOffset = playerInitiative < ratInitiative ? FIRST_ATTACK_TICK : SECOND_ATTACK_TICK;
         ratOffset = ratInitiative < playerInitiative ? FIRST_ATTACK_TICK : SECOND_ATTACK_TICK;
