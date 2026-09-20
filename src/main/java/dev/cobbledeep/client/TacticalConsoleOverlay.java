@@ -24,10 +24,10 @@ public final class TacticalConsoleOverlay {
     public enum Category { COMBAT, DIALOGUE, SYSTEM }
 
     private record Entry(Category category, Component message, String time) { }
-    // 60% of the former 110-pixel console, including its border and controls.
-    private static final int HEIGHT = 66;
-    private static final int PADDING = 5;
-    private static final int HEADER_HEIGHT = 16;
+    private static final int COMPACT_HEIGHT = 66;
+    private static final int PADDING = 3;
+    private static final int HEADER_HEIGHT = 14;
+    private static final int LINE_SPACING = 1;
     private static final int TRACK_WIDTH = 4;
     private static final int MAX_ENTRIES = 400;
     private static final int EDGE_COLOR = 0xFF718171;
@@ -35,14 +35,15 @@ public final class TacticalConsoleOverlay {
     private static final List<Entry> entries = new ArrayList<>();
     private static Category filter;
     private static boolean showTimes;
+    private static boolean expanded;
     /** Number of wrapped text lines above the newest line (zero means follow new messages). */
     private static int scrollFromBottom;
     private static Object currentWorld;
 
     private TacticalConsoleOverlay() { }
 
-    /** Keep other UI hit regions in sync with the console's actual height. */
-    public static int height() { return HEIGHT; }
+    /** Used by the radial menu's hit region and by the console geometry. */
+    public static int height() { return expanded ? COMPACT_HEIGHT * 2 : COMPACT_HEIGHT; }
 
     private static boolean visible(Minecraft mc) {
         return TacticalCameraController.isEnabled() && mc.player != null && mc.level != null
@@ -52,7 +53,7 @@ public final class TacticalConsoleOverlay {
 
     private static int left() { return PartyActionBar.width(); }
     private static int right(Minecraft mc) { return mc.getWindow().getGuiScaledWidth() - PartyPortraitBar.width(); }
-    private static int top(Minecraft mc) { return Math.max(0, mc.getWindow().getGuiScaledHeight() - HEIGHT); }
+    private static int top(Minecraft mc) { return Math.max(0, mc.getWindow().getGuiScaledHeight() - height()); }
     private static int bottom(Minecraft mc) { return mc.getWindow().getGuiScaledHeight(); }
 
     private static double mouseX(Minecraft mc) {
@@ -80,6 +81,7 @@ public final class TacticalConsoleOverlay {
             scrollFromBottom = 0;
             currentWorld = mc.level;
         }
+        // Preserve the reader's position rather than snapping to new messages.
         if (scrollFromBottom > 0) scrollFromBottom++;
         entries.add(new Entry(category, message.copy(), LocalTime.now().format(CLOCK)));
         if (entries.size() > MAX_ENTRIES) entries.remove(0);
@@ -103,8 +105,10 @@ public final class TacticalConsoleOverlay {
     }
 
     private static int visibleLines(Minecraft mc) {
-        return Math.max(1, (bottom(mc) - top(mc) - HEADER_HEIGHT - PADDING * 2)
-                / (mc.font.lineHeight + 2));
+        // A 66px console has room for four 9px font lines with 1px leading,
+        // even after its header, padding and bottom border are accounted for.
+        return Math.max(1, (bottom(mc) - top(mc) - HEADER_HEIGHT - PADDING * 2 - 2)
+                / (mc.font.lineHeight + LINE_SPACING));
     }
 
     private static int maxScroll(Minecraft mc) {
@@ -112,7 +116,10 @@ public final class TacticalConsoleOverlay {
                 - visibleLines(mc));
     }
 
-    /** Drawn alongside the two sidebars, including while the tactical radial menu is open. */
+    private static String sizeLabel() { return expanded ? "1X" : "2X"; }
+    private static String timeLabel() { return showTimes ? "TIME ON" : "TIME OFF"; }
+
+    /** Drawn alongside both sidebars, including while the tactical radial menu is open. */
     public static void onHud(GuiGraphics graphics) {
         Minecraft mc = Minecraft.getInstance();
         if (!visible(mc)) return;
@@ -124,19 +131,25 @@ public final class TacticalConsoleOverlay {
         int x0 = left(), x1 = right(mc), y0 = top(mc), y1 = bottom(mc);
         if (x1 - x0 < 70 || y1 - y0 < 35) return;
         graphics.fill(x0, y0, x1, y1, 0xF9000000);
-        // The sidebar borders remain the sole vertical dividers.
+        // The sidebar borders remain the only vertical dividers.
         graphics.fill(x0, y0, x1, y0 + 1, EDGE_COLOR);
         graphics.fill(x0, y1 - 1, x1, y1, EDGE_COLOR);
         graphics.fill(x0, y0 + HEADER_HEIGHT, x1, y0 + HEADER_HEIGHT + 1, 0xFF3C5144);
 
         int tabX = x0 + PADDING;
-        tabX = drawTab(graphics, mc, "ALL", filter == null, tabX, y0 + 3, 0);
+        tabX = drawTab(graphics, mc, "ALL", filter == null, tabX, y0 + 2);
         for (Category category : Category.values())
-            tabX = drawTab(graphics, mc, category.name(), filter == category, tabX, y0 + 3, 0);
-        String timeLabel = showTimes ? "TIME ON" : "TIME OFF";
-        int timeWidth = mc.font.width(timeLabel) + 7;
-        if (tabX + timeWidth + PADDING < x1)
-            drawTab(graphics, mc, timeLabel, showTimes, x1 - PADDING - timeWidth, y0 + 3, timeWidth);
+            tabX = drawTab(graphics, mc, category.name(), filter == category, tabX, y0 + 2);
+
+        // Keep the height switch to the right of the timestamp switch.
+        int sizeWidth = mc.font.width(sizeLabel()) + 7;
+        int sizeX = x1 - PADDING - sizeWidth;
+        int timeWidth = mc.font.width(timeLabel()) + 7;
+        int timeX = sizeX - 3 - timeWidth;
+        if (tabX + PADDING <= timeX) {
+            drawTab(graphics, mc, timeLabel(), showTimes, timeX, y0 + 2);
+            drawTab(graphics, mc, sizeLabel(), expanded, sizeX, y0 + 2);
+        }
 
         int contentWidth = x1 - x0 - 3 * PADDING - TRACK_WIDTH;
         List<FormattedCharSequence> wrapped = lines(mc, contentWidth);
@@ -148,7 +161,7 @@ public final class TacticalConsoleOverlay {
         int y = y0 + HEADER_HEIGHT + PADDING;
         for (int i = start; i < end; i++) {
             graphics.drawString(mc.font, wrapped.get(i), x0 + PADDING, y, 0xFFFFFFFF, false);
-            y += mc.font.lineHeight + 2;
+            y += mc.font.lineHeight + LINE_SPACING;
         }
 
         if (wrapped.size() > count) {
@@ -163,10 +176,10 @@ public final class TacticalConsoleOverlay {
     }
 
     private static int drawTab(GuiGraphics g, Minecraft mc, String name, boolean selected,
-                               int x, int y, int prescribedWidth) {
-        int width = prescribedWidth > 0 ? prescribedWidth : mc.font.width(name) + 7;
+                               int x, int y) {
+        int width = mc.font.width(name) + 7;
         g.fill(x, y, x + width, y + 11, selected ? 0xFF465D4E : 0xFF161F19);
-        g.drawString(mc.font, name, x + 3, y + 2, selected ? 0xFFFFFFFF : 0xFFB6C3B8, false);
+        g.drawString(mc.font, name, x + 3, y + 1, selected ? 0xFFFFFFFF : 0xFFB6C3B8, false);
         return x + width + 3;
     }
 
@@ -201,7 +214,7 @@ public final class TacticalConsoleOverlay {
         Minecraft mc = Minecraft.getInstance();
         int x0 = left(), x1 = right(mc), y0 = top(mc);
         double x = mouseX(mc), y = mouseY(mc);
-        if (y >= y0 + 3 && y < y0 + 14) {
+        if (y >= y0 + 2 && y < y0 + 13) {
             int tx = x0 + PADDING;
             int allWidth = mc.font.width("ALL") + 7;
             if (x >= tx && x < tx + allWidth) { filter = null; scrollFromBottom = 0; return; }
@@ -211,10 +224,22 @@ public final class TacticalConsoleOverlay {
                 if (x >= tx && x < tx + width) { filter = category; scrollFromBottom = 0; return; }
                 tx += width + 3;
             }
-            int timeWidth = mc.font.width(showTimes ? "TIME ON" : "TIME OFF") + 7;
-            if (tx + timeWidth + PADDING < x1 && x >= x1 - PADDING - timeWidth && x < x1 - PADDING) {
-                showTimes = !showTimes;
-                scrollFromBottom = 0;
+            int sizeWidth = mc.font.width(sizeLabel()) + 7;
+            int sizeX = x1 - PADDING - sizeWidth;
+            int timeWidth = mc.font.width(timeLabel()) + 7;
+            int timeX = sizeX - 3 - timeWidth;
+            if (tx + PADDING <= timeX) {
+                if (x >= timeX && x < timeX + timeWidth) {
+                    showTimes = !showTimes;
+                    scrollFromBottom = 0;
+                    return;
+                }
+                if (x >= sizeX && x < sizeX + sizeWidth) {
+                    expanded = !expanded;
+                    // Keep the reader's place if scrolled up; follow newest if already at bottom.
+                    scrollFromBottom = Math.min(scrollFromBottom, maxScroll(mc));
+                    return;
+                }
             }
             return;
         }
