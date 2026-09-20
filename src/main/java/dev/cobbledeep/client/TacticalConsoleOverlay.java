@@ -28,10 +28,10 @@ public final class TacticalConsoleOverlay {
     private static final int COMPACT_HEIGHT = 66;
     private static final int PADDING = 3;
     private static final int HEADER_HEIGHT = 14;
-    // Gelasio is rasterised at 4.2 rather than 7 GUI pixels for console history.
-    // Keep a pixel of leading and calculate capacity from the actual row height.
+    // Rows can be closer together than the font's glyph height, but the final
+    // row must still have enough space for the full glyph and its descenders.
     private static final int TEXT_LINE_STEP = 6;
-    private static final int TEXT_VISUAL_HEIGHT = 5;
+    private static final int BOTTOM_TEXT_MARGIN = 2;
     private static final int TRACK_WIDTH = 4;
     private static final int MAX_ENTRIES = 400;
     private static final int EDGE_COLOR = 0xFF718171;
@@ -118,8 +118,14 @@ public final class TacticalConsoleOverlay {
     }
 
     private static int visibleLines(Minecraft mc) {
-        int room = bottom(mc) - top(mc) - HEADER_HEIGHT - PADDING - 1;
-        return Math.max(1, 1 + Math.max(0, room - TEXT_VISUAL_HEIGHT) / TEXT_LINE_STEP);
+        // The previous 5px visual-height estimate counted an eighth row whose
+        // glyphs extended into the bottom border. Minecraft's text renderer
+        // still reserves its normal line-height, even for this smaller TTF.
+        // Keep the dense 6px row spacing but allow the *last* line to render
+        // completely, with a small margin above the border, at both heights.
+        int room = bottom(mc) - top(mc) - HEADER_HEIGHT - PADDING - BOTTOM_TEXT_MARGIN;
+        int lastLineHeight = mc.font.lineHeight + 1;
+        return Math.max(1, 1 + Math.max(0, room - lastLineHeight) / TEXT_LINE_STEP);
     }
 
     private static int maxScroll(Minecraft mc) {
