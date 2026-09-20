@@ -15,40 +15,47 @@ group = 'dev.cobbledeep'
 // Mojang ships Java 21 to end users in 1.20.5+, so your mod should target Java 21.
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-// Download the SIL OFL 1.1 MedievalSharp font only when building the mod. The
-// generated resources (font and its complete license) are packaged into the
-// dev run and release JAR, without requiring players to install a font pack.
-// The binary is deliberately not checked into the mod's source repository.
+// Bundle both SIL OFL fonts and their complete licenses in the dev run and
+// release JAR. Only download them at build time; no system fonts or separate
+// resource packs are required for players. Binary font files are not checked
+// into the repository.
 def fantasyFontRoot = layout.buildDirectory.dir('generated/cobbledeep-font')
 def prepareFantasyFont = tasks.register('prepareFantasyFont') {
-    def fontFile = fantasyFontRoot.map { it.file('assets/cobbledeep/font/medievalsharp.ttf').asFile }
-    def licenseFile = fantasyFontRoot.map { it.file('META-INF/licenses/MedievalSharp-OFL.txt').asFile }
-    outputs.files(fontFile, licenseFile)
+    def medievalFile = fantasyFontRoot.map { it.file('assets/cobbledeep/font/medievalsharp.ttf').asFile }
+    def medievalLicense = fantasyFontRoot.map { it.file('META-INF/licenses/MedievalSharp-OFL.txt').asFile }
+    def gelasioFile = fantasyFontRoot.map { it.file('assets/cobbledeep/font/gelasio.ttf').asFile }
+    def gelasioLicense = fantasyFontRoot.map { it.file('META-INF/licenses/Gelasio-OFL.txt').asFile }
+    outputs.files(medievalFile, medievalLicense, gelasioFile, gelasioLicense)
 
     doLast {
         def upstream = [
-                [name: 'MedievalSharp.ttf', file: fontFile.get(),
+                [font: 'MedievalSharp', source: 'MedievalSharp.ttf', file: medievalFile.get(),
                  sha: '4534f0e5d7fb1eb27e929052630edcf39af7855e'],
-                [name: 'OFL.txt', file: licenseFile.get(),
-                 sha: '73c30fe202f3cf55b43b6183f1c46e05df5c934b']
+                [font: 'MedievalSharp', source: 'OFL.txt', file: medievalLicense.get(),
+                 sha: '73c30fe202f3cf55b43b6183f1c46e05df5c934b'],
+                [font: 'Gelasio', source: 'Gelasio%5Bwght%5D.ttf', file: gelasioFile.get(),
+                 sha: '23711d2fa49ab8c60301f8fd718cc10614db693a'],
+                [font: 'Gelasio', source: 'OFL.txt', file: gelasioLicense.get(),
+                 sha: '5c337072532b3a97a06350323afb30d2e91b502a']
         ]
         upstream.each { asset ->
             def destination = asset.file
             if (destination.isFile()) return
-            def url = new URL('https://raw.githubusercontent.com/google/fonts/main/ofl/medievalsharp/' + asset.name)
+            def url = new URL('https://raw.githubusercontent.com/google/fonts/main/ofl/' +
+                    asset.font.toLowerCase(java.util.Locale.ROOT) + '/' + asset.source)
             def connection = url.openConnection()
             connection.setConnectTimeout(15000)
             connection.setReadTimeout(30000)
             connection.setRequestProperty('User-Agent', 'Cobbledeep-font-build')
             byte[] bytes = connection.getInputStream().withCloseable { stream -> stream.bytes }
-            // Verify GitHub's immutable Git blob ID so a changed upstream file
-            // cannot silently replace the version whose license we reviewed.
+            // Verify the original Git blob IDs so changed upstream assets cannot
+            // silently replace the exact open-licensed versions we selected.
             def digest = java.security.MessageDigest.getInstance('SHA-1')
             digest.update(('blob ' + bytes.length + '\u0000').getBytes(java.nio.charset.StandardCharsets.UTF_8))
             digest.update(bytes)
             def actual = digest.digest().encodeHex().toString()
             if (actual != asset.sha) {
-                throw new GradleException('Unexpected upstream MedievalSharp asset: ' + asset.name +
+                throw new GradleException('Unexpected ' + asset.font + ' asset: ' + asset.source +
                         ' (Git blob ' + actual + ', expected ' + asset.sha + ')')
             }
             destination.parentFile.mkdirs()
@@ -57,7 +64,7 @@ def prepareFantasyFont = tasks.register('prepareFantasyFont') {
     }
 }
 
-// Include generated resources and the bundled fantasy font.
+// Include generated resources and the two bundled fantasy fonts.
 sourceSets.main.resources {
     srcDir 'src/generated/resources'
     srcDir fantasyFontRoot
