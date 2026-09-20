@@ -52,6 +52,10 @@ public final class CorpseLootClient {
         if (event.getAction() != GLFW.GLFW_PRESS || !TacticalCameraController.isEnabled()) return;
         Minecraft mc = Minecraft.getInstance();
 
+        // UI clicks are not world orders. In particular, selecting/editing a
+        // portrait must not cancel a pending loot order or raycast a corpse.
+        if (PartyPortraitBar.isOverBar(mc)) return;
+
         // Left-clicking the world issues a different movement order; right-clicking
         // somewhere else can begin a camera drag or open a different action wheel.
         if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
