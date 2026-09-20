@@ -18,9 +18,10 @@ import org.lwjgl.glfw.GLFW;
 /** In-world counterpart of the navigation buttons in Cobbledeep's inventory. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class PartyActionBar {
-    private static final int WIDTH = 90;
-    private static final int BUTTON_X = 4;
-    private static final int BUTTON_WIDTH = 82;
+    // 80% of the original 90-pixel sidebar, flush against the left edge.
+    private static final int WIDTH = 72;
+    private static final int BUTTON_X = 3;
+    private static final int BUTTON_WIDTH = 66;
     private static final int BUTTON_TOP = 22;
     private static final int BUTTON_HEIGHT = 18;
     private static final int BUTTON_SPACING = 20;
@@ -77,8 +78,17 @@ public final class PartyActionBar {
             graphics.fill(BUTTON_X + 1, y + 1,
                     BUTTON_X + BUTTON_WIDTH - 1, y + BUTTON_HEIGHT - 1,
                     active ? (hovered ? 0xFF3A5846 : 0xFF26382E) : 0xFF19221F);
-            graphics.drawCenteredString(mc.font, ACTIONS[i], WIDTH / 2, y + 5,
+            // Preserve the full menu labels, scaling only text that would
+            // otherwise overflow the narrower button (e.g. Divine Spells).
+            int textWidth = mc.font.width(ACTIONS[i]);
+            float textScale = textWidth > BUTTON_WIDTH - 4
+                    ? (BUTTON_WIDTH - 4.0F) / textWidth : 1.0F;
+            graphics.pose().pushPose();
+            graphics.pose().translate(WIDTH / 2.0F, y + 5.0F, 0.0F);
+            graphics.pose().scale(textScale, textScale, 1.0F);
+            graphics.drawCenteredString(mc.font, ACTIONS[i], 0, 0,
                     active ? (hovered ? 0xFFFFFFFF : 0xFFE3E8DB) : 0xFF7A8880);
+            graphics.pose().popPose();
         }
     }
 
