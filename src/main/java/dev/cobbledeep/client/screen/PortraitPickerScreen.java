@@ -70,11 +70,13 @@ public final class PortraitPickerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics, mouseX, mouseY, partialTick);
+        // Screen.renderBackground() applies Minecraft's menu blur. Draw our own
+        // opaque backdrop instead, so text and portrait controls remain sharp.
+        graphics.fill(0, 0, width, height, 0xFF101716);
         int left = (width - panelWidth()) / 2;
         int top = panelTop();
         graphics.fill(left - 2, top - 2, left + panelWidth() + 2, top + 259, 0xFF66755D);
-        graphics.fill(left, top, left + panelWidth(), top + 257, 0xF0141918);
+        graphics.fill(left, top, left + panelWidth(), top + 257, 0xFF141918);
         graphics.drawCenteredString(font, "CHARACTER PORTRAIT", width / 2, top + 10, 0xFFE7D6A4);
         graphics.fill(left + 12, top + 30, left + panelWidth() - 12, top + 31, 0xFF536454);
 
