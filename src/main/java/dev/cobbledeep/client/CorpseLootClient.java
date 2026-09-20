@@ -29,13 +29,21 @@ public final class CorpseLootClient {
 
     /** The corpse selected by the player's most recent loot command. */
     private static GiantRatEntity pendingCorpse;
+    /** Do not start pathfinding or send a loot packet while simulation is frozen. */
+    private static boolean startAfterUnpause;
 
     private CorpseLootClient() {}
+
+    private static boolean gameFrozen(Minecraft mc) {
+        var server = mc.getSingleplayerServer();
+        return server != null && server.tickRateManager().isFrozen();
+    }
 
     /** Cancel a pending loot order when another movement or combat action takes over. */
     static void cancel(Minecraft mc) {
         if (pendingCorpse == null) return;
         pendingCorpse = null;
+        startAfterUnpause = false;
         TacticalPathMovement.stop(mc);
     }
 
@@ -66,18 +74,29 @@ public final class CorpseLootClient {
         event.setCanceled(true);
         cancel(mc);
         if (mc.gameMode == null) return;
+        TacticalCombatController.cancel(mc);
+        pendingCorpse = corpse;
+
+        // A frozen world cannot advance the walking route or service an entity
+        // menu interaction. Remember the order and begin it after unpausing.
+        if (gameFrozen(mc)) {
+            startAfterUnpause = true;
+            return;
+        }
+        beginLootOrder(mc, corpse);
+    }
+
+    /** Called only when the simulation is running. */
+    private static void beginLootOrder(Minecraft mc, GiantRatEntity corpse) {
         if (corpse.canLootFrom(mc.player)) {
+            pendingCorpse = null;
             requestLoot(corpse);
             return;
         }
 
         // Walk to the centre of a block directly beside the corpse rather than
         // stopping several blocks away or trying to stand inside the creature.
-        // Choose the side facing the player; the existing A* controller plans
-        // a safe route to that block, including around intervening obstacles.
         Vec3 destination = adjacentBlockOnPlayerSide(mc, corpse);
-        pendingCorpse = corpse;
-        TacticalCombatController.cancel(mc);
         TacticalPathMovement.start(mc, destination);
         if (TacticalPathMovement.target() == null) pendingCorpse = null;
     }
@@ -123,6 +142,18 @@ public final class CorpseLootClient {
                 || !mc.isWindowActive() || corpse.level() != mc.level
                 || corpse.isRemoved() || !corpse.isCorpse()) {
             cancel(mc);
+            return;
+        }
+
+        // Retain the selected corpse while paused; an unstarted route has no
+        // movement target yet and must not be mistaken for a failed route.
+        if (gameFrozen(mc)) {
+            TacticalPathMovement.suspendInputs(mc);
+            return;
+        }
+        if (startAfterUnpause) {
+            startAfterUnpause = false;
+            beginLootOrder(mc, corpse);
             return;
         }
         if (corpse.canLootFrom(mc.player)) {
