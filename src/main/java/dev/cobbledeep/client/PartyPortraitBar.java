@@ -13,14 +13,14 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
-/** Right-hand party strip. The player is slot 1; reserved slots remain non-interactive until companions exist. */
+/** Compact, right-edge party strip. Only actual party members occupy slots. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class PartyPortraitBar {
-    private static final int WIDTH = 66;
+    private static final int WIDTH = 50;
     private static final int SLOT_HEIGHT = 60;
-    private static final int SLOT_GAP = 4;
-    private static final int PADDING = 5;
-    private static final int TOP = 23;
+    private static final int PADDING = 3;
+    private static final int TOP = 20;
+    private static final int HEADER_TOP = TOP - 17;
     private static final int GOLD = 0xFFDECB88;
 
     private PartyPortraitBar() { }
@@ -31,12 +31,20 @@ public final class PartyPortraitBar {
     }
 
     private static int left(Minecraft mc) {
-        return mc.getWindow().getGuiScaledWidth() - WIDTH - 6;
+        // The panel touches the right edge, with no horizontal screen margin.
+        return mc.getWindow().getGuiScaledWidth() - WIDTH;
     }
 
-    private static int slots(Minecraft mc) {
-        return Math.min(6, Math.max(1,
-                (mc.getWindow().getGuiScaledHeight() - TOP - 7) / (SLOT_HEIGHT + SLOT_GAP)));
+    /** All input handlers use the exact same bounds as the visible panel. */
+    static boolean isOverBar(Minecraft mc) {
+        if (!visible(mc)) return false;
+        double screenWidth = mc.getWindow().getScreenWidth();
+        double screenHeight = mc.getWindow().getScreenHeight();
+        if (screenWidth <= 0.0 || screenHeight <= 0.0) return false;
+        double mouseX = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / screenWidth;
+        double mouseY = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / screenHeight;
+        return mouseX >= left(mc) && mouseX < mc.getWindow().getGuiScaledWidth()
+                && mouseY >= HEADER_TOP && mouseY < TOP + SLOT_HEIGHT;
     }
 
     /** Called by the Forge GUI layer registered in CobbledeepClientRenderSetup. */
@@ -44,33 +52,27 @@ public final class PartyPortraitBar {
         Minecraft mc = Minecraft.getInstance();
         if (!visible(mc)) return;
         int x = left(mc);
-        int count = slots(mc);
-        int bottom = TOP + count * (SLOT_HEIGHT + SLOT_GAP);
-        graphics.fill(x - 3, TOP - 19, x + WIDTH + 3, bottom, 0xB80C1515);
-        graphics.drawCenteredString(mc.font, "PARTY", x + WIDTH / 2, TOP - 14, GOLD);
-
-        for (int i = 0; i < count; i++) {
-            int y = TOP + i * (SLOT_HEIGHT + SLOT_GAP);
-            graphics.fill(x, y, x + WIDTH, y + SLOT_HEIGHT,
-                    i == 0 ? GOLD : 0xFF46544F);
-            graphics.fill(x + 2, y + 2, x + WIDTH - 2, y + SLOT_HEIGHT - 2,
-                    i == 0 ? 0xFF253B32 : 0xFF172020);
-            if (i == 0) drawPlayer(mc, graphics, x, y);
-            else graphics.drawCenteredString(mc.font, "—", x + WIDTH / 2,
-                    y + SLOT_HEIGHT / 2 - 4, 0xFF50625A);
-        }
+        int right = mc.getWindow().getGuiScaledWidth();
+        // Draw only the existing player portrait. Companions will add slots
+        // when they actually join the party, rather than showing placeholders.
+        graphics.fill(x, HEADER_TOP, right, TOP + SLOT_HEIGHT, 0xB80C1515);
+        graphics.drawCenteredString(mc.font, "PARTY", x + WIDTH / 2, TOP - 13, GOLD);
+        graphics.fill(x, TOP, right, TOP + SLOT_HEIGHT, GOLD);
+        graphics.fill(x + 1, TOP + 2, right - 1, TOP + SLOT_HEIGHT - 2, 0xFF253B32);
+        drawPlayer(mc, graphics, x, TOP);
     }
 
     private static void drawPlayer(Minecraft mc, GuiGraphics graphics, int x, int y) {
-        graphics.fill(x + PADDING - 1, y + 4, x + WIDTH - PADDING + 1, y + 49, 0xFF0B1719);
+        int portraitWidth = WIDTH - PADDING * 2;
+        graphics.fill(x + PADDING - 1, y + 4, x + WIDTH - PADDING + 1, y + 47, 0xFF0B1719);
         PartyPortraits.draw(mc, graphics, PartyPortraits.selected(mc),
-                x + PADDING, y + 5, WIDTH - PADDING * 2, 42);
+                x + PADDING, y + 5, portraitWidth, 41);
 
         float max = Math.max(1.0F, mc.player.getMaxHealth());
         float fraction = Math.max(0.0F, Math.min(1.0F, mc.player.getHealth() / max));
         graphics.fill(x + PADDING, y + 47, x + WIDTH - PADDING, y + 51, 0xFF501F23);
         graphics.fill(x + PADDING, y + 47,
-                x + PADDING + Math.round((WIDTH - PADDING * 2) * fraction), y + 51,
+                x + PADDING + Math.round(portraitWidth * fraction), y + 51,
                 fraction < 0.30F ? 0xFFFF5757 : 0xFF60DD77);
         graphics.drawCenteredString(mc.font, "EDIT", x + WIDTH / 2, y + 52, GOLD);
     }
@@ -81,24 +83,20 @@ public final class PartyPortraitBar {
                 || (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT
                 && event.getButton() != GLFW.GLFW_MOUSE_BUTTON_RIGHT)) return;
         Minecraft mc = Minecraft.getInstance();
-        if (!visible(mc) || !mc.isWindowActive()) return;
-        double screenWidth = mc.getWindow().getScreenWidth();
-        double screenHeight = mc.getWindow().getScreenHeight();
-        if (screenWidth <= 0 || screenHeight <= 0) return;
-        double mouseX = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / screenWidth;
-        double mouseY = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / screenHeight;
-        int x = left(mc);
-        int y = TOP;
-        if (mouseX < x || mouseX >= x + WIDTH || mouseY < y || mouseY >= y + SLOT_HEIGHT) {
-            return; // Empty party slots do not intercept world interaction.
-        }
+        if (!mc.isWindowActive() || !isOverBar(mc)) return;
+
+        // Consume clicks on the entire visible bar, including the title/frame.
+        // They must not become movement, loot, combat, or camera-drag orders.
         event.setCanceled(true);
-        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT || mouseY >= y + 51) {
+        double screenHeight = mc.getWindow().getScreenHeight();
+        double mouseY = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / screenHeight;
+        if (mouseY < TOP) return; // The header isn't an action button.
+        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT || mouseY >= TOP + 51) {
             mc.setScreen(new PortraitPickerScreen());
             return;
         }
-        // The player is the only controllable party member so far. Keeping
-        // selection separate from the portrait picker allows more party members later.
+
+        // For now the player is the only party member, and remains selected.
         String name = mc.player.getCapability(CharacterCapabilities.CHARACTER_DATA)
                 .map(data -> data.isCharacterCreated() ? data.getName() : mc.player.getName().getString())
                 .orElse(mc.player.getName().getString());
