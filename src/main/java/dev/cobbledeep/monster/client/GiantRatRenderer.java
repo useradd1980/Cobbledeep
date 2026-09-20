@@ -14,20 +14,22 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.joml.Quaternionf;
 
-/** Renders the authored polygon meshes and selects locomotion/death animation states. */
+/** Renders the authored polygon meshes and selects synchronized combat animations. */
 public final class GiantRatRenderer extends EntityRenderer<GiantRatEntity> {
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(
             "cobbledeep", "textures/entity/giant_rat.png");
-    private static final ResourceLocation GEOMETRY = ResourceLocation.fromNamespaceAndPath(
-            "cobbledeep", "models/entity/giant_rat.json");
-    // A solid-white texture prevents dark rat fur from multiplying the blue
-    // overlay into a dull, nearly invisible colour. Future chests can reuse it.
+    // A solid-white texture keeps the blue loot highlight independent of the rat's fur.
     private static final ResourceLocation HIGHLIGHT_TEXTURE = ResourceLocation.fromNamespaceAndPath(
             "cobbledeep", "textures/entity/loot_highlight_white.png");
+    private static final ResourceLocation GEOMETRY = ResourceLocation.fromNamespaceAndPath(
+            "cobbledeep", "models/entity/giant_rat.json");
     private static final String WALK = "animation.giant_rat.walk";
     private static final String IDLE = "animation.giant_rat_movements";
+    private static final String DETECTION = "animation.giant_rat_detection";
+    private static final String ATTACK = "animation.giant_rat_attack";
+    private static final String HIT = "animation.giant_rat_hit";
     private static final String DEATH = "animation.giant_rat_death";
-    private static final int LOOT_HIGHLIGHT_COLOR = 0xE900BFFF; // vivid electric blue, 91% opacity
+    private static final int LOOT_HIGHLIGHT_COLOR = 0xE900BFFF;
     private static final int FULL_BRIGHT = 0x00F000F0;
     private RatMeshModel model;
 
@@ -57,13 +59,24 @@ public final class GiantRatRenderer extends EntityRenderer<GiantRatEntity> {
         final String animation;
         final float animationTime;
         if (rat.isCorpse()) {
-            // This clip is non-looping: the mesh loader clamps time at its final frame.
-            // Death progress is synced and the last frame is restored when a chunk reloads.
+            // Death is highest priority; persistent corpses hold the final frame.
             animation = DEATH;
             animationTime = (rat.getDeathAnimationTicks() + partialTick) / 20.0f;
+        } else if (rat.getHitAnimationTicks() > 0) {
+            animation = HIT;
+            animationTime = elapsed(GiantRatEntity.HIT_ANIMATION_TICKS,
+                    rat.getHitAnimationTicks(), partialTick);
+        } else if (rat.getAttackAnimationTicks() > 0) {
+            animation = ATTACK;
+            animationTime = elapsed(GiantRatEntity.ATTACK_ANIMATION_TICKS,
+                    rat.getAttackAnimationTicks(), partialTick);
+        } else if (rat.getDetectionAnimationTicks() > 0) {
+            animation = DETECTION;
+            animationTime = elapsed(GiantRatEntity.DETECTION_ANIMATION_TICKS,
+                    rat.getDetectionAnimationTicks(), partialTick);
         } else {
             // Client interpolation often makes getDeltaMovement() appear to be zero for a
-            // walking mob. Use the built-in limb animation and observed positional change too.
+            // walking mob. Use built-in limb animation and observed positional change too.
             double dx = rat.getX() - rat.xo;
             double dz = rat.getZ() - rat.zo;
             boolean walking = rat.walkAnimation.speed(partialTick) > 0.015f
@@ -76,9 +89,7 @@ public final class GiantRatRenderer extends EntityRenderer<GiantRatEntity> {
         model.render(pose, output, packedLight, OverlayTexture.NO_OVERLAY,
                 animation, animationTime);
 
-        // Draw the same animated mesh with bright, texture-independent blue.
-        // Full-bright light keeps the mark vivid even in dark areas. A slightly
-        // enlarged second pass remains depth-tested and vanishes on Tab release.
+        // The corpse-only Tab highlight uses the same final death pose.
         if (rat.isCorpse() && LootHighlightClient.isHeld()) {
             pose.pushPose();
             pose.scale(1.025f, 1.025f, 1.025f);
@@ -89,5 +100,10 @@ public final class GiantRatRenderer extends EntityRenderer<GiantRatEntity> {
         }
         pose.popPose();
         super.render(rat, yaw, partialTick, pose, buffers, packedLight);
+    }
+
+    /** Convert a synced remaining-ticks countdown into forward-moving clip time. */
+    private static float elapsed(int duration, int remaining, float partialTick) {
+        return Math.max(0.0f, (duration - remaining + partialTick) / 20.0f);
     }
 }
