@@ -27,7 +27,8 @@ public final class TacticalConsoleOverlay {
     private static final int COMPACT_HEIGHT = 66;
     private static final int PADDING = 3;
     private static final int HEADER_HEIGHT = 14;
-    private static final int LINE_SPACING = 1;
+    // Minecraft's font already has enough built-in leading for adjacent rows.
+    private static final int LINE_SPACING = 0;
     private static final int TRACK_WIDTH = 4;
     private static final int MAX_ENTRIES = 400;
     private static final int EDGE_COLOR = 0xFF718171;
@@ -105,9 +106,10 @@ public final class TacticalConsoleOverlay {
     }
 
     private static int visibleLines(Minecraft mc) {
-        // A 66px console has room for four 9px font lines with 1px leading,
-        // even after its header, padding and bottom border are accounted for.
-        return Math.max(1, (bottom(mc) - top(mc) - HEADER_HEIGHT - PADDING * 2 - 2)
+        // Count from the actual first text row down to the bottom border.
+        // At normal GUI scale: 66 - 14 header - 3 top padding - 1 border
+        // leaves 48px, enough for five 9px Minecraft font rows.
+        return Math.max(1, (bottom(mc) - top(mc) - HEADER_HEIGHT - PADDING - 1)
                 / (mc.font.lineHeight + LINE_SPACING));
     }
 
