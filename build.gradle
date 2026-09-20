@@ -15,8 +15,54 @@ group = 'dev.cobbledeep'
 // Mojang ships Java 21 to end users in 1.20.5+, so your mod should target Java 21.
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-// Include generated resources
-sourceSets.main.resources { srcDir 'src/generated/resources' }
+// Download the SIL OFL 1.1 MedievalSharp font only when building the mod. The
+// generated resources (font and its complete license) are packaged into the
+// dev run and release JAR, without requiring players to install a font pack.
+// The binary is deliberately not checked into the mod's source repository.
+def fantasyFontRoot = layout.buildDirectory.dir('generated/cobbledeep-font')
+def prepareFantasyFont = tasks.register('prepareFantasyFont') {
+    def fontFile = fantasyFontRoot.map { it.file('assets/cobbledeep/font/medievalsharp.ttf').asFile }
+    def licenseFile = fantasyFontRoot.map { it.file('META-INF/licenses/MedievalSharp-OFL.txt').asFile }
+    outputs.files(fontFile, licenseFile)
+
+    doLast {
+        def upstream = [
+                [name: 'MedievalSharp.ttf', file: fontFile.get(),
+                 sha: '4534f0e5d7fb1eb27e929052630edcf39af7855e'],
+                [name: 'OFL.txt', file: licenseFile.get(),
+                 sha: '73c30fe202f3cf55b43b6183f1c46e05df5c934b']
+        ]
+        upstream.each { asset ->
+            def destination = asset.file
+            if (destination.isFile()) return
+            def url = new URL('https://raw.githubusercontent.com/google/fonts/main/ofl/medievalsharp/' + asset.name)
+            def connection = url.openConnection()
+            connection.setConnectTimeout(15000)
+            connection.setReadTimeout(30000)
+            connection.setRequestProperty('User-Agent', 'Cobbledeep-font-build')
+            byte[] bytes = connection.getInputStream().withCloseable { stream -> stream.bytes }
+            // Verify GitHub's immutable Git blob ID so a changed upstream file
+            // cannot silently replace the version whose license we reviewed.
+            def digest = java.security.MessageDigest.getInstance('SHA-1')
+            digest.update(('blob ' + bytes.length + '\u0000').getBytes(java.nio.charset.StandardCharsets.UTF_8))
+            digest.update(bytes)
+            def actual = digest.digest().encodeHex().toString()
+            if (actual != asset.sha) {
+                throw new GradleException('Unexpected upstream MedievalSharp asset: ' + asset.name +
+                        ' (Git blob ' + actual + ', expected ' + asset.sha + ')')
+            }
+            destination.parentFile.mkdirs()
+            destination.bytes = bytes
+        }
+    }
+}
+
+// Include generated resources and the bundled fantasy font.
+sourceSets.main.resources {
+    srcDir 'src/generated/resources'
+    srcDir fantasyFontRoot
+}
+tasks.named('processResources') { dependsOn prepareFantasyFont }
 
 minecraft {
     mappings channel: 'official', version: '1.21.1'
@@ -30,23 +76,19 @@ minecraft {
         }
 
         register('client')
-
         register('server') {
             args '--nogui'
         }
-
         register('gameTestServer')
-
         register('data') {
             workingDir = layout.projectDirectory.dir('run-data')
-
             args '--mod', 'cobbledeep', '--all', '--output', layout.projectDirectory.dir('src/generated/resources'), '--existing', layout.projectDirectory.dir('src/main/resources')
         }
     }
 }
 
 repositories {
-    minecraft.mavenizer(it) // In Kotlin, it = this
+    minecraft.mavenizer(it) // In Kotlin, it = it
     maven fg.forgeMaven
     maven fg.minecraftLibsMaven
     mavenCentral()
@@ -57,7 +99,5 @@ dependencies {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    // Use the UTF-8 charset for Java compilation
-    // This is done by default in Java 18+, but this ensures it no matter the Java or Gradle version
     options.encoding = 'UTF-8'
 }
