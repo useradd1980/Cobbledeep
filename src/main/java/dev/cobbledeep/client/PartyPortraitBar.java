@@ -53,8 +53,6 @@ public final class PartyPortraitBar {
         int right = mc.getWindow().getGuiScaledWidth();
         int bottom = mc.getWindow().getGuiScaledHeight();
 
-        // The full-height backdrop and left border separate party controls from
-        // the world, while leaving the portrait itself compact and flush right.
         graphics.fill(x, 0, right, bottom, 0xE0101718);
         graphics.fill(x, 0, x + 1, bottom, 0xFF718171);
         graphics.drawCenteredString(mc.font, "PARTY", x + WIDTH / 2, TOP - 13, GOLD);
@@ -87,11 +85,11 @@ public final class PartyPortraitBar {
         Minecraft mc = Minecraft.getInstance();
         if (!mc.isWindowActive() || !isOverBar(mc)) return;
 
-        // Block even the unused space below the portrait. Consuming mouse
-        // releases also prevents a world-initiated right drag from selecting an
-        // enemy when its button is released over the party UI.
-        event.setCanceled(true);
+        // Consume sidebar presses before movement/looting/targeting handlers.
+        // Let releases reach TacticalCameraController, which resets a right-drag
+        // that may have begun in the world before entering the party sidebar.
         if (event.getAction() != GLFW.GLFW_PRESS) return;
+        event.setCanceled(true);
 
         double screenHeight = mc.getWindow().getScreenHeight();
         double mouseY = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / screenHeight;
@@ -101,7 +99,6 @@ public final class PartyPortraitBar {
             return;
         }
 
-        // The player is the only selectable party member until companions exist.
         String name = mc.player.getCapability(CharacterCapabilities.CHARACTER_DATA)
                 .map(data -> data.isCharacterCreated() ? data.getName() : mc.player.getName().getString())
                 .orElse(mc.player.getName().getString());
