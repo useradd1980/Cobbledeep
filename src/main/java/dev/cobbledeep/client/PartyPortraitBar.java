@@ -3,6 +3,7 @@ package dev.cobbledeep.client;
 import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.character.CharacterCapabilities;
 import dev.cobbledeep.client.screen.PortraitPickerScreen;
+import dev.cobbledeep.client.screen.TacticalRadialMenuScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -26,7 +27,9 @@ public final class PartyPortraitBar {
 
     private static boolean visible(Minecraft mc) {
         return TacticalCameraController.isEnabled() && mc.player != null
-                && mc.level != null && mc.screen == null && !mc.options.hideGui;
+                && mc.level != null
+                && (mc.screen == null || mc.screen instanceof TacticalRadialMenuScreen)
+                && !mc.options.hideGui;
     }
 
     private static int left(Minecraft mc) {
@@ -49,6 +52,7 @@ public final class PartyPortraitBar {
                 && mouseY >= 0.0 && mouseY < mc.getWindow().getGuiScaledHeight();
     }
 
+    /** Retain all three tactical panels when the radial action screen is open. */
     public static void onHud(GuiGraphics graphics) {
         Minecraft mc = Minecraft.getInstance();
         if (!visible(mc)) return;
