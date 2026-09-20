@@ -120,6 +120,9 @@ public final class CorpseLootClient {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onMovementKey(InputEvent.Key event) {
         if (pendingCorpse == null || event.getAction() != GLFW.GLFW_PRESS) return;
+        // Space toggles tactical pause, not jumping. In particular, the Space
+        // press that RESUMES the simulation must not cancel the queued loot order.
+        if (TacticalCameraKeys.PLAY_PAUSE.matches(event.getKey(), event.getScanCode())) return;
         Minecraft mc = Minecraft.getInstance();
         for (var key : new net.minecraft.client.KeyMapping[] {
                 mc.options.keyUp, mc.options.keyDown, mc.options.keyLeft,
