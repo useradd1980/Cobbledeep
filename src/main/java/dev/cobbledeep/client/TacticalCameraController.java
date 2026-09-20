@@ -211,7 +211,7 @@ public final class TacticalCameraController
         enabled = true;
         previousCameraType = minecraft.options.getCameraType();
         previousViewBobbing = minecraft.options.bobView().get();
-        minecraft.options.bobView().set(false);
+        minecraft.options.bobViewing().set(false);
         minecraft.options.setCameraType(CameraType.THIRD_PERSON_BACK);
         recenterCamera(minecraft.player);
         if (minecraft.screen == null)
@@ -244,10 +244,9 @@ public final class TacticalCameraController
     private static void updateEdgePan(Minecraft minecraft)
     {
         LocalPlayer player = minecraft.player;
-        // Keep evaluating the cursor after it leaves a windowed game. GLFW
-        // reports coordinates below zero or beyond the window dimensions, so
-        // the camera can continue panning until the cursor moves back inside.
-        if (player == null || minecraft.screen != null || rightMouseHeld) return;
+        // The party sidebar owns the right edge; it is not a world camera-pan zone.
+        if (player == null || minecraft.screen != null || rightMouseHeld
+                || PartyPortraitBar.isOverBar(minecraft)) return;
 
         if (cameraFocus == null)
         {
@@ -282,20 +281,12 @@ public final class TacticalCameraController
         // Screen-right is forward cross world-up; the opposite points left.
         Vec3 right = new Vec3(-Math.cos(radians), 0.0, -Math.sin(radians));
 
-        // Screen top means move the focus forward into the scene. Screen bottom
-        // moves backward; left/right map directly to their screen directions.
         Vec3 pan = right.scale(horizontal)
                 .add(forward.scale(-vertical));
-
-        // Cap the combined vector so corner panning is not faster than panning
-        // along a single screen edge.
         if (pan.lengthSqr() > 1.0)
         {
             pan = pan.normalize();
         }
-        // Scale world-space movement with camera distance so the apparent
-        // screen-space panning speed stays useful as more terrain becomes visible.
-        // Keep the original speed at the default distance and at closer zooms.
         double zoomSpeedMultiplier = Math.max(1.0, cameraDistance / DEFAULT_CAMERA_DISTANCE);
         cameraFocus = cameraFocus.add(pan.scale(EDGE_PAN_MAX_SPEED * zoomSpeedMultiplier));
     }
@@ -303,13 +294,8 @@ public final class TacticalCameraController
     private static double edgeStrength(double coordinate, double size)
     {
         if (size <= 0.0) return 0.0;
-
-        // GLFW cursor coordinates range from zero to one pixel short of the
-        // window size. Do not pan merely near an edge: require the cursor to
-        // reach the outermost pixel. Reaching a corner activates both axes.
         if (coordinate <= 0.0) return -1.0;
         if (coordinate >= size - 1.0) return 1.0;
-
         return 0.0;
     }
 
@@ -330,10 +316,6 @@ public final class TacticalCameraController
         Minecraft mc = Minecraft.getInstance();
         if (TacticalCameraKeys.PLAY_PAUSE.matches(event.getKey(), event.getScanCode()))
         {
-            // Forge's keyboard event is posted after vanilla updates matching
-            // key bindings, but before the next movement tick. Remove Space's
-            // simultaneous jump state immediately; PLAY_PAUSE's click remains
-            // queued for the tactical controller to consume.
             mc.options.keyJump.setDown(false);
             return;
         }
@@ -353,6 +335,18 @@ public final class TacticalCameraController
     {
         if (!enabled) return;
         Minecraft minecraft = Minecraft.getInstance();
+
+        // The full-height portrait sidebar owns every mouse gesture over it.
+        // If a right drag began in the world but ends on the panel, discard it
+        // instead of picking an enemy or leaving the drag state armed.
+        if (PartyPortraitBar.isOverBar(minecraft))
+        {
+            if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT
+                    && event.getAction() == GLFW.GLFW_RELEASE)
+                resetCameraDrag();
+            event.setCanceled(true);
+            return;
+        }
 
         // Always clear the gesture on release, including releases over a menu.
         if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT
@@ -427,7 +421,6 @@ public final class TacticalCameraController
             rightMousePendingDelta += delta;
             if (Math.abs(rightMousePendingDelta) <= DRAG_ROTATION_THRESHOLD) return;
             rightMouseDragged = true;
-            // Discard only the click dead zone, avoiding a jump at drag onset.
             delta = rightMousePendingDelta
                     - Math.copySign(DRAG_ROTATION_THRESHOLD, rightMousePendingDelta);
             rightMousePendingDelta = 0.0;
@@ -440,15 +433,13 @@ public final class TacticalCameraController
     {
         if (enabled)
         {
-            // Vanilla still computes its normal centered crosshair target even
-            // though tactical mode uses a free cursor and its own raycast. That
-            // produces a stray block-selection wireframe near the player.
             event.setCanceled(true);
         }
     }
 
     private static Vec3 raycastCursorToWorld(Minecraft minecraft)
     {
+        if (PartyPortraitBar.isOverBar(minecraft)) return null;
         Camera camera = minecraft.gameRenderer.getMainCamera();
         if (!camera.isInitialized()) return null;
 
@@ -491,6 +482,7 @@ public final class TacticalCameraController
 
     private static LivingEntity raycastCursorToLivingEntity(Minecraft minecraft)
     {
+        if (PartyPortraitBar.isOverBar(minecraft)) return null;
         Camera camera = minecraft.gameRenderer.getMainCamera();
         if (!camera.isInitialized()) return null;
 
@@ -559,19 +551,12 @@ public final class TacticalCameraController
             terrainFocusY = Double.NaN;
         }
 
-        // Sample mouse motion each rendered frame, not at the 20 Hz game tick.
         updateCameraDrag(Minecraft.getInstance());
         event.setYaw(yaw + shake.yaw());
         event.setPitch(TACTICAL_PITCH + shake.pitch());
         event.setRoll(shake.roll());
 
-        // This hook runs after vanilla Camera.setup(), before frustum/world
-        // rendering. Replace its player-relative position outright; never try
-        // to undo vanilla's interpolated/collision-adjusted third-person offset.
-        // Use our requested angles, not the camera's still-vanilla look vector.
         Vec3 forward = Vec3.directionFromRotation(TACTICAL_PITCH, yaw);
-        // Render between tick positions instead of displaying 20 discrete
-        // movements per second. Terrain sampling must use this same position.
         double partialTick = Mth.clamp(event.getPartialTick(), 0.0, 1.0);
         Vec3 renderedFocus = previousCameraFocus == null ? cameraFocus
                 : previousCameraFocus.lerp(cameraFocus, partialTick);
@@ -580,10 +565,6 @@ public final class TacticalCameraController
         event.getCamera().setPosition(position.x, position.y, position.z);
     }
 
-    /**
-     * Outdoor surface tracking. X/Z remain controlled only by pan/recenter.
-     * Client heightmaps bound the leaf-filtering scan; missing chunks are skipped.
-     */
     private static Vec3 terrainAdjustedFocus(Minecraft minecraft, Vec3 forward, Vec3 renderedFocus)
     {
         long now = System.nanoTime();
@@ -601,15 +582,12 @@ public final class TacticalCameraController
         }
 
         double ground = interpolatedSurfaceHeight(minecraft, renderedFocus.x, renderedFocus.z);
-        // Unknown/empty columns preserve altitude, rather than dropping toward
-        // the world's minimum build height at the edge of loaded terrain.
         double target = Double.isNaN(ground) ? terrainFocusY : ground + TERRAIN_FOCUS_OFFSET;
 
         double cameraX = renderedFocus.x - forward.x * cameraDistance;
         double cameraZ = renderedFocus.z - forward.z * cameraDistance;
         double cameraLift = -forward.y * cameraDistance;
         double minimumFocusY = Double.NEGATIVE_INFINITY;
-        // Cover the camera's immediate footprint, including block boundaries.
         for (int ix = -1; ix <= 1; ix += 2)
         {
             for (int iz = -1; iz <= 1; iz += 2)
@@ -623,18 +601,13 @@ public final class TacticalCameraController
             }
         }
         target = Math.max(target, minimumFocusY);
-        // Exponential smoothing gives the same response at different frame rates.
         terrainFocusY += (target - terrainFocusY) * (1.0 - Math.exp(-TERRAIN_HEIGHT_RESPONSE * elapsed));
-        // At abrupt cliffs, rotation or zoom changes, clearance takes precedence
-        // over smoothing. Descending still eases down instead of snapping.
         terrainFocusY = Math.max(terrainFocusY, minimumFocusY);
         return new Vec3(renderedFocus.x, terrainFocusY, renderedFocus.z);
     }
 
     private static double interpolatedSurfaceHeight(Minecraft minecraft, double x, double z)
     {
-        // Treat column heights as samples at block centres to avoid stepwise
-        // height targets when crossing from one block to the next.
         int x0 = Mth.floor(x - 0.5);
         int z0 = Mth.floor(z - 0.5);
         double tx = x - 0.5 - x0;
@@ -656,9 +629,6 @@ public final class TacticalCameraController
         {
             return Double.NaN;
         }
-        // MOTION_BLOCKING is synchronized to clients. NO_LEAVES is server-only:
-        // its pre-created client heightmap can remain empty after chunk loading.
-        // Start at the synchronized surface and skip leaves locally instead.
         int top = minecraft.level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
         int bottom = minecraft.level.getMinBuildHeight();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
@@ -669,11 +639,9 @@ public final class TacticalCameraController
             if (!state.is(BlockTags.LEAVES)
                     && (state.blocksMotion() || !state.getFluidState().isEmpty()))
             {
-                // Heightmaps use the first free Y above the surface block.
                 return y + 1.0;
             }
         }
-        // Empty columns retain the existing altitude.
         return Double.NaN;
     }
 
@@ -682,8 +650,6 @@ public final class TacticalCameraController
     {
         if (enabled)
         {
-            // FOV can be computed multiple times per frame. It must not move
-            // the camera or depend on whether another FOV query already ran.
             event.setFOV(TACTICAL_FOV);
         }
     }
