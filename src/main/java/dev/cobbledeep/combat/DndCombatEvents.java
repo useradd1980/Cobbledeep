@@ -5,6 +5,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import dev.cobbledeep.Cobbledeep;
 import dev.cobbledeep.character.CharacterCapabilities;
 import dev.cobbledeep.character.CharacterData;
+import dev.cobbledeep.monster.GiantRatEntity;
 import dev.cobbledeep.network.CriticalHitShakePacket;
 import dev.cobbledeep.network.RPGNetwork;
 import net.minecraft.ChatFormatting;
@@ -27,6 +28,15 @@ public final class DndCombatEvents
     {
         if (!(event.getSource().getEntity() instanceof ServerPlayer attacker)) return;
         if (event.getSource().getDirectEntity() != attacker) return;
+
+        // The server owns the rat encounter's initiative and one-attack-per-round
+        // budget. Consume the opportunity before rolling THAC0 so even a miss
+        // counts as the player's action; premature/repeated swings do no damage.
+        if (event.getEntity() instanceof GiantRatEntity rat
+                && !rat.tryPlayerMeleeAttack(attacker)) {
+            event.setCanceled(true);
+            return;
+        }
 
         attacker.getCapability(CharacterCapabilities.CHARACTER_DATA)
                 .filter(CharacterData::isCharacterCreated)
