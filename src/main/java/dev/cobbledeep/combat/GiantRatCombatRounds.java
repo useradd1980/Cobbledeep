@@ -1,6 +1,5 @@
 package dev.cobbledeep.combat;
 
-import dev.cobbledeep.client.TacticalConsoleOverlay;
 import dev.cobbledeep.monster.GiantRatEntity;
 import dev.cobbledeep.network.ConsoleMessagePacket;
 import dev.cobbledeep.network.RPGNetwork;
@@ -12,12 +11,7 @@ import net.minecraftforge.network.PacketDistributor;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
-/**
- * One real-time-with-pause encounter between a giant rat and its current player target.
- * Both combatants can move throughout each six-second round, but can each make only
- * one melee attack. A d10 initiative roll determines their earliest attack windows.
- * All decisions and spent actions live on the server, not in the client attack loop.
- */
+/** A six-second, real-time-with-pause initiative round for the giant rat and player. */
 public final class GiantRatCombatRounds {
     public static final int ROUND_TICKS = 120;
     private static final int FIRST_ATTACK_TICK = 16;
@@ -43,7 +37,7 @@ public final class GiantRatCombatRounds {
                     "Initiative: You d10 " + playerInitiative + ", Giant Rat d10 "
                             + ratInitiative + " — "
                             + (playerInitiative < ratInitiative ? "you act first" : "rat acts first"),
-                    TacticalConsoleOverlay.Category.COMBAT, 0xFFFFAA00),
+                    ConsoleMessagePacket.COMBAT, 0xFFFFAA00),
                     PacketDistributor.PLAYER.with(serverPlayer));
         }
     }
