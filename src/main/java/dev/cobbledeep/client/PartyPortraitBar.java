@@ -65,7 +65,7 @@ public final class PartyPortraitBar {
 
         graphics.fill(x, 0, right, bottom, 0xE0101718);
         graphics.fill(x, 0, x + 1, bottom, 0xFF718171);
-        FantasyUiFont.drawCentered(graphics, mc, "PARTY", x + WIDTH / 2.0F, TOP - 12, GOLD);
+        FantasyUiFont.drawHeading(graphics, mc, "PARTY", x + WIDTH / 2.0F, TOP - 15, GOLD);
 
         graphics.fill(x + 2, TOP, right - 2, TOP + SLOT_HEIGHT, GOLD);
         graphics.fill(x + 3, TOP + 2, right - 3, TOP + SLOT_HEIGHT - 2, 0xFF253B32);
@@ -84,7 +84,7 @@ public final class PartyPortraitBar {
         graphics.fill(x + PADDING, y + 47,
                 x + PADDING + Math.round(portraitWidth * fraction), y + 51,
                 fraction < 0.30F ? 0xFFFF5757 : 0xFF60DD77);
-        FantasyUiFont.drawCentered(graphics, mc, "EDIT", x + WIDTH / 2.0F, y + 53, GOLD);
+        FantasyUiFont.drawCentered(graphics, mc, "EDIT", x + WIDTH / 2.0F, y + 52, GOLD);
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
