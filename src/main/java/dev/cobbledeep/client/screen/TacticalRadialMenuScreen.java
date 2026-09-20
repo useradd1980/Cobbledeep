@@ -4,13 +4,16 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import dev.cobbledeep.client.PartyActionBar;
+import dev.cobbledeep.client.PartyPortraitBar;
 import dev.cobbledeep.client.TacticalCombatController;
+import dev.cobbledeep.client.TacticalConsoleOverlay;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
-/** Client-side tactical action wheel. Actions are placeholders for now. */
+/** Client-side tactical action wheel. Actions other than Attack are placeholders for now. */
 public final class TacticalRadialMenuScreen extends Screen
 {
     private static final String[] ACTIONS = {
@@ -99,6 +102,10 @@ public final class TacticalRadialMenuScreen extends Screen
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button)
     {
+        // The console and both sidebars remain on screen behind the wheel.
+        // A click on their reserved area must never activate an action underneath.
+        if (mouseX < PartyActionBar.width() || mouseX >= width - PartyPortraitBar.width()
+                || mouseY >= height - TacticalConsoleOverlay.height()) return true;
         if (button == 1)
         {
             onClose();
@@ -139,6 +146,14 @@ public final class TacticalRadialMenuScreen extends Screen
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY)
+    {
+        // Minecraft sends wheel input to Screen instead of MouseScrollingEvent while open.
+        if (TacticalConsoleOverlay.scrollOnRadialScreen(mouseX, mouseY, scrollY)) return true;
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     private void renderWeaponSubmenu(GuiGraphics graphics, int mouseX, int mouseY,
