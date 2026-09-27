@@ -20,3 +20,7 @@ Thumbs.db
 
 # Forge-generated Eclipse launch configurations
 run*.launch
+
+# Local third-party preview assets: keep out of public source until attribution/license verified
+src/main/resources/assets/cobbledeep/models/entity/humanoid_combat_idle.glb
+src/main/resources/assets/cobbledeep/models/entity/humanoid_combat_idle.glb.backup-*
