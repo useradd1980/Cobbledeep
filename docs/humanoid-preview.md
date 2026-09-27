@@ -1,40 +1,39 @@
 # Experimental animated humanoid and sword preview
 
-The feature branch `feature/humanoid-glb-preview` contains the source code for the working skinned humanoid preview and the first rigid sword attachment. This is a **local-player-only** render test. It retains the existing player renderer as a fallback and does not affect collision, hitboxes, networking, or combat.
+The feature branch `feature/humanoid-glb-preview` contains the source code for the in-game tested skinned humanoid preview, rigid sword attachment, and corrected player orientation. This is a **local-player-only** render test. It retains the existing player renderer as a fallback and does not affect collision, hitboxes, networking, or combat.
 
-## Local GLB asset (not committed)
+## V2 GLB asset (local, not committed)
 
-Place the previously validated 45-frame export at:
+The September 27 V2 export corrects the grip and wrist poses while preserving the original 45-frame combat-idle Action, the 530-triangle skinned humanoid, all five sword meshes, and the animated `TwoHandedWeapon_ctrl`. Its exact SHA-256 is:
+
+```
+06fd4b842fd2ed001f95e227327c12917f5ac97ca8ef46280a93782a0f1219e2
+```
+
+Download `Cobbledeep_Humanoid_Animation_V2.glb` from the conversation and place it in your Downloads folder. From your Cobbledeep repository:
+
+```bash
+git pull --ff-only
+bash tools/install-humanoid-v2.sh "$HOME/Downloads/Cobbledeep_Humanoid_Animation_V2.glb"
+./gradlew runClient
+```
+
+The installer checks the exact SHA-256, backs up the previously installed GLB, and installs V2 at:
 
 `src/main/resources/assets/cobbledeep/models/entity/humanoid_combat_idle.glb`
 
-The same original exported GLB works for the sword: its five sword meshes and animated `TwoHandedWeapon_ctrl` remain in the file even though the sword is outside the visible glTF scene. Do not replace it with a freshly exported humanoid-only asset. The validated preview asset has SHA-256:
+It is safe to re-run. The GLB and its backup are intentionally gitignored on this public feature branch. The installer itself is tracked in Git.
 
-`602494ead7dff89132ce0a33e4ea80a445908eb5e3d87f427f4e094eb9b5f1bf`
+**Licensing:** The original humanoid and sword originated from third-party Sketchfab models. Their creator names, original URLs and license/attribution requirements have not yet been recorded. Verify these before adding the binary to public source control or distributing a release. The user-authored Blender animation remains in the locally installed test asset.
 
-The third-party Sketchfab character and sword GLB are **not included in this public branch** pending verification and documentation of both original creators, URLs, license terms, and required attribution. Before publishing game releases or adding the asset to this public repository, verify those terms.
+## Rendering details
 
-## Enable the local preview
+The custom preview reads the first glTF animation, `TwoHanded_CombatIdle`, continuously. The exported sword meshes remain static on ordinary glTF reimport because Blender's Child Of constraint is not serialized. The Minecraft reader intentionally reconstructs the sword movement from the baked `TwoHandedWeapon_ctrl` animation and the opening pose, so the five rigid sword components follow the player's hands in-game.
 
-The preview defaults to off. For the local Forge `client` run, add this to the `minecraft { runs { ... } }` block in `build.gradle` if not already present:
+The scene also contains an extra default Cube node. The loader explicitly locates the skinned humanoid primitive and five named sword meshes, so the Cube is not part of the in-game render.
 
-```groovy
-register('client') {
-    systemProperty 'cobbledeep.humanoidPreview', 'true'
-}
-```
+The preview is enabled by the existing local `client` run configuration when the system property `cobbledeep.humanoidPreview` is `true`. The original ZIP installer already sets it locally. A missing or invalid GLB uses Cobbledeep's existing race-aware player renderer.
 
-The original ZIP installer already made this local change. Disable by setting the property to `false`. A missing or invalid GLB reverts to Cobbledeep's existing race-aware player renderer.
+## Testing
 
-## What it draws
-
-- Skinned humanoid (four influences per vertex) playing the first baked glTF animation, `TwoHanded_CombatIdle`, in a loop.
-- Rigid sword parts: blade, guard, handle, handhold, and pommel. The weapon follows the evaluated movement of `TwoHandedWeapon_ctrl` relative to the opening animation frame.
-- Neutral placeholder colors; not yet connected to inventory, equipment visibility, character appearance, or multiple animation states.
-- Blender IK and Child Of constraints do not run in Minecraft. Export bakes the evaluated deform-bone and weapon-control animation.
-
-## Test
-
-Run `./gradlew runClient`. Verify facing direction, idle loop, weapon placement, and that the sword does not separate during the movement. Turn the preview off to confirm fallback rendering.
-
-The original blender rig remains the editable master. This branch contains the tested source-code patch, but the sword attachment has not yet been verified in-game.
+Run `./gradlew runClient`, verify the weapon grip through frames 1–45, the seamless loop, and sword-follow movement. The V1 preview sword attachment and orientation have been confirmed in-game; V2 has passed GLB structural validation but still needs in-game visual confirmation. No change to the Blender IK rig is needed for this replacement.
