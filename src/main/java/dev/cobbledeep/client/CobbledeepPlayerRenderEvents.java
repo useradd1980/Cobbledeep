@@ -12,16 +12,7 @@ import net.minecraftforge.client.event.RenderPlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-/**
- * In-game rendering bridge for completed Cobbledeep characters.
- *
- * The outer vanilla player render is replaced with a normal PlayerRenderer that
- * uses Cobbledeep's generated skin texture and the character's selected body
- * model. A guarded nested render preserves vanilla animations, armor, held items
- * and layers without recursively replacing itself.
- *
- * Race proportions remain visual only; player hitboxes are unchanged.
- */
+/** Cobbledeep appearance rendering with a local-only Blender humanoid preview. */
 @Mod.EventBusSubscriber(modid = Cobbledeep.MODID, value = Dist.CLIENT)
 public final class CobbledeepPlayerRenderEvents
 {
@@ -40,8 +31,6 @@ public final class CobbledeepPlayerRenderEvents
     @SubscribeEvent
     public static void onRenderPlayerPre(RenderPlayerEvent.Pre event)
     {
-        // The custom renderer itself fires RenderPlayerEvent. Let that nested
-        // render continue normally instead of replacing it a second time.
         if (cobbledeepRenderPass) return;
         if (!(event.getEntity() instanceof AbstractClientPlayer player)) return;
         if (wideRenderer == null || slimRenderer == null) return;
@@ -50,11 +39,17 @@ public final class CobbledeepPlayerRenderEvents
         {
             if (!data.isCharacterCreated() || data.getRace() == null) return;
 
+            // First integration milestone: only the local completed Cobbledeep
+            // character receives the GLB preview. On disabled/missing/invalid
+            // assets, preserve the existing race-aware vanilla render path.
+            if (CobbledeepHumanoidPreview.renderIfEnabled(player, event.getPartialTick(),
+                    event.getPoseStack(), event.getMultiBufferSource(), event.getPackedLight())) {
+                event.setCanceled(true);
+                return;
+            }
+
             CobbledeepPlayerRenderer renderer = getRenderer(data);
             RaceScale scale = getRaceScale(data.getRace());
-
-            // Suppress the original vanilla renderer. We immediately replace it
-            // with our PlayerRenderer subclass using the same pose/buffer/light.
             event.setCanceled(true);
             event.getPoseStack().pushPose();
             event.getPoseStack().scale(scale.widthScale(), scale.heightScale(), scale.widthScale());
