@@ -2,23 +2,23 @@
 
 The feature branch `feature/humanoid-glb-preview` contains the source code for the in-game tested skinned humanoid preview, rigid sword attachment, and corrected player orientation. This is a **local-player-only** render test. It retains the existing player renderer as a fallback and does not affect collision, hitboxes, networking, or combat.
 
-## V2 GLB asset (local, not committed)
+## V4 GLB asset (local, not committed)
 
-The September 27 V2 export corrects the grip and wrist poses while preserving the original 45-frame combat-idle Action, the 530-triangle skinned humanoid, all five sword meshes, and the animated `TwoHandedWeapon_ctrl`. Its exact SHA-256 is:
+The September 27 V4 export incorporates the missing grip.L Location keyframe and adjusts the evaluated left-hand IK/arm pose while preserving the original 45-frame combat-idle Action, the 530-triangle skinned humanoid, all five sword meshes, and the animated `TwoHandedWeapon_ctrl`. Its exact SHA-256 is:
 
 ```
-06fd4b842fd2ed001f95e227327c12917f5ac97ca8ef46280a93782a0f1219e2
+636d0f0f31c84c1aa716df9215eec3569dec0ad7bdb9ad6dd56f21ae25e72f42
 ```
 
-Download `Cobbledeep_Humanoid_Animation_V2.glb` from the conversation and place it in your Downloads folder. From your Cobbledeep repository:
+Download `Cobbledeep_Humanoid_Animation_V4.glb` from the conversation and place it in your Downloads folder. From your Cobbledeep repository:
 
 ```bash
 git pull --ff-only
-bash tools/install-humanoid-v2.sh "$HOME/Downloads/Cobbledeep_Humanoid_Animation_V2.glb"
+bash tools/install-humanoid-v4.sh "$HOME/Downloads/Cobbledeep_Humanoid_Animation_V4.glb"
 ./gradlew runClient
 ```
 
-The installer checks the exact SHA-256, backs up the previously installed GLB, and installs V2 at:
+The installer checks the exact SHA-256, backs up the previously installed GLB, and installs V4 at:
 
 `src/main/resources/assets/cobbledeep/models/entity/humanoid_combat_idle.glb`
 
@@ -36,4 +36,4 @@ The preview is enabled by the existing local `client` run configuration when the
 
 ## Testing
 
-Run `./gradlew runClient`, verify the weapon grip through frames 1–45, the seamless loop, and sword-follow movement. The V1 preview sword attachment and orientation have been confirmed in-game; V2 has passed GLB structural validation but still needs in-game visual confirmation. No change to the Blender IK rig is needed for this replacement.
+Run `./gradlew runClient`, verify the weapon grip through frames 1–45, the seamless loop, and sword-follow movement. The V1 preview sword attachment and orientation have been confirmed in-game; V4 has passed GLB structural, finite-value, seamless-loop and handle-proximity checks but still needs in-game visual confirmation. No change to the Blender IK rig is needed for this replacement.
