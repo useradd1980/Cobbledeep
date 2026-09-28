@@ -25,6 +25,11 @@ final class CobbledeepHumanoidPreview {
             "cobbledeep", "textures/entity/loot_highlight_white.png");
     private static final boolean ENABLED = Boolean.parseBoolean(
             System.getProperty("cobbledeep.humanoidPreview", "false"));
+    // Diagnostic only: freezes the evaluated GLB at the opening sample (Blender frame 1).
+    // Set COBBLEDEEP_HUMANOID_FREEZE_FRAME1=true on the Gradle runClient process.
+    // This does not change the player's actual position, rotation or game mechanics.
+    private static final boolean FREEZE_FRAME_ONE = Boolean.parseBoolean(
+            System.getenv("COBBLEDEEP_HUMANOID_FREEZE_FRAME1"));
     private static ResourceManager resourceManager;
     private static HumanoidGlbModel model;
     private static boolean failed;
@@ -44,6 +49,7 @@ final class CobbledeepHumanoidPreview {
         if (model == null) {
             try {
                 model = HumanoidGlbModel.load(resources, MODEL);
+                if (FREEZE_FRAME_ONE) LOGGER.info("Cobbledeep humanoid diagnostic: GLB animation frozen at opening sample (Blender frame 1)");
             } catch (Exception e) {
                 failed = true; // Missing asset or incompatible export: continue using vanilla renderer.
                 LOGGER.warn("Cobbledeep humanoid preview disabled; vanilla player renderer remains active", e);
@@ -61,7 +67,7 @@ final class CobbledeepHumanoidPreview {
             pose.mulPose(new Quaternionf().rotationY(-yaw * ((float) Math.PI / 180f)));
             pose.scale(1f / 70f, 1f / 70f, 1f / 70f);
             VertexConsumer output = buffers.getBuffer(RenderType.entityCutoutNoCull(WHITE_TEXTURE));
-            float seconds = (player.tickCount + partialTick) / 20f;
+            float seconds = FREEZE_FRAME_ONE ? 0f : (player.tickCount + partialTick) / 20f;
             model.render(pose, output, packedLight, OverlayTexture.NO_OVERLAY, seconds, 0xFFD0C9BB);
             return true;
         } catch (RuntimeException e) {
