@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.logging.LogUtils;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import org.joml.Matrix4f;
@@ -15,9 +16,12 @@ import org.joml.Vector3f;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.slf4j.Logger;
 
 /**
  * First-pass, client-only glTF 2.0 skinned-mesh reader for Cobbledeep's Blender
@@ -29,6 +33,17 @@ import java.util.List;
  * This is deliberately separate from RatMeshModel (rigid child meshes).
  */
 final class HumanoidGlbModel {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    // Aesthetic calibration only: apply scale around the actual exported handle
+    // centre, never around sword1's distant object origin or a world origin.
+    private static final float SWORD_SCALE = readCalibration(
+            "COBBLEDEEP_HUMANOID_SWORD_SCALE", 1.15f, 0.5f, 2f);
+    // The optional offsets are measured in glTF world units in the opening
+    // frame, BEFORE TwoHandedWeapon_ctrl's relative animated movement.
+    private static final Vector3f SWORD_OFFSET = new Vector3f(
+            readCalibration("COBBLEDEEP_HUMANOID_SWORD_OFFSET_X", 0f, -20f, 20f),
+            readCalibration("COBBLEDEEP_HUMANOID_SWORD_OFFSET_Y", 0f, -20f, 20f),
+            readCalibration("COBBLEDEEP_HUMANOID_SWORD_OFFSET_Z", 0f, -20f, 20f));
     private static final int GLB_MAGIC = 0x46546c67; // ASCII glTF, little endian
     private static final int JSON_CHUNK = 0x4e4f534a;
     private static final int BIN_CHUNK = 0x004e4942;
@@ -49,6 +64,7 @@ final class HumanoidGlbModel {
     // its glTF scene deliberately only exposes the humanoid. Keep the weapon
     // separate from skinning: it follows the animated two-hand weapon control.
     private final SwordPart[] swordParts;
+    private final Vector3f swordPivot;
     private final int weaponControlNode;
     private final Matrix4f inverseWeaponAtStart;
     private final Curve[][] curves;
@@ -64,7 +80,7 @@ final class HumanoidGlbModel {
                              float[][] positions, float[][] normals, float[][] uvs,
                              int[][] vertexJoints, float[][] vertexWeights,
                              int[] triangleIndices, SwordPart[] swordParts,
-                             int weaponControlNode, Curve[][] curves,
+                             Vector3f swordPivot, int weaponControlNode, Curve[][] curves,
                              float startTime, float endTime) {
         this.nodes = nodes;
         this.jointNodes = jointNodes;
@@ -76,6 +92,7 @@ final class HumanoidGlbModel {
         this.vertexWeights = vertexWeights;
         this.triangleIndices = triangleIndices;
         this.swordParts = swordParts;
+        this.swordPivot = swordPivot == null ? new Vector3f() : new Vector3f(swordPivot);
         this.weaponControlNode = weaponControlNode;
         this.curves = curves;
         this.startTime = startTime;
@@ -108,7 +125,11 @@ final class HumanoidGlbModel {
                 }
             }
             if (document == null || binary == null) throw new IllegalArgumentException("Missing GLB JSON or BIN");
-            return decode(document, binary);
+            HumanoidGlbModel model = decode(document, binary);
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(raw);
+            LOGGER.info("Cobbledeep preview GLB SHA-256={}, sword scale={}, handle pivot={}, offset={}",
+                    HexFormat.of().formatHex(hash), SWORD_SCALE, model.swordPivot, SWORD_OFFSET);
+            return model;
         } catch (Exception e) {
             throw new IllegalStateException("Cannot load Cobbledeep humanoid GLB: " + location, e);
         }
@@ -215,6 +236,8 @@ final class HumanoidGlbModel {
         if (!(end > start)) throw new IllegalArgumentException("Animation duration must be positive");
         int weaponControlNode = -1;
         List<SwordPart> swordParts = new ArrayList<>();
+        Vector3f handleMin = null;
+        Vector3f handleMax = null;
         Matrix4f[] staticWorlds = new Matrix4f[nodes.length];
         JsonArray meshes = gltf.getAsJsonArray("meshes");
         for (int i = 0; i < sourceNodes.size(); i++) {
@@ -244,6 +267,20 @@ final class HumanoidGlbModel {
                     bakedPositions[v] = new float[] {position.x, position.y, position.z};
                     bakedNormals[v] = new float[] {normal.x, normal.y, normal.z};
                 }
+                if ("Handle_lambert1_0".equals(name)) {
+                    // Compute a stable pivot from the actual exported, world-space
+                    // handle bounds. Scale about the grip, not the sword root.
+                    for (float[] p : bakedPositions) {
+                        Vector3f point = new Vector3f(p[0], p[1], p[2]);
+                        if (handleMin == null) {
+                            handleMin = new Vector3f(point);
+                            handleMax = new Vector3f(point);
+                        } else {
+                            handleMin.min(point);
+                            handleMax.max(point);
+                        }
+                    }
+                }
                 int[] bladeIndices = bladePrimitive.has("indices") ?
                         reader.readInts(bladePrimitive.get("indices").getAsInt()) :
                         sequentialIndices(rawPositions.length);
@@ -255,9 +292,13 @@ final class HumanoidGlbModel {
         }
         if (!swordParts.isEmpty() && weaponControlNode < 0)
             throw new IllegalArgumentException("Sword exists but TwoHandedWeapon_ctrl is missing");
+        if (!swordParts.isEmpty() && handleMin == null)
+            throw new IllegalArgumentException("Sword exists but its handle mesh is missing");
+        Vector3f handlePivot = handleMin == null ? null :
+                new Vector3f(handleMin).add(handleMax).mul(0.5f);
         return new HumanoidGlbModel(nodes, jointNodes, inverseBind, positions, normals, uvs,
                 joints, weights, indices, swordParts.toArray(new SwordPart[0]),
-                weaponControlNode, curves, start, end);
+                handlePivot, weaponControlNode, curves, start, end);
     }
 
     private static int swordTint(String name) {
@@ -349,7 +390,9 @@ final class HumanoidGlbModel {
                     float[] p = part.positions[index];
                     float[] n = part.normals[index];
                     float[] uv = part.uvs == null ? ZERO3 : part.uvs[index];
-                    Vector3f vertex = movement.transformPosition(new Vector3f(p[0], p[1], p[2]));
+                    Vector3f vertex = new Vector3f(p[0], p[1], p[2])
+                            .sub(swordPivot).mul(SWORD_SCALE).add(swordPivot).add(SWORD_OFFSET);
+                    movement.transformPosition(vertex);
                     Vector3f normal = movement.transformDirection(new Vector3f(n[0], n[1], n[2])).normalize();
                     consumer.addVertex(pose.last().pose(), vertex.x, vertex.y, vertex.z)
                             .setColor(part.tint)
@@ -398,6 +441,17 @@ final class HumanoidGlbModel {
         float[] out = new float[a.length];
         for (int i = 0; i < out.length; i++) out[i] = a[i] + alpha * (b[i] - a[i]);
         return out;
+    }
+
+    private static float readCalibration(String name, float fallback, float min, float max) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) return fallback;
+        try {
+            float number = Float.parseFloat(value);
+            if (Float.isFinite(number) && number >= min && number <= max) return number;
+        } catch (NumberFormatException ignored) { }
+        LOGGER.warn("Ignoring invalid {}={} (expected {} to {}); using {}", name, value, min, max, fallback);
+        return fallback;
     }
 
     private static float[] scalars(float[][] value) {
