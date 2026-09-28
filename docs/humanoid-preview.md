@@ -37,3 +37,15 @@ The preview is enabled by the existing local `client` run configuration when the
 ## Testing
 
 Run `./gradlew runClient`, verify the weapon grip through frames 1–45, the seamless loop, and sword-follow movement. The V1 preview sword attachment and orientation have been confirmed in-game; V4 has passed GLB structural, finite-value, seamless-loop and handle-proximity checks but still needs in-game visual confirmation. No change to the Blender IK rig is needed for this replacement.
+
+## Reproduce the Blender opening-frame grip in Minecraft
+
+For an exact opening-pose comparison, from the repository root run:
+
+```bash
+COBBLEDEEP_HUMANOID_FREEZE_FRAME1=true ./gradlew runClient
+```
+
+This freezes **only the preview GLB animation sampling** at time 0 (Blender frame 1). The actual Minecraft player can still move and rotate. The preview uses the same sampled bone matrices for both the skinned hands and the sword's rigid attachment. The usual `./gradlew runClient` leaves the animation looping normally. A log message confirms when freeze mode is active.
+
+Compare with `Cobbledeep_Humanoid_Animation_V4.glb` imported into Blender at frame 1, hiding the stray Cube. Use roughly the same camera angle. If the sword/hand alignment differs even when frozen, investigate the Java mesh/skin/object coordinate transforms before compensating with manual sword offsets or changes to the Blender rig.
