@@ -37,7 +37,7 @@ final class HumanoidGlbModel {
     // Aesthetic calibration only: apply scale around the actual exported handle
     // centre, never around sword1's distant object origin or a world origin.
     private static final float SWORD_SCALE = readCalibration(
-            "COBBLEDEEP_HUMANOID_SWORD_SCALE", 1.15f, 0.5f, 2f);
+            "COBBLEDEEP_HUMANOID_SWORD_SCALE", 1.30f, 0.5f, 2f);
     // The optional offsets are measured in glTF world units in the opening
     // frame, BEFORE TwoHandedWeapon_ctrl's relative animated movement.
     private static final Vector3f SWORD_OFFSET = new Vector3f(
