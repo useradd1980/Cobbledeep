@@ -34,6 +34,26 @@ The scene also contains an extra default Cube node. The loader explicitly locate
 
 The preview is enabled by the existing local `client` run configuration when the system property `cobbledeep.humanoidPreview` is `true`. The original ZIP installer already sets it locally. A missing or invalid GLB uses Cobbledeep's existing race-aware player renderer.
 
+## Sword size and grip calibration
+
+The preview now scales the exported sword by **1.15× by default**, about the bounding-box centre of the actual `Handle_lambert1_0` mesh. It does **not** resize the humanoid or shift the sword around `sword1`'s distant object origin. The five sword parts still follow the baked `TwoHandedWeapon_ctrl`.
+
+A log line printed when the asset loads reports the loaded GLB's SHA-256, scale, handle pivot and offset. Verify the SHA matches the V4 value listed above so we're not calibrating against an older asset.
+
+For one-off tuning, set the environment variables on the **same shell command** as the Gradle run. These are optional, and their defaults are 1.15 and zero offsets:
+
+```bash
+# Compare the original GLB scale at exactly frame 1:
+COBBLEDEEP_HUMANOID_FREEZE_FRAME1=true COBBLEDEEP_HUMANOID_SWORD_SCALE=1.0 ./gradlew runClient
+
+# Current initial calibration:
+COBBLEDEEP_HUMANOID_FREEZE_FRAME1=true COBBLEDEEP_HUMANOID_SWORD_SCALE=1.15 ./gradlew runClient
+```
+
+For fine positioning, `COBBLEDEEP_HUMANOID_SWORD_OFFSET_X`, `..._Y` and `..._Z` apply extra translation in exported glTF **world units**, before the weapon-control movement (1 source unit = 1/70 Minecraft block in this preview). Example: `COBBLEDEEP_HUMANOID_SWORD_OFFSET_X=1`. All are zero by default. These are development-time visual calibration controls, not new character/equipment systems.
+
+If the frozen V4 pose still differs from Blender with scale set to 1.0 and offsets zero, investigate the underlying Java mesh/skin-space math rather than changing the working master rig or hiding the discrepancy with large offsets.
+
 ## Testing
 
 Run `./gradlew runClient`, verify the weapon grip through frames 1–45, the seamless loop, and sword-follow movement. The V1 preview sword attachment and orientation have been confirmed in-game; V4 has passed GLB structural, finite-value, seamless-loop and handle-proximity checks but still needs in-game visual confirmation. No change to the Blender IK rig is needed for this replacement.
